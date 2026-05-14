@@ -98,8 +98,8 @@ public class PathTileRailingBuilder : MonoBehaviour
 
         CreateWall(objectName, localPosition, postScale, material);
 
-        if (collider != null)
-            Destroy(collider);
+        if (GetComponent<Collider>() != null)
+            Destroy(GetComponent<Collider>());
     }
 
     private void ClearOldRailings()
