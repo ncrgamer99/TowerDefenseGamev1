@@ -6,11 +6,12 @@ using UnityEngine.UI;
 
 public enum PathBuildOptionType
 {
-    PathTile,
-    TrapTile,
-    SpecialTile,
-    BridgeTile,
-    GoldTile
+    PathTile = 0,
+    TrapTile = 1,
+    SpecialTile = 2,
+    GoldTile = 4,
+    SlowTile = 5,
+    KnockTile = 6
 }
 
 [System.Serializable]
@@ -253,6 +254,66 @@ public class PathBuildManager : MonoBehaviour
     {
         Vector2Int[] possiblePositions = tileManager.GetPossibleExtensionPositions();
 
+    private PathBuildOption GetRandomOption()
+    {
+        List<PathBuildOption> optionPool = new List<PathBuildOption>();
+
+        if (randomOptions != null)
+        {
+            foreach (PathBuildOption option in randomOptions)
+            {
+                if (IsSupportedSpecialOption(option))
+                    optionPool.Add(option);
+            }
+        }
+
+        if (optionPool.Count == 0)
+            optionPool.AddRange(CreateDefaultSpecialOptions());
+
+        int randomIndex = Random.Range(0, optionPool.Count);
+        return optionPool[randomIndex];
+    }
+
+    private bool IsSupportedSpecialOption(PathBuildOption option)
+    {
+        if (option == null)
+            return false;
+
+        return option.optionType == PathBuildOptionType.TrapTile ||
+               option.optionType == PathBuildOptionType.GoldTile ||
+               option.optionType == PathBuildOptionType.SlowTile ||
+               option.optionType == PathBuildOptionType.KnockTile;
+    }
+
+    private List<PathBuildOption> CreateDefaultSpecialOptions()
+    {
+        return new List<PathBuildOption>
+        {
+            new PathBuildOption
+            {
+                displayName = "Gold Tile",
+                description = "Baut ein Goldtile. Die Base bleibt stehen. Während Waves erzeugt es +5 Gold pro Sekunde.",
+                optionType = PathBuildOptionType.GoldTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Trap Tile",
+                description = "Zählt als PathTile. Gegner erhalten Blutung: 5s lang 10 Schaden pro Sekunde.",
+                optionType = PathBuildOptionType.TrapTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Slow Tile",
+                description = "Zählt als PathTile. Gegner werden 2s auf 0,45 Speed verlangsamt.",
+                optionType = PathBuildOptionType.SlowTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Knock Tile",
+                description = "Zählt als PathTile. Wirft Gegner 3 PathTiles zurück. 2s Cooldown pro Tile.",
+                optionType = PathBuildOptionType.KnockTile
+            }
+        };
         for (int i = 0; i < currentOptions.Length; i++)
         {
             bool hasPosition = possiblePositions != null && i < possiblePositions.Length;
@@ -345,6 +406,29 @@ public class PathBuildManager : MonoBehaviour
             return;
         }
 
+        bool success = false;
+
+        if (option.optionType == PathBuildOptionType.PathTile)
+            success = tileManager.TryExtendPathTo(hoveredGridPosition);
+        else if (option.optionType == PathBuildOptionType.TrapTile ||
+                 option.optionType == PathBuildOptionType.SlowTile ||
+                 option.optionType == PathBuildOptionType.KnockTile)
+            success = tileManager.TryExtendSpecialPathTo(hoveredGridPosition, option.optionType);
+        else if (option.optionType == PathBuildOptionType.GoldTile)
+            success = tileManager.TryBuildGoldTileAt(hoveredGridPosition);
+        else
+            Debug.Log(option.displayName + " gewählt. Funktion kommt später.");
+
+        if (success)
+        {
+            optionsGeneratedForCurrentBuildPhase = false;
+            CloseChoiceUI();
+            return;
+        }
+
+        if (descriptionText != null)
+        {
+            descriptionText.text = option.displayName + " konnte hier nicht gebaut werden.";
         Vector2Int selectedPosition = currentDirectionPositions[index];
 
         if (!tileManager.CanExtendTo(selectedPosition))
