@@ -31,6 +31,12 @@ public class TileManager : MonoBehaviour
     public float pathRailingThickness = 0.055f;
     public Color pathRailingColor = new Color32(58, 68, 82, 255);
 
+    [Header("Special Tile Visuals V1")]
+    public Color trapTileColor = new Color32(150, 25, 25, 255);
+    public Color slowTileColor = new Color32(70, 180, 255, 255);
+    public Color knockTileColor = new Color32(255, 170, 45, 255);
+    public Color goldTileColor = new Color32(255, 210, 45, 255);
+
     private bool canBuild = true;
     private bool buildTilesVisible = false;
 
@@ -38,7 +44,9 @@ public class TileManager : MonoBehaviour
     private Dictionary<Vector2Int, GameObject> pathTileObjects = new Dictionary<Vector2Int, GameObject>();
     private HashSet<Vector2Int> buildTilePositions = new HashSet<Vector2Int>();
     private HashSet<Vector2Int> towerPositions = new HashSet<Vector2Int>();
+    private HashSet<Vector2Int> specialBlockedPositions = new HashSet<Vector2Int>();
     private List<GameObject> buildTileObjects = new List<GameObject>();
+    private List<GameObject> specialTileObjects = new List<GameObject>();
 
     private Vector2Int startPosition;
     private Vector2Int basePosition;
@@ -159,18 +167,58 @@ public class TileManager : MonoBehaviour
 
     public bool TryExtendPathTo(Vector2Int newBasePosition)
     {
+        return TryExtendPathTo(newBasePosition, PathBuildOptionType.PathTile);
+    }
+
+    public bool TryExtendSpecialPathTo(Vector2Int newBasePosition, PathBuildOptionType specialTileType)
+    {
+        if (specialTileType != PathBuildOptionType.TrapTile &&
+            specialTileType != PathBuildOptionType.SlowTile &&
+            specialTileType != PathBuildOptionType.KnockTile)
+        {
+            Debug.LogWarning("Ungültiger Spezial-PathTile-Typ: " + specialTileType);
+            return false;
+        }
+
+        return TryExtendPathTo(newBasePosition, specialTileType);
+    }
+
+    public bool TryBuildGoldTileAt(Vector2Int goldTilePosition)
+    {
+        if (!CanExtendTo(goldTilePosition))
+        {
+            Debug.Log("Ungültige GoldTile-Position!");
+            return false;
+        }
+
+        if (specialBlockedPositions.Contains(goldTilePosition))
+            return false;
+
+        specialBlockedPositions.Add(goldTilePosition);
+        CreateGoldTile(goldTilePosition);
+        RefreshBuildTiles();
+
+        if (gameManager != null)
+            gameManager.OnPathExtended();
+
+        return true;
+    }
+
+    private bool TryExtendPathTo(Vector2Int newBasePosition, PathBuildOptionType pathTileType)
+    {
         if (!CanExtendTo(newBasePosition))
         {
             Debug.Log("Ungültige Path-Erweiterung!");
             return false;
         }
 
+        Vector2Int oldBasePosition = basePosition;
         Vector2Int newDirection = newBasePosition - basePosition;
         currentDirection = newDirection;
 
-        if (!pathPositions.Contains(basePosition))
+        if (!pathPositions.Contains(oldBasePosition))
         {
-            AddPathTile(basePosition);
+            AddPathTile(oldBasePosition, pathTileType);
         }
 
         basePosition = newBasePosition;
@@ -223,6 +271,9 @@ public class TileManager : MonoBehaviour
             return true;
 
         if (towerPositions.Contains(position))
+            return true;
+
+        if (specialBlockedPositions.Contains(position))
             return true;
 
         return false;
@@ -320,10 +371,18 @@ public class TileManager : MonoBehaviour
         if (towerPositions.Contains(position))
             return false;
 
+        if (specialBlockedPositions.Contains(position))
+            return false;
+
         return true;
     }
 
     private void AddPathTile(Vector2Int gridPosition)
+    {
+        AddPathTile(gridPosition, PathBuildOptionType.PathTile);
+    }
+
+    private void AddPathTile(Vector2Int gridPosition, PathBuildOptionType pathTileType)
     {
         if (pathPositions.Contains(gridPosition))
             return;
@@ -331,7 +390,62 @@ public class TileManager : MonoBehaviour
         pathPositions.Add(gridPosition);
         GameObject pathTileObject = Instantiate(pathTilePrefab, GridToWorld(gridPosition), Quaternion.identity);
         pathTileObjects[gridPosition] = pathTileObject;
+        ConfigureSpecialPathTile(pathTileObject, gridPosition, pathTileType);
         RefreshPathRailings();
+    }
+
+    private void ConfigureSpecialPathTile(GameObject pathTileObject, Vector2Int gridPosition, PathBuildOptionType pathTileType)
+    {
+        if (pathTileObject == null)
+            return;
+
+        if (pathTileType == PathBuildOptionType.TrapTile)
+            ColorTile(pathTileObject, trapTileColor);
+        else if (pathTileType == PathBuildOptionType.SlowTile)
+            ColorTile(pathTileObject, slowTileColor);
+        else if (pathTileType == PathBuildOptionType.KnockTile)
+            ColorTile(pathTileObject, knockTileColor);
+        else
+            return;
+
+        SpecialPathTileEffect effect = pathTileObject.GetComponent<SpecialPathTileEffect>();
+        if (effect == null)
+            effect = pathTileObject.AddComponent<SpecialPathTileEffect>();
+
+        effect.Configure(pathTileType, gridPosition, tileSize);
+    }
+
+    private void ColorTile(GameObject tileObject, Color color)
+    {
+        Renderer[] renderers = tileObject.GetComponentsInChildren<Renderer>();
+
+        foreach (Renderer tileRenderer in renderers)
+        {
+            if (tileRenderer != null && tileRenderer.material != null)
+                tileRenderer.material.color = color;
+        }
+    }
+
+    private void CreateGoldTile(Vector2Int gridPosition)
+    {
+        Vector3 worldPosition = GridToWorld(gridPosition);
+        GameObject tileObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        tileObject.name = "Gold Tile";
+        tileObject.transform.position = worldPosition;
+        tileObject.transform.localScale = new Vector3(tileSize, 0.1f, tileSize);
+        ColorTile(tileObject, goldTileColor);
+
+        GameObject collectorObject = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        collectorObject.name = "Gold Collector";
+        collectorObject.transform.SetParent(tileObject.transform);
+        collectorObject.transform.localPosition = new Vector3(0f, 0.35f, 0f);
+        collectorObject.transform.localScale = new Vector3(0.35f, 0.45f, 0.35f);
+        ColorTile(collectorObject, goldTileColor);
+
+        GoldTileGenerator generator = tileObject.AddComponent<GoldTileGenerator>();
+        generator.gameManager = gameManager;
+
+        specialTileObjects.Add(tileObject);
     }
 
     private void PlaceBaseTile()
@@ -370,11 +484,9 @@ public class TileManager : MonoBehaviour
             if (railingBuilder == null)
                 railingBuilder = tileObject.AddComponent<PathTileRailingBuilder>();
 
-            bool openNorth = IsPathOrBasePosition(position + Vector2Int.up);
-            bool openSouth = IsPathOrBasePosition(position + Vector2Int.down);
-            bool openEast = IsPathOrBasePosition(position + Vector2Int.right);
-            bool openWest = IsPathOrBasePosition(position + Vector2Int.left);
+            GetPathFlowOpenings(position, out bool openNorth, out bool openEast, out bool openSouth, out bool openWest);
 
+            railingBuilder.keepConnectedEdgesClosed = false;
             railingBuilder.Configure(tileSize, openNorth, openEast, openSouth, openWest, pathRailingHeight, pathRailingThickness, pathRailingColor);
         }
     }
@@ -386,6 +498,45 @@ public class TileManager : MonoBehaviour
 
         return pathPositions != null && pathPositions.Contains(position);
     }
+
+    private void GetPathFlowOpenings(Vector2Int position, out bool openNorth, out bool openEast, out bool openSouth, out bool openWest)
+    {
+        openNorth = false;
+        openEast = false;
+        openSouth = false;
+        openWest = false;
+
+        if (pathPositions == null)
+            return;
+
+        int pathIndex = pathPositions.IndexOf(position);
+
+        if (pathIndex < 0)
+            return;
+
+        if (pathIndex > 0)
+            MarkOpeningForNeighbor(position, pathPositions[pathIndex - 1], ref openNorth, ref openEast, ref openSouth, ref openWest);
+
+        if (pathIndex < pathPositions.Count - 1)
+            MarkOpeningForNeighbor(position, pathPositions[pathIndex + 1], ref openNorth, ref openEast, ref openSouth, ref openWest);
+        else
+            MarkOpeningForNeighbor(position, basePosition, ref openNorth, ref openEast, ref openSouth, ref openWest);
+    }
+
+    private void MarkOpeningForNeighbor(Vector2Int position, Vector2Int neighbor, ref bool openNorth, ref bool openEast, ref bool openSouth, ref bool openWest)
+    {
+        Vector2Int direction = neighbor - position;
+
+        if (direction == Vector2Int.up)
+            openNorth = true;
+        else if (direction == Vector2Int.right)
+            openEast = true;
+        else if (direction == Vector2Int.down)
+            openSouth = true;
+        else if (direction == Vector2Int.left)
+            openWest = true;
+    }
+
 
     private void RefreshBuildTiles()
     {
