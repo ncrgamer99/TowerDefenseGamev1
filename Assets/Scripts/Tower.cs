@@ -20,7 +20,9 @@ public enum TowerRole
     Heavy,
     Fire,
     Slow,
-    Poison
+    Poison,
+    Sniper,
+    Alchemist
 }
 
 public class Tower : MonoBehaviour
@@ -286,8 +288,14 @@ public class Tower : MonoBehaviour
         if (lowerName.Contains("rapid"))
             return TowerRole.Rapid;
 
+        if (lowerName.Contains("sniper"))
+            return TowerRole.Sniper;
+
         if (lowerName.Contains("heavy"))
             return TowerRole.Heavy;
+
+        if (lowerName.Contains("alchemist"))
+            return TowerRole.Alchemist;
 
         if (lowerName.Contains("fire"))
             return TowerRole.Fire;
@@ -426,6 +434,38 @@ public class Tower : MonoBehaviour
                 fireRateIncreasePerGoldUpgrade = 0.25f;
                 slowAmountIncreasePerGoldUpgrade = 0.02f;
                 slowDurationIncreasePerGoldUpgrade = 0.25f;
+                break;
+
+
+            case TowerRole.Alchemist:
+                towerName = "Alchemist Tower";
+                damage = 1;
+                range = 3.6f;
+                fireRate = 0.75f;
+                targetMode = TowerTargetMode.NoPoison;
+
+                appliesPoison = true;
+                poisonDamage = 2;
+                poisonDuration = 6.0f;
+
+                appliesSlow = true;
+                slowAmount = 0.75f;
+                slowDuration = 2.0f;
+
+                damageUpgradeCost = 65;
+                rangeUpgradeCost = 65;
+                fireRateUpgradeCost = 85;
+                effectUpgradeCost = 95;
+                goldUpgradeCostIncrease = 30;
+                goldUpgradeCostMultiplier = 1.30f;
+
+                damageIncreasePerGoldUpgrade = 1;
+                rangeIncreasePerGoldUpgrade = 0.25f;
+                fireRateIncreasePerGoldUpgrade = 0.20f;
+                poisonDamageIncreasePerGoldUpgrade = 1;
+                slowAmountIncreasePerGoldUpgrade = 0.02f;
+                slowDurationIncreasePerGoldUpgrade = 0.20f;
+                effectDurationIncreasePerGoldUpgrade = 0.45f;
                 break;
 
             case TowerRole.Poison:

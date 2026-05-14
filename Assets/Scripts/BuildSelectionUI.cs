@@ -47,6 +47,14 @@ public class BuildSelectionUI : MonoBehaviour
     public BuildOption fireTower;
     public BuildOption slowTower;
     public BuildOption poisonTower;
+    public BuildOption sniperTower;
+    public BuildOption alchemistTower;
+
+    [Header("New Tower Runtime Slots")]
+    public bool autoAddNewTowerSlots = true;
+    public bool autoCreateMissingSlotButtons = true;
+    public Transform autoCreatedSlotParent;
+    public GameObject slotButtonPrefab;
 
     [Header("Input QoL")]
     public bool closeWithRightClick = true;
@@ -138,6 +146,10 @@ public class BuildSelectionUI : MonoBehaviour
         ApplyDefaultBuildOption(rapidTower, "Rapid Tower", 65, "Schneller Tower gegen Runner und zum Aufräumen angeschlagener Gegner.");
         ApplyDefaultBuildOption(heavyTower, "Heavy Tower", 95, "Langsamer Einzelschaden gegen Armor, Tanks und Bosse.");
         ApplyDefaultBuildOption(fireTower, "Fire Tower", 80, "Burn-Tower gegen Gruppen und Standard-Gegner.");
+        ApplyDefaultBuildOption(sniperTower, "Sniper Tower", 120, "Sehr hohe Reichweite und Einzelschaden gegen Elite, MiniBoss und Boss.");
+        ApplyDefaultBuildOption(alchemistTower, "Alchemist Tower", 90, "Hybrid-Tower: vergiftet Gegner und verlangsamt sie kurz.");
+
+        EnsureDefaultNewTowerSlotsIfEnabled();
 
         if (towerSlots == null)
             return;
@@ -166,8 +178,12 @@ public class BuildSelectionUI : MonoBehaviour
             ApplyDefaultBuildOption(option, "Poison Tower", 70, "DoT-Tower gegen Tanks, MiniBoss und Boss.");
         else if (lowerName.Contains("rapid"))
             ApplyDefaultBuildOption(option, "Rapid Tower", 65, "Schneller Tower gegen Runner und zum Aufräumen angeschlagener Gegner.");
+        else if (lowerName.Contains("sniper"))
+            ApplyDefaultBuildOption(option, "Sniper Tower", 120, "Sehr hohe Reichweite und Einzelschaden gegen Elite, MiniBoss und Boss.");
         else if (lowerName.Contains("heavy"))
             ApplyDefaultBuildOption(option, "Heavy Tower", 95, "Langsamer Einzelschaden gegen Armor, Tanks und Bosse.");
+        else if (lowerName.Contains("alchemist"))
+            ApplyDefaultBuildOption(option, "Alchemist Tower", 90, "Hybrid-Tower: vergiftet Gegner und verlangsamt sie kurz.");
         else if (lowerName.Contains("fire"))
             ApplyDefaultBuildOption(option, "Fire Tower", 80, "Burn-Tower gegen Gruppen und Standard-Gegner.");
     }
@@ -214,7 +230,9 @@ public class BuildSelectionUI : MonoBehaviour
 
         if (lower.Contains("basic")) return "BasicTower";
         if (lower.Contains("rapid")) return "RapidTower";
+        if (lower.Contains("sniper")) return "HeavyTower";
         if (lower.Contains("heavy")) return "HeavyTower";
+        if (lower.Contains("alchemist")) return "PoisonTower";
         if (lower.Contains("fire")) return "FireTower";
         if (lower.Contains("slow")) return "SlowTower";
         if (lower.Contains("poison")) return "PoisonTower";
@@ -255,6 +273,8 @@ public class BuildSelectionUI : MonoBehaviour
         TryAddLegacySlot(rapidTower);
         TryAddLegacySlot(heavyTower);
         TryAddLegacySlot(fireTower);
+        TryAddLegacySlot(sniperTower);
+        TryAddLegacySlot(alchemistTower);
     }
 
     private void TryAddLegacySlot(BuildOption option)
@@ -270,9 +290,80 @@ public class BuildSelectionUI : MonoBehaviour
         });
     }
 
+    private void EnsureDefaultNewTowerSlotsIfEnabled()
+    {
+        if (!autoAddNewTowerSlots)
+            return;
+
+        if (towerSlots == null)
+            towerSlots = new List<TowerSelectionSlot>();
+
+        EnsureDefaultNewTowerSlot("Sniper Tower", 120, "Sehr hohe Reichweite und Einzelschaden gegen Elite, MiniBoss und Boss.", "Sniper_Tower");
+        EnsureDefaultNewTowerSlot("Alchemist Tower", 90, "Hybrid-Tower: vergiftet Gegner und verlangsamt sie kurz.", "Alchemist_Tower");
+    }
+
+    private void EnsureDefaultNewTowerSlot(string displayName, int cost, string description, string prefabResourceName)
+    {
+        if (HasTowerSlot(displayName))
+            return;
+
+        GameObject prefab = Resources.Load<GameObject>("TowerPrefabs/" + prefabResourceName);
+
+        if (prefab == null)
+            return;
+
+        BuildOption option = new BuildOption
+        {
+            displayName = displayName,
+            description = description,
+            prefab = prefab,
+            cost = cost,
+            placementType = PlacementType.BuildTile
+        };
+
+        option.icon = LoadTowerIcon(displayName);
+
+        towerSlots.Add(new TowerSelectionSlot
+        {
+            option = option,
+            button = null,
+            iconImage = null
+        });
+    }
+
+    private bool HasTowerSlot(string displayName)
+    {
+        if (towerSlots == null)
+            return false;
+
+        string targetName = NormalizeTowerName(displayName);
+
+        foreach (TowerSelectionSlot slot in towerSlots)
+        {
+            if (slot == null || slot.option == null)
+                continue;
+
+            if (NormalizeTowerName(slot.option.displayName) == targetName)
+                return true;
+        }
+
+        return false;
+    }
+
+    private string NormalizeTowerName(string displayName)
+    {
+        return string.IsNullOrEmpty(displayName) ? "" : displayName.Replace(" Tower", "").Trim().ToLowerInvariant();
+    }
+
     private void SetupSlot(TowerSelectionSlot slot)
     {
-        if (slot == null || slot.button == null)
+        if (slot == null)
+            return;
+
+        if (slot.button == null && autoCreateMissingSlotButtons)
+            slot.button = CreateSlotButton(slot);
+
+        if (slot.button == null)
             return;
 
         if (forceIconInsideButton)
@@ -292,6 +383,53 @@ public class BuildSelectionUI : MonoBehaviour
             hoverProxy = slot.button.gameObject.AddComponent<TowerSelectionHoverProxy>();
 
         hoverProxy.Initialize(this, capturedOption);
+    }
+
+    private Button CreateSlotButton(TowerSelectionSlot slot)
+    {
+        Transform parent = ResolveAutoCreatedSlotParent();
+
+        if (parent == null)
+            return null;
+
+        GameObject buttonObject;
+
+        if (slotButtonPrefab != null)
+            buttonObject = Instantiate(slotButtonPrefab, parent);
+        else
+            buttonObject = new GameObject("TowerSlot_" + GetShortTowerName(slot != null ? slot.option : null), typeof(RectTransform), typeof(Image), typeof(Button));
+
+        buttonObject.transform.SetParent(parent, false);
+
+        Button button = buttonObject.GetComponent<Button>();
+        if (button == null)
+            button = buttonObject.AddComponent<Button>();
+
+        Image image = buttonObject.GetComponent<Image>();
+        if (image == null)
+            image = buttonObject.AddComponent<Image>();
+
+        image.color = cardAltColor;
+        image.raycastTarget = true;
+
+        return button;
+    }
+
+    private Transform ResolveAutoCreatedSlotParent()
+    {
+        if (autoCreatedSlotParent != null)
+            return autoCreatedSlotParent;
+
+        if (towerSlots != null)
+        {
+            foreach (TowerSelectionSlot existingSlot in towerSlots)
+            {
+                if (existingSlot != null && existingSlot.button != null)
+                    return existingSlot.button.transform.parent;
+            }
+        }
+
+        return selectionPanel != null ? selectionPanel.transform : transform;
     }
 
     private Image EnsureIconInsideButton(TowerSelectionSlot slot)
@@ -533,6 +671,8 @@ public class BuildSelectionUI : MonoBehaviour
     public void SelectFireTower() { SelectOption(fireTower); }
     public void SelectSlowTower() { SelectOption(slowTower); }
     public void SelectPoisonTower() { SelectOption(poisonTower); }
+    public void SelectSniperTower() { SelectOption(sniperTower); }
+    public void SelectAlchemistTower() { SelectOption(alchemistTower); }
 
     private void SelectOption(BuildOption option)
     {
@@ -625,7 +765,9 @@ public class BuildSelectionUI : MonoBehaviour
 
         if (lowerName.Contains("basic")) return "Günstiger Allrounder für den Spielstart.";
         if (lowerName.Contains("rapid")) return "Schneller Tower für Runner und Cleanup.";
+        if (lowerName.Contains("sniper")) return "Sehr hohe Reichweite und Einzelschaden gegen Elite, MiniBoss und Boss.";
         if (lowerName.Contains("heavy")) return "Langsamer Einzelschaden gegen Tanks, Knights und Bosse.";
+        if (lowerName.Contains("alchemist")) return "Hybrid-Tower: vergiftet Gegner und verlangsamt sie kurz.";
         if (lowerName.Contains("fire")) return "Burn-Tower gegen Gruppen und Standard-Gegner.";
         if (lowerName.Contains("slow")) return "Kontrolltower, der Gegner verlangsamt.";
         if (lowerName.Contains("poison")) return "DoT-Tower gegen Tanks, MiniBoss und Bosse.";
