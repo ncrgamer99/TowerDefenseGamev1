@@ -79,6 +79,14 @@ public class RunStatistics
     public int goldFromOther = 0;
     public int goldBonusFromRewardModifiers = 0;
 
+    [Header("Blocked Events")]
+    public int blockedEventsChosen = 0;
+    public int lifeFromBlockedEvents = 0;
+    public int timedBlockedBuildPhases = 0;
+    public float totalBlockedBuildPhaseDuration = 0f;
+    public string lastBlockedEventName = "";
+    public string lastBlockedEventType = "";
+
     [Header("Tower")]
     public int towersBuilt = 0;
     public int totalTowerXPGranted = 0;
@@ -101,6 +109,12 @@ public class RunStatistics
         goldFromBlockedEvents = 0;
         goldFromOther = 0;
         goldBonusFromRewardModifiers = 0;
+        blockedEventsChosen = 0;
+        lifeFromBlockedEvents = 0;
+        timedBlockedBuildPhases = 0;
+        totalBlockedBuildPhaseDuration = 0f;
+        lastBlockedEventName = "";
+        lastBlockedEventType = "";
         towersBuilt = 0;
         totalTowerXPGranted = 0;
         towerLevelUps = 0;
@@ -246,6 +260,14 @@ public class RunStatisticsTracker : MonoBehaviour
     public RunEconomyStats economy = new RunEconomyStats();
     public RunStatistics statistics = new RunStatistics();
 
+    [Header("Blocked Events")]
+    public int blockedEventsChosen = 0;
+    public int lifeFromBlockedEvents = 0;
+    public int timedBlockedBuildPhases = 0;
+    public float totalBlockedBuildPhaseDuration = 0f;
+    public string lastBlockedEventName = "";
+    public string lastBlockedEventType = "";
+
     [Header("Tower Progression")]
     public int towersBuilt = 0;
     public int totalTowerBuildCost = 0;
@@ -324,6 +346,12 @@ public class RunStatisticsTracker : MonoBehaviour
         totalGoldUpgradesPurchased = 0;
         totalPointUpgradesPurchased = 0;
         totalUpgradePointsSpent = 0;
+        blockedEventsChosen = 0;
+        lifeFromBlockedEvents = 0;
+        timedBlockedBuildPhases = 0;
+        totalBlockedBuildPhaseDuration = 0f;
+        lastBlockedEventName = "";
+        lastBlockedEventType = "";
         towerRecords.Clear();
     }
 
@@ -388,6 +416,31 @@ public class RunStatisticsTracker : MonoBehaviour
         }
 
         SyncStatisticsSnapshot();
+    }
+
+
+    public void RecordBlockedEventChoice(string eventName, string eventType, int goldGained, int livesGained, float buildPhaseDuration)
+    {
+        EnsureLists();
+
+        blockedEventsChosen++;
+        lifeFromBlockedEvents += Mathf.Max(0, livesGained);
+        timedBlockedBuildPhases++;
+        totalBlockedBuildPhaseDuration += Mathf.Max(0f, buildPhaseDuration);
+        lastBlockedEventName = string.IsNullOrEmpty(eventName) ? "Unbekannt" : eventName;
+        lastBlockedEventType = string.IsNullOrEmpty(eventType) ? "Unknown" : eventType;
+
+        SyncStatisticsSnapshot();
+
+        if (logRunStatEvents)
+        {
+            Debug.Log(
+                "RunStats: Verbau-Event " + lastBlockedEventName +
+                " | Gold +" + Mathf.Max(0, goldGained) +
+                " | Leben +" + Mathf.Max(0, livesGained) +
+                " | Buildphase " + Mathf.Max(0f, buildPhaseDuration).ToString("0.0") + "s."
+            );
+        }
     }
 
     public void RecordTowerBuilt(Tower tower, int cost, int waveNumber, Vector2Int gridPosition, Vector3 worldPosition)
@@ -546,6 +599,7 @@ public class RunStatisticsTracker : MonoBehaviour
             "Gold verdient: <b>" + economy.totalGoldEarned + "</b> | ausgegeben: <b>" + economy.totalGoldSpent + "</b> | Netto: " + (economy.totalGoldEarned - economy.totalGoldSpent) + "\n" +
             "Quellen: Kills " + economy.enemyKillGoldEarned + " | Wave-Abschluss " + economy.waveCompletionGoldEarned + " | Verbau-Event " + economy.blockedEventGoldEarned + " | Sonstiges " + economy.otherGoldEarned + "\n" +
             "Reward-Bonus durch Gerechtigkeit/Risiko: +" + economy.goldAddedByRewardModifiers + " Gold\n" +
+            "Verbau-Events: " + blockedEventsChosen + " | Leben aus Verbau: " + lifeFromBlockedEvents + " | Buildphasen: " + timedBlockedBuildPhases + "\n" +
             "Ausgaben: Towerbau " + economy.towerBuildGoldSpent + " | Gold-Upgrades " + economy.goldUpgradeGoldSpent + " | Sonstiges " + economy.otherGoldSpent + "\n";
     }
 
@@ -561,7 +615,7 @@ public class RunStatisticsTracker : MonoBehaviour
 
     public bool HasAnyTrackedData()
     {
-        return economy.totalGoldEarned > 0 || economy.totalGoldSpent > 0 || towersBuilt > 0 || totalTowerXPGained > 0 || totalTowerLevelUps > 0 || totalGoldUpgradesPurchased > 0 || totalPointUpgradesPurchased > 0;
+        return economy.totalGoldEarned > 0 || economy.totalGoldSpent > 0 || blockedEventsChosen > 0 || towersBuilt > 0 || totalTowerXPGained > 0 || totalTowerLevelUps > 0 || totalGoldUpgradesPurchased > 0 || totalPointUpgradesPurchased > 0;
     }
 
     private RunTowerStatsRecord GetOrCreateTowerRecord(Tower tower)
@@ -680,6 +734,12 @@ public class RunStatisticsTracker : MonoBehaviour
         statistics.goldFromBlockedEvents = economy.blockedEventGoldEarned;
         statistics.goldFromOther = economy.otherGoldEarned;
         statistics.goldBonusFromRewardModifiers = economy.goldAddedByRewardModifiers;
+        statistics.blockedEventsChosen = blockedEventsChosen;
+        statistics.lifeFromBlockedEvents = lifeFromBlockedEvents;
+        statistics.timedBlockedBuildPhases = timedBlockedBuildPhases;
+        statistics.totalBlockedBuildPhaseDuration = totalBlockedBuildPhaseDuration;
+        statistics.lastBlockedEventName = lastBlockedEventName;
+        statistics.lastBlockedEventType = lastBlockedEventType;
         statistics.towersBuilt = towersBuilt;
         statistics.totalTowerXPGranted = totalTowerXPGained;
         statistics.towerLevelUps = totalTowerLevelUps;
