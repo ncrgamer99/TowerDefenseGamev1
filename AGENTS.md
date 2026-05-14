@@ -60,3 +60,32 @@ Chaos/Gerechtigkeit V1 playable baseline.
 - Öffentliche Felder können im Unity Inspector verbunden sein.
 - Änderungen an public fields, enum-Namen oder Klassennamen nur mit Vorsicht.
 - Keine automatisch generierten Unity-Dateien bearbeiten.
+
+## Phase 7 Vorbereitung
+Phase 7 geplant:
+Wegbau-Auswahl & Verbau-Events V1.
+
+## Phase-7-Designregeln
+- Wegbau-Auswahl muss klar zwischen gültigen und ungültigen Richtungen unterscheiden.
+- Ungültige Wegbau-Optionen dürfen keine Wave starten.
+- Ein erfolgreicher Wegbau darf nur einmal `GameManager.OnPathExtended()` auslösen.
+- Verbau-Events müssen immer mindestens eine sichere/weiterführende Option enthalten.
+- Verbau-Events dürfen keine unfairen Sofortverluste erzeugen.
+- Verbau-Events müssen ihre Effekte vollständig und korrekt anzeigen.
+- Wiederholter Verbau an derselben Position darf keine unendliche Event-Auswahl-Schleife erzeugen.
+- Neue Verbau-Rewards müssen, wenn möglich, im RunStatisticsTracker erfasst werden.
+- Neue UI-Panels müssen sich in die vorhandenen Modal-Locks einfügen.
+- Wegbau-Auswahl, Towerbau, Chaos/Gerechtigkeit, Verbau-Auswahl, Lexikon und Unlock-UI dürfen keine widersprüchlichen Eingaben gleichzeitig erlauben.
+
+## UI-/Textregeln
+- UI-Texte müssen kurz, eindeutig und wahr sein.
+- Keine versteckten Nachteile in Phase 7.
+- Keine Informationsverschleierung in Phase 7.
+- Debug-Texte dürfen ausführlicher sein, Gameplay-Texte sollen kompakt bleiben.
+
+## Technische Änderungsregeln
+- Bestehende public Inspector-Felder nicht umbenennen oder entfernen.
+- Neue public Felder nur hinzufügen, wenn Inspector-Konfiguration sinnvoll ist.
+- Bestehende Prefab- und Scene-Referenzen nicht löschen.
+- Phase-7-Änderungen bevorzugt über kleine Erweiterungen an vorhandenen Systemen umsetzen.
+- BlockedEventManager und PathBuildManager nicht durch neue Systeme ersetzen, sondern vorsichtig erweitern.
