@@ -67,39 +67,37 @@ public class PathTileRailingBuilder : MonoBehaviour
         CreateCornerPost("Post_SW", new Vector3(-tileSize * 0.5f, railingYOffset + railingHeight * 0.18f, -tileSize * 0.5f), material);
     }
 
-    private void CreateRail(string objectName, Vector3 localPosition, Vector3 localScale, Material material)
+    private void CreateWall(string objectName, Vector3 localPosition, Vector3 localScale, Material material)
     {
-        GameObject rail = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        rail.name = objectName;
-        rail.transform.SetParent(railingRoot, false);
-        rail.transform.localPosition = localPosition;
-        rail.transform.localScale = localScale;
+        GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        wall.name = objectName;
+        wall.transform.SetParent(railingRoot, false);
+        wall.transform.localPosition = localPosition;
+        wall.transform.localScale = localScale;
 
-        Renderer renderer = rail.GetComponent<Renderer>();
+        Renderer renderer = wall.GetComponent<Renderer>();
 
         if (renderer != null)
             renderer.sharedMaterial = material;
 
-        Collider collider = rail.GetComponent<Collider>();
+        Collider collider = wall.GetComponent<Collider>();
 
         if (collider != null)
             Destroy(collider);
     }
 
+    private void CreateRail(string objectName, Vector3 localPosition, Vector3 localScale, Material material)
+    {
+        CreateWall(objectName, localPosition, localScale, material);
+    }
+
     private void CreateCornerPost(string objectName, Vector3 localPosition, Material material)
     {
-        GameObject post = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        post.name = objectName;
-        post.transform.SetParent(railingRoot, false);
-        post.transform.localPosition = localPosition;
         float postWidth = railingThickness * 1.25f;
-        post.transform.localScale = new Vector3(postWidth, railingHeight * 1.25f, postWidth);
+        Vector3 postScale = new Vector3(postWidth, railingHeight * 1.25f, postWidth);
 
-        Renderer renderer = post.GetComponent<Renderer>();
-        if (renderer != null)
-            renderer.sharedMaterial = material;
+        CreateWall(objectName, localPosition, postScale, material);
 
-        Collider collider = post.GetComponent<Collider>();
         if (collider != null)
             Destroy(collider);
     }
