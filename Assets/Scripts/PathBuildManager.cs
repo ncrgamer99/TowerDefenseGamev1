@@ -252,28 +252,21 @@ public class PathBuildManager : MonoBehaviour
 
     private void GenerateCurrentOptions()
     {
-        Vector2Int[] possiblePositions = tileManager.GetPossibleExtensionPositions();
+        currentOptions[0] = new PathBuildOption
+        {
+            displayName = "Path Tile",
+            description = "Verlängert den Weg und startet danach die nächste Welle.",
+            optionType = PathBuildOptionType.PathTile
+        };
+
+        currentOptions[1] = GetRandomOption();
+        currentOptions[2] = GetRandomOption();
+    }
 
     private PathBuildOption GetRandomOption()
     {
         List<PathBuildOption> optionPool = new List<PathBuildOption>();
-
-        if (randomOptions != null)
-        {
-            foreach (PathBuildOption option in randomOptions)
-            {
-                if (IsSupportedSpecialOption(option))
-                    optionPool.Add(option);
-            }
-        }
-
-        if (optionPool.Count == 0)
-            optionPool.AddRange(CreateDefaultSpecialOptions());
-
-        int randomIndex = Random.Range(0, optionPool.Count);
-        return optionPool[randomIndex];
     }
-
     private bool IsSupportedSpecialOption(PathBuildOption option)
     {
         if (option == null)
