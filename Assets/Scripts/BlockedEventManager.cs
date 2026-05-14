@@ -105,14 +105,14 @@ public class BlockedEventManager : MonoBehaviour
         possibleEvents.Add(new BlockedEventOption
         {
             displayName = "Weiter",
-            description = "Der Run läuft weiter. Du hast 60 Sekunden Buildphase, danach startet automatisch die nächste Wave.",
+            description = "Der Run läuft weiter. " + GetTimedBuildPhaseText() + ", danach startet automatisch die nächste Wave.",
             eventType = BlockedEventType.Continue
         });
 
         possibleEvents.Add(new BlockedEventOption
         {
             displayName = "Goldreserve",
-            description = "Du erhältst 100 Gold. Danach läuft der Run mit 60 Sekunden Buildphase weiter.",
+            description = "Du erhältst 100 Gold. Danach läuft der Run mit " + FormatBuildPhaseDuration() + " Buildphase weiter.",
             eventType = BlockedEventType.GoldBonus,
             goldAmount = 100
         });
@@ -120,7 +120,7 @@ public class BlockedEventManager : MonoBehaviour
         possibleEvents.Add(new BlockedEventOption
         {
             displayName = "Notfall-Reparatur",
-            description = "Du erhältst 3 Leben. Danach läuft der Run mit 60 Sekunden Buildphase weiter.",
+            description = "Du erhältst 3 Leben. Danach läuft der Run mit " + FormatBuildPhaseDuration() + " Buildphase weiter.",
             eventType = BlockedEventType.LifeBonus,
             lifeAmount = 3
         });
@@ -136,6 +136,9 @@ public class BlockedEventManager : MonoBehaviour
             Debug.LogWarning("BlockedEventManager: Verbau-Auswahl wird nicht geöffnet, solange Chaos/Gerechtigkeit offen ist.");
             return;
         }
+
+        if (gameManager != null)
+            gameManager.ClosePathAndBuildSelectionsForModal();
 
         CreateDefaultEventsIfEmpty();
         GenerateOptions();
@@ -194,9 +197,24 @@ public class BlockedEventManager : MonoBehaviour
         return new BlockedEventOption
         {
             displayName = "Weiter",
-            description = "Der Run läuft weiter. Du hast 60 Sekunden Buildphase, danach startet automatisch die nächste Wave.",
+            description = "Der Run läuft weiter. " + GetTimedBuildPhaseText() + ", danach startet automatisch die nächste Wave.",
             eventType = BlockedEventType.Continue
         };
+    }
+
+    private string GetTimedBuildPhaseText()
+    {
+        return "Du hast " + FormatBuildPhaseDuration() + " Buildphase";
+    }
+
+    private string FormatBuildPhaseDuration()
+    {
+        float safeDuration = Mathf.Max(0f, timedBuildPhaseDuration);
+
+        if (Mathf.Approximately(safeDuration, Mathf.Round(safeDuration)))
+            return Mathf.RoundToInt(safeDuration) + " Sekunden";
+
+        return safeDuration.ToString("0.0") + " Sekunden";
     }
 
     private void UpdateUI()
