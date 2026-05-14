@@ -266,7 +266,23 @@ public class PathBuildManager : MonoBehaviour
     private PathBuildOption GetRandomOption()
     {
         List<PathBuildOption> optionPool = new List<PathBuildOption>();
+
+        if (randomOptions != null)
+        {
+            foreach (PathBuildOption option in randomOptions)
+            {
+                if (IsSupportedSpecialOption(option))
+                    optionPool.Add(option);
+            }
+        }
+
+        if (optionPool.Count == 0)
+            optionPool.AddRange(CreateDefaultSpecialOptions());
+
+        int randomIndex = Random.Range(0, optionPool.Count);
+        return optionPool[randomIndex];
     }
+
     private bool IsSupportedSpecialOption(PathBuildOption option)
     {
         if (option == null)
@@ -307,23 +323,6 @@ public class PathBuildManager : MonoBehaviour
                 optionType = PathBuildOptionType.KnockTile
             }
         };
-        for (int i = 0; i < currentOptions.Length; i++)
-        {
-            bool hasPosition = possiblePositions != null && i < possiblePositions.Length;
-            Vector2Int directionPosition = hasPosition ? possiblePositions[i] : tileManager.GetBasePosition();
-            bool isValidDirection = hasPosition && tileManager.CanExtendTo(directionPosition);
-
-            currentDirectionPositions[i] = directionPosition;
-            currentDirectionValid[i] = isValidDirection;
-            currentOptions[i] = new PathBuildOption
-            {
-                displayName = currentDirectionLabels[i],
-                description = isValidDirection
-                    ? "OK: Weg wird erweitert und danach startet die nächste Welle."
-                    : "Blockiert: Diese Richtung kann keine Wave starten.",
-                optionType = PathBuildOptionType.PathTile
-            };
-        }
     }
 
     private void UpdateOptionUI()
@@ -422,21 +421,6 @@ public class PathBuildManager : MonoBehaviour
         if (descriptionText != null)
         {
             descriptionText.text = option.displayName + " konnte hier nicht gebaut werden.";
-        Vector2Int selectedPosition = currentDirectionPositions[index];
-
-        if (!tileManager.CanExtendTo(selectedPosition))
-        {
-            currentDirectionValid[index] = false;
-            UpdateOptionUI();
-            ShowInvalidDirectionMessage(index);
-            return;
-        }
-
-        bool success = tileManager.TryExtendPathTo(selectedPosition);
-
-        if (success)
-        {
-            CloseChoiceUI();
         }
     }
 

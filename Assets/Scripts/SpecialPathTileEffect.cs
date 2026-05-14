@@ -11,7 +11,7 @@ public class SpecialPathTileEffect : MonoBehaviour
     public float tileSize = 1f;
 
     [Header("Trap Tile")]
-    public float bleedDamagePerSecond = 10f;
+    public float bleedDamagePerSecond = 3f;
     public float bleedDuration = 5f;
 
     [Header("Slow Tile")]
@@ -21,7 +21,7 @@ public class SpecialPathTileEffect : MonoBehaviour
     [Header("Knock Tile")]
     public int knockBackTiles = 3;
     public float knockBackDuration = 0.35f;
-    public float knockCooldown = 2f;
+    public float knockCooldown = 5f;
 
     private float nextKnockTime = 0f;
 

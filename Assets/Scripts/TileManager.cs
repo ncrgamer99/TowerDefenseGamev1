@@ -484,11 +484,9 @@ public class TileManager : MonoBehaviour
             if (railingBuilder == null)
                 railingBuilder = tileObject.AddComponent<PathTileRailingBuilder>();
 
-            bool openNorth = IsPathOrBasePosition(position + Vector2Int.up);
-            bool openSouth = IsPathOrBasePosition(position + Vector2Int.down);
-            bool openEast = IsPathOrBasePosition(position + Vector2Int.right);
-            bool openWest = IsPathOrBasePosition(position + Vector2Int.left);
+            GetPathFlowOpenings(position, out bool openNorth, out bool openEast, out bool openSouth, out bool openWest);
 
+            railingBuilder.keepConnectedEdgesClosed = false;
             railingBuilder.Configure(tileSize, openNorth, openEast, openSouth, openWest, pathRailingHeight, pathRailingThickness, pathRailingColor);
         }
     }
@@ -500,6 +498,45 @@ public class TileManager : MonoBehaviour
 
         return pathPositions != null && pathPositions.Contains(position);
     }
+
+    private void GetPathFlowOpenings(Vector2Int position, out bool openNorth, out bool openEast, out bool openSouth, out bool openWest)
+    {
+        openNorth = false;
+        openEast = false;
+        openSouth = false;
+        openWest = false;
+
+        if (pathPositions == null)
+            return;
+
+        int pathIndex = pathPositions.IndexOf(position);
+
+        if (pathIndex < 0)
+            return;
+
+        if (pathIndex > 0)
+            MarkOpeningForNeighbor(position, pathPositions[pathIndex - 1], ref openNorth, ref openEast, ref openSouth, ref openWest);
+
+        if (pathIndex < pathPositions.Count - 1)
+            MarkOpeningForNeighbor(position, pathPositions[pathIndex + 1], ref openNorth, ref openEast, ref openSouth, ref openWest);
+        else
+            MarkOpeningForNeighbor(position, basePosition, ref openNorth, ref openEast, ref openSouth, ref openWest);
+    }
+
+    private void MarkOpeningForNeighbor(Vector2Int position, Vector2Int neighbor, ref bool openNorth, ref bool openEast, ref bool openSouth, ref bool openWest)
+    {
+        Vector2Int direction = neighbor - position;
+
+        if (direction == Vector2Int.up)
+            openNorth = true;
+        else if (direction == Vector2Int.right)
+            openEast = true;
+        else if (direction == Vector2Int.down)
+            openSouth = true;
+        else if (direction == Vector2Int.left)
+            openWest = true;
+    }
+
 
     private void RefreshBuildTiles()
     {
