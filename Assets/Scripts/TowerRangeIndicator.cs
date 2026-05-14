@@ -66,6 +66,7 @@ public class TowerRangeIndicator : MonoBehaviour
             return;
 
         EnsureVisuals();
+        RefreshVisualRootScale();
 
         float range = Mathf.Max(0.05f, tower.range);
 
@@ -88,6 +89,7 @@ public class TowerRangeIndicator : MonoBehaviour
             fillObject.transform.SetParent(transform, false);
             fillObject.transform.localPosition = Vector3.up * yOffset;
             fillObject.transform.localRotation = Quaternion.identity;
+            fillObject.transform.localScale = GetInverseLocalScale(transform.localScale);
 
             fillFilter = fillObject.AddComponent<MeshFilter>();
             fillRenderer = fillObject.AddComponent<MeshRenderer>();
@@ -102,6 +104,7 @@ public class TowerRangeIndicator : MonoBehaviour
             outlineObject.transform.SetParent(transform, false);
             outlineObject.transform.localPosition = Vector3.up * (yOffset + 0.006f);
             outlineObject.transform.localRotation = Quaternion.identity;
+            outlineObject.transform.localScale = GetInverseLocalScale(transform.localScale);
 
             outlineRenderer = outlineObject.AddComponent<LineRenderer>();
             outlineRenderer.loop = true;
@@ -114,6 +117,34 @@ public class TowerRangeIndicator : MonoBehaviour
             outlineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             outlineRenderer.receiveShadows = false;
         }
+    }
+
+    private void RefreshVisualRootScale()
+    {
+        Vector3 inverseScale = GetInverseLocalScale(transform.localScale);
+
+        if (fillObject != null)
+            fillObject.transform.localScale = inverseScale;
+
+        if (outlineRenderer != null)
+            outlineRenderer.transform.localScale = inverseScale;
+    }
+
+    private Vector3 GetInverseLocalScale(Vector3 localScale)
+    {
+        return new Vector3(
+            GetSafeInverseScaleAxis(localScale.x),
+            GetSafeInverseScaleAxis(localScale.y),
+            GetSafeInverseScaleAxis(localScale.z)
+        );
+    }
+
+    private float GetSafeInverseScaleAxis(float scaleAxis)
+    {
+        if (Mathf.Abs(scaleAxis) < 0.001f)
+            return 1f;
+
+        return 1f / scaleAxis;
     }
 
     private Material CreateTransparentMaterial(Color color)

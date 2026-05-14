@@ -45,6 +45,12 @@ public class TowerUI : MonoBehaviour
     public Button targetModeButton;
     public TextMeshProUGUI targetModeButtonText;
 
+    [Header("Sell UI")]
+    public Button sellButton;
+    public TextMeshProUGUI sellButtonText;
+    public bool autoCreateSellButton = true;
+    public int towerPanelSiblingIndexWhenOpen = 0;
+
     [Header("Menu Tabs")]
     public Button goldUpgradeTabButton;
     public Button pointUpgradeTabButton;
@@ -97,6 +103,7 @@ public class TowerUI : MonoBehaviour
 
     private void Start()
     {
+        CreateSellButtonIfNeeded();
         SetupButtons();
         ApplyStaticTheme();
 
@@ -131,6 +138,12 @@ public class TowerUI : MonoBehaviour
         {
             targetModeButton.onClick.RemoveAllListeners();
             targetModeButton.onClick.AddListener(CycleTargetMode);
+        }
+
+        if (sellButton != null)
+        {
+            sellButton.onClick.RemoveAllListeners();
+            sellButton.onClick.AddListener(SellSelectedTower);
         }
 
         if (goldUpgradeTabButton != null)
@@ -202,7 +215,10 @@ public class TowerUI : MonoBehaviour
         selectedTower = tower;
 
         if (panel != null)
+        {
+            panel.transform.SetSiblingIndex(Mathf.Max(0, towerPanelSiblingIndexWhenOpen));
             panel.SetActive(true);
+        }
 
         currentMenu = TowerUIMenu.GoldUpgrades;
         ApplyCurrentMenuVisibility();
@@ -348,12 +364,12 @@ public class TowerUI : MonoBehaviour
 
         if (selectedTower.appliesBurn)
         {
-            text += "\nBurn: " + selectedTower.burnDamage + " / " + selectedTower.burnDuration.ToString("0.0") + "s";
+            text += "\nBurn: " + selectedTower.burnDamage + " / " + selectedTower.burnDuration.ToString("0.0") + "s | max 3 Stacks";
         }
 
         if (selectedTower.appliesPoison)
         {
-            text += "\nPoison: " + selectedTower.poisonDamage + " / " + selectedTower.poisonDuration.ToString("0.0") + "s";
+            text += "\nPoison: " + selectedTower.poisonDamage + " / " + selectedTower.poisonDuration.ToString("0.0") + "s | ignoriert Armor";
         }
 
         if (selectedTower.appliesSlow)
@@ -382,7 +398,7 @@ public class TowerUI : MonoBehaviour
             goldDamageButtonText.text = BuildUpgradeButtonText("Damage", "+" + selectedTower.damageIncreasePerGoldUpgrade, selectedTower.damageUpgradeCost + " Gold");
 
         if (goldRangeButtonText != null)
-            goldRangeButtonText.text = BuildUpgradeButtonText("Range", "+" + selectedTower.rangeIncreasePerGoldUpgrade.ToString("0.0"), selectedTower.rangeUpgradeCost + " Gold");
+            goldRangeButtonText.text = BuildUpgradeButtonText("Range", "+" + selectedTower.rangeIncreasePerGoldUpgrade.ToString("0.00"), selectedTower.rangeUpgradeCost + " Gold");
 
         if (goldFireRateButtonText != null)
             goldFireRateButtonText.text = BuildUpgradeButtonText("Fire Rate", "+" + selectedTower.fireRateIncreasePerGoldUpgrade.ToString("0.00"), selectedTower.fireRateUpgradeCost + " Gold");
@@ -408,7 +424,7 @@ public class TowerUI : MonoBehaviour
             pointDamageButtonText.text = BuildUpgradeButtonText("Damage", "+" + selectedTower.GetPointDamageIncreasePreview(), selectedTower.GetUpgradePointCost() + " Point");
 
         if (pointRangeButtonText != null)
-            pointRangeButtonText.text = BuildUpgradeButtonText("Range", "+" + selectedTower.GetPointRangeIncreasePreview().ToString("0.0"), selectedTower.GetUpgradePointCost() + " Point");
+            pointRangeButtonText.text = BuildUpgradeButtonText("Range", "+" + selectedTower.GetPointRangeIncreasePreview().ToString("0.00"), selectedTower.GetUpgradePointCost() + " Point");
 
         if (pointFireRateButtonText != null)
             pointFireRateButtonText.text = BuildUpgradeButtonText("Fire Rate", "+" + selectedTower.GetPointFireRateIncreasePreview().ToString("0.00"), selectedTower.GetUpgradePointCost() + " Point");
@@ -466,6 +482,7 @@ public class TowerUI : MonoBehaviour
         SetTabButtonStyle(goldUpgradeTabButton, goldUpgradeTabText, currentMenu == TowerUIMenu.GoldUpgrades, goldAccentColor);
         SetTabButtonStyle(pointUpgradeTabButton, pointUpgradeTabText, currentMenu == TowerUIMenu.PointUpgrades, pointAccentColor);
         SetActionButtonStyle(targetModeButton, targetModeButtonText, true, targetButtonColor);
+        SetActionButtonStyle(sellButton, sellButtonText, selectedTower != null, closeButtonColor);
         SetCloseButtonStyle();
     }
 
@@ -482,6 +499,9 @@ public class TowerUI : MonoBehaviour
         bool canBuyGoldEffect = hasGameManager && selectedTower.HasAnyEffect() && currentGold >= selectedTower.effectUpgradeCost;
         bool hasEnoughPoints = selectedTower.upgradePoints >= selectedTower.GetUpgradePointCost();
         bool canBuyPointEffect = hasEnoughPoints && selectedTower.HasAnyEffect();
+
+        if (sellButtonText != null)
+            sellButtonText.text = "Verkaufen\n+" + selectedTower.GetSellRefundAmount() + " Gold";
 
         SetActionButtonStyle(goldDamageButton, goldDamageButtonText, canBuyGoldDamage, goldAccentColor);
         SetActionButtonStyle(goldRangeButton, goldRangeButtonText, canBuyGoldRange, goldAccentColor);
@@ -567,6 +587,44 @@ public class TowerUI : MonoBehaviour
         }
     }
 
+    private void CreateSellButtonIfNeeded()
+    {
+        if (!autoCreateSellButton || sellButton != null || panel == null)
+            return;
+
+        GameObject buttonObject = new GameObject("SellButton_Auto", typeof(RectTransform), typeof(Image), typeof(Button));
+        buttonObject.transform.SetParent(panel.transform, false);
+
+        RectTransform rectTransform = buttonObject.GetComponent<RectTransform>();
+        rectTransform.anchorMin = new Vector2(1f, 0f);
+        rectTransform.anchorMax = new Vector2(1f, 0f);
+        rectTransform.pivot = new Vector2(1f, 0f);
+        rectTransform.anchoredPosition = new Vector2(-16f, 16f);
+        rectTransform.sizeDelta = new Vector2(170f, 44f);
+
+        Image image = buttonObject.GetComponent<Image>();
+        image.color = closeButtonColor;
+
+        sellButton = buttonObject.GetComponent<Button>();
+
+        GameObject textObject = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(buttonObject.transform, false);
+
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+
+        sellButtonText = textObject.GetComponent<TextMeshProUGUI>();
+        sellButtonText.alignment = TextAlignmentOptions.Center;
+        sellButtonText.fontSize = 16f;
+        sellButtonText.enableAutoSizing = true;
+        sellButtonText.fontSizeMin = 10f;
+        sellButtonText.fontSizeMax = 16f;
+        sellButtonText.color = Color.white;
+    }
+
     private void SetImageColor(Image img, Color color)
     {
         if (img != null)
@@ -586,6 +644,31 @@ public class TowerUI : MonoBehaviour
 
         selectedTower.CycleTargetMode();
         UpdateUI();
+    }
+
+    public void SellSelectedTower()
+    {
+        if (selectedTower == null || gameManager == null)
+            return;
+
+        Tower towerToSell = selectedTower;
+        int refund = towerToSell.GetSellRefundAmount();
+        TileManager tileManager = gameManager.tileManager != null ? gameManager.tileManager : FindObjectOfType<TileManager>();
+
+        if (refund > 0)
+            gameManager.AddGold(refund, false, RunGoldSource.Other);
+
+        if (tileManager != null)
+        {
+            if (towerToSell.hasBuildGridPosition)
+                tileManager.UnregisterTowerPosition(towerToSell.builtGridPosition);
+            else
+                tileManager.UnregisterTowerPosition(towerToSell.transform.position);
+        }
+
+        Close();
+        Destroy(towerToSell.gameObject);
+        Debug.Log("Tower verkauft: +" + refund + " Gold");
     }
 
     public void UpgradeDamage()

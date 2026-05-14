@@ -131,6 +131,7 @@ public class Enemy : MonoBehaviour
     public float defaultBurnDamagePerSecond = 1f;
     public float defaultPoisonDamagePerSecond = 1f;
     public float defaultEffectTickRate = 0.5f;
+    public int maxBurnStacks = 3;
 
     [Header("Health Bar")]
     public bool useHealthBar = true;
@@ -172,23 +173,35 @@ public class Enemy : MonoBehaviour
     private bool reachedBase = false;
     private bool isBurning = false;
     private bool isPoisoned = false;
+    private int activeBurnStacks = 0;
+    private bool isBleeding = false;
     private bool isSlowed = false;
+    private bool isTowerSlowed = false;
+    private bool isTileSlowed = false;
+    private bool isBeingKnockedBack = false;
     private EnemyHealthBarEffectMode healthBarEffectMode = EnemyHealthBarEffectMode.None;
     private float currentSlowMultiplier = 1f;
+    private float towerSlowMultiplier = 1f;
+    private float tileSlowMultiplier = 1f;
     private float temporarySpeedMultiplier = 1f;
     private float nextTeleportTime = 0f;
     private Coroutine burnRoutine;
     private Coroutine poisonRoutine;
-    private Coroutine slowRoutine;
+    private Coroutine bleedRoutine;
+    private Coroutine towerSlowRoutine;
+    private Coroutine tileSlowRoutine;
+    private Coroutine knockBackRoutine;
     private Coroutine teleportExhaustRoutine;
 
     public float DistanceTravelled => distanceTravelled;
     public int CurrentPathIndex => currentPathIndex;
     public float HealthPercent => maxHealth <= 0f ? 0f : currentHealth / maxHealth;
     public bool IsBurning => isBurning;
+    public int ActiveBurnStacks => activeBurnStacks;
     public bool IsPoisoned => isPoisoned;
+    public bool IsBleeding => isBleeding;
     public bool IsSlowed => isSlowed;
-    public bool HasAnyEffect => isBurning || isPoisoned || isSlowed;
+    public bool HasAnyEffect => isBurning || isPoisoned || isBleeding || isSlowed;
 
     private void Awake()
     {
@@ -534,7 +547,7 @@ public class Enemy : MonoBehaviour
 
     private void MoveAlongPath()
     {
-        if (isDead || reachedBase)
+        if (isDead || reachedBase || isBeingKnockedBack)
             return;
 
         if (pathPoints == null || pathPoints.Count == 0)
@@ -556,6 +569,7 @@ public class Enemy : MonoBehaviour
         if (Vector3.Distance(transform.position, targetPosition) <= 0.02f)
         {
             currentPathIndex++;
+            SpecialPathTileEffect.TryApplyAtWorldPosition(targetPosition, this);
 
             if (currentPathIndex >= pathPoints.Count)
                 ReachBase();
@@ -637,10 +651,10 @@ public class Enemy : MonoBehaviour
         RegisterContributor(sourceTower, 0.1f);
         RegisterHealthBarDamageEffect(EnemyHealthBarEffectMode.Burn);
 
-        if (burnRoutine != null)
-            StopCoroutine(burnRoutine);
+        if (activeBurnStacks >= Mathf.Max(1, maxBurnStacks))
+            return;
 
-        burnRoutine = StartCoroutine(DamageOverTimeRoutine(damagePerSecond, duration, sourceTower, false, EnemyDamageOverTimeType.Burn));
+        burnRoutine = StartCoroutine(BurnDamageOverTimeRoutine(damagePerSecond, duration, sourceTower));
     }
 
     public void ApplyPoison(float duration)
@@ -686,19 +700,88 @@ public class Enemy : MonoBehaviour
 
         RegisterContributor(sourceTower, 0.1f);
 
-        if (slowRoutine != null)
-            StopCoroutine(slowRoutine);
+        if (sourceTower != null)
+        {
+            if (towerSlowRoutine != null)
+                StopCoroutine(towerSlowRoutine);
 
-        slowRoutine = StartCoroutine(SlowRoutine(slowMultiplier, duration));
+            towerSlowRoutine = StartCoroutine(SlowRoutine(slowMultiplier, duration, true));
+            return;
+        }
+
+        if (tileSlowRoutine != null)
+            StopCoroutine(tileSlowRoutine);
+
+        tileSlowRoutine = StartCoroutine(SlowRoutine(slowMultiplier, duration, false));
+    }
+
+    public void ApplyBleed(float damagePerSecond, float duration)
+    {
+        ApplyBleed(damagePerSecond, duration, null);
+    }
+
+    public void ApplyBleed(float damagePerSecond, float duration, Tower sourceTower)
+    {
+        if (isDead || reachedBase || immuneToEffects)
+            return;
+
+        damagePerSecond = Mathf.Max(0.1f, damagePerSecond);
+        duration = Mathf.Max(0.1f, duration);
+        RegisterContributor(sourceTower, 0.1f);
+        RegisterHealthBarDamageEffect(EnemyHealthBarEffectMode.Bleed);
+
+        if (bleedRoutine != null)
+            StopCoroutine(bleedRoutine);
+
+        bleedRoutine = StartCoroutine(DamageOverTimeRoutine(damagePerSecond, duration, sourceTower, false, EnemyDamageOverTimeType.Bleed));
+    }
+
+
+    private IEnumerator BurnDamageOverTimeRoutine(float damagePerSecond, float duration, Tower sourceTower)
+    {
+        activeBurnStacks++;
+        isBurning = activeBurnStacks > 0;
+        UpdateVisualColor();
+
+        float elapsed = 0f;
+        float tickRate = Mathf.Max(0.1f, defaultEffectTickRate);
+
+        while (elapsed < duration && !isDead && !reachedBase)
+        {
+            float tickDamage = damagePerSecond * tickRate * effectDamageMultiplier;
+
+            if (tickDamage > 0f)
+            {
+                if (IsChaosVariantRole(EnemyRole.Learner))
+                {
+                    float reducedDamage = tickDamage * Mathf.Clamp01(chaosLearnerDotDamageMultiplier);
+                    TakeDamageInternal(reducedDamage, sourceTower, false, false);
+                    HealChaosVariant(tickDamage * Mathf.Max(0f, chaosLearnerDotHealMultiplier));
+                }
+                else
+                {
+                    TakeDamageInternal(tickDamage, sourceTower, false, false);
+                }
+            }
+
+            elapsed += tickRate;
+            yield return new WaitForSeconds(tickRate);
+        }
+
+        activeBurnStacks = Mathf.Max(0, activeBurnStacks - 1);
+        isBurning = activeBurnStacks > 0;
+        RefreshHealthBarEffectModeAfterEffectEnded();
+        RefreshHealthBar();
+        UpdateVisualColor();
     }
 
     private IEnumerator DamageOverTimeRoutine(float damagePerSecond, float duration, Tower sourceTower, bool ignoreArmor, EnemyDamageOverTimeType dotType)
     {
-        if (dotType == EnemyDamageOverTimeType.Burn)
-            isBurning = true;
-
         if (dotType == EnemyDamageOverTimeType.Poison)
             isPoisoned = true;
+
+        if (dotType == EnemyDamageOverTimeType.Bleed)
+            isBleeding = true;
 
         UpdateVisualColor();
         float elapsed = 0f;
@@ -710,7 +793,7 @@ public class Enemy : MonoBehaviour
 
             if (tickDamage > 0f)
             {
-                if (IsChaosVariantRole(EnemyRole.Learner) && (dotType == EnemyDamageOverTimeType.Burn || dotType == EnemyDamageOverTimeType.Poison))
+                if (IsChaosVariantRole(EnemyRole.Learner) && (dotType == EnemyDamageOverTimeType.Burn || dotType == EnemyDamageOverTimeType.Poison || dotType == EnemyDamageOverTimeType.Bleed))
                 {
                     float reducedDamage = tickDamage * Mathf.Clamp01(chaosLearnerDotDamageMultiplier);
                     TakeDamageInternal(reducedDamage, sourceTower, ignoreArmor, false);
@@ -726,27 +809,101 @@ public class Enemy : MonoBehaviour
             yield return new WaitForSeconds(tickRate);
         }
 
-        if (dotType == EnemyDamageOverTimeType.Burn)
-            isBurning = false;
-
         if (dotType == EnemyDamageOverTimeType.Poison)
             isPoisoned = false;
+
+        if (dotType == EnemyDamageOverTimeType.Bleed)
+            isBleeding = false;
 
         RefreshHealthBarEffectModeAfterEffectEnded();
         RefreshHealthBar();
         UpdateVisualColor();
     }
 
-    private IEnumerator SlowRoutine(float slowMultiplier, float duration)
+    private IEnumerator SlowRoutine(float slowMultiplier, float duration, bool fromTower)
     {
-        isSlowed = true;
         float clampedSlow = Mathf.Clamp(slowMultiplier, 0.1f, 1f);
-        currentSlowMultiplier = Mathf.Lerp(clampedSlow, 1f, slowResistance);
+        float resistedSlow = Mathf.Lerp(clampedSlow, 1f, slowResistance);
+
+        if (fromTower)
+        {
+            towerSlowMultiplier = resistedSlow;
+            isTowerSlowed = true;
+        }
+        else
+        {
+            tileSlowMultiplier = resistedSlow;
+            isTileSlowed = true;
+        }
+
+        RefreshStackedSlow();
+        yield return new WaitForSeconds(Mathf.Max(0.1f, duration));
+
+        if (fromTower)
+        {
+            towerSlowMultiplier = 1f;
+            isTowerSlowed = false;
+            towerSlowRoutine = null;
+        }
+        else
+        {
+            tileSlowMultiplier = 1f;
+            isTileSlowed = false;
+            tileSlowRoutine = null;
+        }
+
+        RefreshStackedSlow();
+    }
+
+    private void RefreshStackedSlow()
+    {
+        isSlowed = isTowerSlowed || isTileSlowed;
+        currentSlowMultiplier = isSlowed ? Mathf.Clamp(towerSlowMultiplier * tileSlowMultiplier, 0.1f, 1f) : 1f;
         UpdateVisualColor();
-        yield return new WaitForSeconds(duration);
-        currentSlowMultiplier = 1f;
-        isSlowed = false;
-        UpdateVisualColor();
+    }
+
+    public bool KnockBackPathTiles(int tilesBack, float duration)
+    {
+        if (isDead || reachedBase || immuneToEffects || pathPoints == null || pathPoints.Count == 0)
+            return false;
+
+        int currentTileIndex = Mathf.Clamp(currentPathIndex - 1, 0, pathPoints.Count - 1);
+        int targetIndex = Mathf.Clamp(currentTileIndex - Mathf.Max(1, tilesBack), 0, pathPoints.Count - 1);
+
+        if (targetIndex >= currentTileIndex)
+            return false;
+
+        if (knockBackRoutine != null)
+            StopCoroutine(knockBackRoutine);
+
+        knockBackRoutine = StartCoroutine(KnockBackRoutine(targetIndex, duration));
+        return true;
+    }
+
+    private IEnumerator KnockBackRoutine(int targetIndex, float duration)
+    {
+        isBeingKnockedBack = true;
+        Vector3 startPosition = transform.position;
+        Vector3 targetPosition = pathPoints[targetIndex];
+        float elapsed = 0f;
+        float safeDuration = Mathf.Max(0.05f, duration);
+
+        while (elapsed < safeDuration && !isDead && !reachedBase)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / safeDuration);
+            transform.position = Vector3.Lerp(startPosition, targetPosition, t);
+            yield return null;
+        }
+
+        if (!isDead && !reachedBase)
+        {
+            transform.position = targetPosition;
+            currentPathIndex = Mathf.Clamp(targetIndex + 1, 0, pathPoints.Count);
+        }
+
+        isBeingKnockedBack = false;
+        knockBackRoutine = null;
     }
 
     private void TryMageTeleport()
@@ -965,6 +1122,8 @@ public class Enemy : MonoBehaviour
                 return isPoisoned;
             case EnemyEffectCheck.Slow:
                 return isSlowed;
+            case EnemyEffectCheck.Bleed:
+                return isBleeding;
             case EnemyEffectCheck.Any:
                 return HasAnyEffect;
             default:
@@ -991,10 +1150,15 @@ public class Enemy : MonoBehaviour
         if (healthBarEffectMode == EnemyHealthBarEffectMode.Poison && isPoisoned)
             return;
 
+        if (healthBarEffectMode == EnemyHealthBarEffectMode.Bleed && isBleeding)
+            return;
+
         if (isBurning)
             healthBarEffectMode = EnemyHealthBarEffectMode.Burn;
         else if (isPoisoned)
             healthBarEffectMode = EnemyHealthBarEffectMode.Poison;
+        else if (isBleeding)
+            healthBarEffectMode = EnemyHealthBarEffectMode.Bleed;
         else
             healthBarEffectMode = EnemyHealthBarEffectMode.None;
     }
@@ -1350,6 +1514,13 @@ public class Enemy : MonoBehaviour
             targetColor = Color.Lerp(defaultColor, pulseColor, blend);
         }
 
+        if (isBleeding)
+        {
+            Color bleedVisualColor = burnColor;
+            bleedVisualColor.a = defaultColor.a;
+            targetColor = Color.Lerp(targetColor, bleedVisualColor, 0.25f);
+        }
+
         if (isSlowed)
         {
             Color slowVisualColor = slowColor;
@@ -1403,6 +1574,11 @@ public class Enemy : MonoBehaviour
         return isElite || isMiniBoss || isBoss || enemyRole == EnemyRole.MiniBoss || enemyRole == EnemyRole.Boss;
     }
 
+    public bool IsBossOrMiniBossTarget()
+    {
+        return isMiniBoss || isBoss || enemyRole == EnemyRole.MiniBoss || enemyRole == EnemyRole.Boss;
+    }
+
     public bool HasBurn()
     {
         return isBurning;
@@ -1411,6 +1587,11 @@ public class Enemy : MonoBehaviour
     public bool HasPoison()
     {
         return isPoisoned;
+    }
+
+    public bool HasBleed()
+    {
+        return isBleeding;
     }
 
     public bool HasSlow()
@@ -1424,6 +1605,7 @@ public enum EnemyEffectCheck
     Burn,
     Poison,
     Slow,
+    Bleed,
     Any
 }
 
@@ -1431,11 +1613,13 @@ public enum EnemyHealthBarEffectMode
 {
     None,
     Burn,
-    Poison
+    Poison,
+    Bleed
 }
 
 public enum EnemyDamageOverTimeType
 {
     Burn,
-    Poison
+    Poison,
+    Bleed
 }
