@@ -5,9 +5,9 @@ public class PathTileRailingBuilder : MonoBehaviour
     [Header("Generated Railing")]
     public bool generateOnConfigure = true;
     public float tileSize = 1f;
-    public float railingHeight = 0.18f;
-    public float railingThickness = 0.055f;
-    public float railingYOffset = 0.12f;
+    public float railingHeight = 0.35f;
+    public float railingThickness = 0.08f;
+    public float railingYOffset = 0.2f;
     public Color railingColor = new Color32(58, 68, 82, 255);
 
     [Header("Connection Behaviour")]
@@ -19,8 +19,9 @@ public class PathTileRailingBuilder : MonoBehaviour
     public void Configure(float newTileSize, bool openNorth, bool openEast, bool openSouth, bool openWest, float height, float thickness, Color color)
     {
         tileSize = Mathf.Max(0.1f, newTileSize);
-        railingHeight = Mathf.Max(0.02f, height);
-        railingThickness = Mathf.Max(0.01f, thickness);
+        railingHeight = Mathf.Max(0.35f, height);
+        railingThickness = Mathf.Max(0.08f, thickness);
+        railingYOffset = Mathf.Max(0.08f, railingHeight * 0.5f + 0.025f);
         railingColor = color;
 
         if (!generateOnConfigure)
@@ -45,17 +46,20 @@ public class PathTileRailingBuilder : MonoBehaviour
         bool eastClosed = keepConnectedEdgesClosed || !openEast;
         bool westClosed = keepConnectedEdgesClosed || !openWest;
 
+        float halfTile = tileSize * 0.5f;
+        float inset = railingThickness * 0.5f;
+
         if (northClosed)
-            CreateRail("Rail_North", new Vector3(0f, railingYOffset, tileSize * 0.5f), new Vector3(tileSize, railingHeight, railingThickness), material);
+            CreateRail("Rail_North", new Vector3(0f, railingYOffset, halfTile - inset), new Vector3(tileSize, railingHeight, railingThickness), material);
 
         if (southClosed)
-            CreateRail("Rail_South", new Vector3(0f, railingYOffset, -tileSize * 0.5f), new Vector3(tileSize, railingHeight, railingThickness), material);
+            CreateRail("Rail_South", new Vector3(0f, railingYOffset, -halfTile + inset), new Vector3(tileSize, railingHeight, railingThickness), material);
 
         if (eastClosed)
-            CreateRail("Rail_East", new Vector3(tileSize * 0.5f, railingYOffset, 0f), new Vector3(railingThickness, railingHeight, tileSize), material);
+            CreateRail("Rail_East", new Vector3(halfTile - inset, railingYOffset, 0f), new Vector3(railingThickness, railingHeight, tileSize), material);
 
         if (westClosed)
-            CreateRail("Rail_West", new Vector3(-tileSize * 0.5f, railingYOffset, 0f), new Vector3(railingThickness, railingHeight, tileSize), material);
+            CreateRail("Rail_West", new Vector3(-halfTile + inset, railingYOffset, 0f), new Vector3(railingThickness, railingHeight, tileSize), material);
 
         CreateCornerPost("Post_NE", new Vector3(tileSize * 0.5f, railingYOffset + railingHeight * 0.18f, tileSize * 0.5f), material);
         CreateCornerPost("Post_NW", new Vector3(-tileSize * 0.5f, railingYOffset + railingHeight * 0.18f, tileSize * 0.5f), material);

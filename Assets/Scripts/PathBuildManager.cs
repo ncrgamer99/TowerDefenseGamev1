@@ -44,6 +44,9 @@ public class PathBuildManager : MonoBehaviour
     [Header("Available Random Options")]
     public List<PathBuildOption> randomOptions = new List<PathBuildOption>();
 
+    [Header("Special Tile Selection Timing")]
+    public int specialTileSelectionWaveInterval = 5;
+
     private GameObject currentGhost;
     private Vector2Int hoveredGridPosition;
     private bool hasValidHover = false;
@@ -235,6 +238,12 @@ public class PathBuildManager : MonoBehaviour
         if (!tileManager.CanExtendTo(hoveredGridPosition))
             return;
 
+        if (!ShouldOpenSpecialTileSelection())
+        {
+            BuildNormalPathTileAtHoveredPosition();
+            return;
+        }
+
         choiceOpen = true;
 
         if (!optionsGeneratedForCurrentBuildPhase)
@@ -250,6 +259,34 @@ public class PathBuildManager : MonoBehaviour
 
         if (currentGhost != null)
             currentGhost.SetActive(true);
+    }
+
+    private bool ShouldOpenSpecialTileSelection()
+    {
+        int interval = Mathf.Max(1, specialTileSelectionWaveInterval);
+
+        if (gameManager == null)
+            return false;
+
+        return gameManager.waveNumber > 0 && gameManager.waveNumber % interval == 0;
+    }
+
+    private void BuildNormalPathTileAtHoveredPosition()
+    {
+        if (!tileManager.CanExtendTo(hoveredGridPosition))
+        {
+            Debug.Log("Gewählte Position ist nicht mehr gültig.");
+            CancelChoice();
+            return;
+        }
+
+        bool success = tileManager.TryExtendPathTo(hoveredGridPosition);
+
+        if (success)
+        {
+            optionsGeneratedForCurrentBuildPhase = false;
+            CloseChoiceUI();
+        }
     }
 
     private void GenerateCurrentOptions()

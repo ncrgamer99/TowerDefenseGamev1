@@ -223,6 +223,8 @@ public class GameUI : MonoBehaviour
 
     private void ApplyOptionalHudTextDefaults()
     {
+        DisableRaycastBlocking(nextWavePreviewPanel);
+
         if (chaosJusticeHudText != null)
         {
             chaosJusticeHudText.richText = true;
@@ -271,9 +273,37 @@ public class GameUI : MonoBehaviour
     private void SetOptionalPanelVisible(GameObject panel, TextMeshProUGUI fallbackText, bool visible)
     {
         if (panel != null)
+        {
+            DisableRaycastBlocking(panel);
             panel.SetActive(visible);
+        }
         else if (fallbackText != null)
+        {
+            fallbackText.raycastTarget = false;
             fallbackText.gameObject.SetActive(visible);
+        }
+    }
+
+    private void DisableRaycastBlocking(GameObject rootObject)
+    {
+        if (rootObject == null)
+            return;
+
+        Graphic[] graphics = rootObject.GetComponentsInChildren<Graphic>(true);
+
+        foreach (Graphic graphic in graphics)
+        {
+            if (graphic != null)
+                graphic.raycastTarget = false;
+        }
+
+        CanvasGroup canvasGroup = rootObject.GetComponent<CanvasGroup>();
+
+        if (canvasGroup == null)
+            canvasGroup = rootObject.AddComponent<CanvasGroup>();
+
+        canvasGroup.blocksRaycasts = false;
+        canvasGroup.interactable = false;
     }
 
     private void DetectWaveStateChanges()
