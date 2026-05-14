@@ -412,20 +412,6 @@ public class PathBuildManager : MonoBehaviour
         {
             descriptionText.text = option.displayName + " konnte hier nicht gebaut werden.";
         }
-<<<<<<< Updated upstream
-    }
-
-    private void ShowInvalidDirectionMessage(int index)
-    {
-        string directionName = index >= 0 && index < currentDirectionLabels.Length ? currentDirectionLabels[index] : "Richtung";
-        string message = directionName + " ist blockiert. Wähle eine Richtung mit OK.";
-
-        Debug.Log(message);
-
-        if (descriptionText != null)
-            descriptionText.text = message;
-=======
->>>>>>> Stashed changes
     }
 
     public void CancelChoice()
