@@ -131,6 +131,7 @@ public class Enemy : MonoBehaviour
     public float defaultBurnDamagePerSecond = 1f;
     public float defaultPoisonDamagePerSecond = 1f;
     public float defaultEffectTickRate = 0.5f;
+    public int maxBurnStacks = 3;
 
     [Header("Health Bar")]
     public bool useHealthBar = true;
@@ -195,6 +196,7 @@ public class Enemy : MonoBehaviour
     public int CurrentPathIndex => currentPathIndex;
     public float HealthPercent => maxHealth <= 0f ? 0f : currentHealth / maxHealth;
     public bool IsBurning => isBurning;
+    public int ActiveBurnStacks => activeBurnStacks;
     public bool IsPoisoned => isPoisoned;
     public bool IsBleeding => isBleeding;
     public bool IsSlowed => isSlowed;
@@ -648,10 +650,10 @@ public class Enemy : MonoBehaviour
         RegisterContributor(sourceTower, 0.1f);
         RegisterHealthBarDamageEffect(EnemyHealthBarEffectMode.Burn);
 
-        if (burnRoutine != null)
-            StopCoroutine(burnRoutine);
+        if (activeBurnStacks >= Mathf.Max(1, maxBurnStacks))
+            return;
 
-        burnRoutine = StartCoroutine(DamageOverTimeRoutine(damagePerSecond, duration, sourceTower, false, EnemyDamageOverTimeType.Burn));
+        burnRoutine = StartCoroutine(BurnDamageOverTimeRoutine(damagePerSecond, duration, sourceTower));
     }
 
     public void ApplyPoison(float duration)
@@ -733,11 +735,68 @@ public class Enemy : MonoBehaviour
         bleedRoutine = StartCoroutine(DamageOverTimeRoutine(damagePerSecond, duration, sourceTower, false, EnemyDamageOverTimeType.Bleed));
     }
 
+    public void ApplyBleed(float damagePerSecond, float duration)
+    {
+        ApplyBleed(damagePerSecond, duration, null);
+    }
+
+    public void ApplyBleed(float damagePerSecond, float duration, Tower sourceTower)
+    {
+        if (isDead || reachedBase || immuneToEffects)
+            return;
+
+        damagePerSecond = Mathf.Max(0.1f, damagePerSecond);
+        duration = Mathf.Max(0.1f, duration);
+        RegisterContributor(sourceTower, 0.1f);
+        RegisterHealthBarDamageEffect(EnemyHealthBarEffectMode.Bleed);
+
+        if (bleedRoutine != null)
+            StopCoroutine(bleedRoutine);
+
+        bleedRoutine = StartCoroutine(DamageOverTimeRoutine(damagePerSecond, duration, sourceTower, false, EnemyDamageOverTimeType.Bleed));
+    }
+
+
+    private IEnumerator BurnDamageOverTimeRoutine(float damagePerSecond, float duration, Tower sourceTower)
+    {
+        activeBurnStacks++;
+        isBurning = activeBurnStacks > 0;
+        UpdateVisualColor();
+
+        float elapsed = 0f;
+        float tickRate = Mathf.Max(0.1f, defaultEffectTickRate);
+
+        while (elapsed < duration && !isDead && !reachedBase)
+        {
+            float tickDamage = damagePerSecond * tickRate * effectDamageMultiplier;
+
+            if (tickDamage > 0f)
+            {
+                if (IsChaosVariantRole(EnemyRole.Learner))
+                {
+                    float reducedDamage = tickDamage * Mathf.Clamp01(chaosLearnerDotDamageMultiplier);
+                    TakeDamageInternal(reducedDamage, sourceTower, false, false);
+                    HealChaosVariant(tickDamage * Mathf.Max(0f, chaosLearnerDotHealMultiplier));
+                }
+                else
+                {
+                    TakeDamageInternal(tickDamage, sourceTower, false, false);
+                }
+            }
+
+            elapsed += tickRate;
+            yield return new WaitForSeconds(tickRate);
+        }
+
+        activeBurnStacks = Mathf.Max(0, activeBurnStacks - 1);
+        isBurning = activeBurnStacks > 0;
+        RefreshHealthBarEffectModeAfterEffectEnded();
+        RefreshHealthBar();
+        UpdateVisualColor();
+    }
+
     private IEnumerator DamageOverTimeRoutine(float damagePerSecond, float duration, Tower sourceTower, bool ignoreArmor, EnemyDamageOverTimeType dotType)
     {
-        if (dotType == EnemyDamageOverTimeType.Burn)
-            isBurning = true;
-
         if (dotType == EnemyDamageOverTimeType.Poison)
             isPoisoned = true;
 
@@ -769,9 +828,6 @@ public class Enemy : MonoBehaviour
             elapsed += tickRate;
             yield return new WaitForSeconds(tickRate);
         }
-
-        if (dotType == EnemyDamageOverTimeType.Burn)
-            isBurning = false;
 
         if (dotType == EnemyDamageOverTimeType.Poison)
             isPoisoned = false;

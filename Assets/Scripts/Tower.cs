@@ -342,9 +342,9 @@ public class Tower : MonoBehaviour
 
             case TowerRole.Rapid:
                 towerName = "Rapid Tower";
-                damage = 2;
-                range = 3.2f;
-                fireRate = 2.3f;
+                damage = 3;
+                range = 3.3f;
+                fireRate = 2.6f;
                 targetMode = TowerTargetMode.First;
 
                 damageUpgradeCost = 55;
@@ -361,9 +361,9 @@ public class Tower : MonoBehaviour
 
             case TowerRole.Heavy:
                 towerName = "Heavy Tower";
-                damage = 12;
-                range = 3.6f;
-                fireRate = 0.45f;
+                damage = 16;
+                range = 3.8f;
+                fireRate = 0.50f;
                 targetMode = TowerTargetMode.Strongest;
 
                 damageUpgradeCost = 80;
@@ -382,12 +382,12 @@ public class Tower : MonoBehaviour
                 towerName = "Fire Tower";
                 damage = 2;
                 range = 3.5f;
-                fireRate = 1.1f;
-                targetMode = TowerTargetMode.NoBurn;
+                fireRate = 1.25f;
+                targetMode = TowerTargetMode.First;
 
                 appliesBurn = true;
-                burnDamage = 2;
-                burnDuration = 4.0f;
+                burnDamage = 1;
+                burnDuration = 3.5f;
 
                 damageUpgradeCost = 65;
                 rangeUpgradeCost = 60;
@@ -400,7 +400,7 @@ public class Tower : MonoBehaviour
                 rangeIncreasePerGoldUpgrade = 0.25f;
                 fireRateIncreasePerGoldUpgrade = 0.15f;
                 burnDamageIncreasePerGoldUpgrade = 1;
-                effectDurationIncreasePerGoldUpgrade = 0.35f;
+                effectDurationIncreasePerGoldUpgrade = 0.25f;
                 break;
 
             case TowerRole.Slow:
@@ -431,13 +431,13 @@ public class Tower : MonoBehaviour
             case TowerRole.Poison:
                 towerName = "Poison Tower";
                 damage = 1;
-                range = 3.5f;
-                fireRate = 1.0f;
+                range = 3.7f;
+                fireRate = 0.85f;
                 targetMode = TowerTargetMode.NoPoison;
 
                 appliesPoison = true;
-                poisonDamage = 2;
-                poisonDuration = 4.5f;
+                poisonDamage = 4;
+                poisonDuration = 7.0f;
 
                 damageUpgradeCost = 60;
                 rangeUpgradeCost = 60;
@@ -449,8 +449,8 @@ public class Tower : MonoBehaviour
                 damageIncreasePerGoldUpgrade = 1;
                 rangeIncreasePerGoldUpgrade = 0.25f;
                 fireRateIncreasePerGoldUpgrade = 0.25f;
-                poisonDamageIncreasePerGoldUpgrade = 1;
-                effectDurationIncreasePerGoldUpgrade = 0.35f;
+                poisonDamageIncreasePerGoldUpgrade = 2;
+                effectDurationIncreasePerGoldUpgrade = 0.60f;
                 break;
         }
     }

@@ -364,12 +364,12 @@ public class TowerUI : MonoBehaviour
 
         if (selectedTower.appliesBurn)
         {
-            text += "\nBurn: " + selectedTower.burnDamage + " / " + selectedTower.burnDuration.ToString("0.0") + "s";
+            text += "\nBurn: " + selectedTower.burnDamage + " / " + selectedTower.burnDuration.ToString("0.0") + "s | max 3 Stacks";
         }
 
         if (selectedTower.appliesPoison)
         {
-            text += "\nPoison: " + selectedTower.poisonDamage + " / " + selectedTower.poisonDuration.ToString("0.0") + "s";
+            text += "\nPoison: " + selectedTower.poisonDamage + " / " + selectedTower.poisonDuration.ToString("0.0") + "s | ignoriert Armor";
         }
 
         if (selectedTower.appliesSlow)
