@@ -628,6 +628,20 @@ public class TileManager : MonoBehaviour
         RefreshBuildTiles();
     }
 
+
+    public void UnregisterTowerPosition(Vector2Int gridPosition)
+    {
+        if (towerPositions.Contains(gridPosition))
+            towerPositions.Remove(gridPosition);
+
+        RefreshBuildTiles();
+    }
+
+    public void UnregisterTowerPosition(Vector3 worldPosition)
+    {
+        UnregisterTowerPosition(WorldToGrid(worldPosition));
+    }
+
     private Vector3 GridToWorld(Vector2Int gridPosition)
     {
         return new Vector3(

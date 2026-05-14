@@ -35,6 +35,12 @@ public class Tower : MonoBehaviour
     public float range = 3f;
     public float fireRate = 1f;
 
+    [Header("Build / Sell")]
+    public int originalBuildCost = 0;
+    public float sellRefundPercent = 0.8f;
+    public Vector2Int builtGridPosition;
+    public bool hasBuildGridPosition = false;
+
     [Header("Targeting")]
     public TowerTargetMode targetMode = TowerTargetMode.First;
 
@@ -105,7 +111,7 @@ public class Tower : MonoBehaviour
 
     [Header("Gold Upgrade Power")]
     public int damageIncreasePerGoldUpgrade = 1;
-    public float rangeIncreasePerGoldUpgrade = 0.5f;
+    public float rangeIncreasePerGoldUpgrade = 0.25f;
     public float fireRateIncreasePerGoldUpgrade = 0.25f;
 
     public int burnDamageIncreasePerGoldUpgrade = 1;
@@ -116,7 +122,7 @@ public class Tower : MonoBehaviour
 
     [Header("Upgrade Point Settings")]
     public int upgradePointCostPerUpgrade = 1;
-    public int pointUpgradePowerMultiplier = 3;
+    public int pointUpgradePowerMultiplier = 5;
 
     [Header("Gold Upgrade Levels")]
     public int damageGoldUpgradeLevel = 0;
@@ -311,7 +317,7 @@ public class Tower : MonoBehaviour
         slowDuration = 0f;
 
         upgradePointCostPerUpgrade = 1;
-        pointUpgradePowerMultiplier = 3;
+        pointUpgradePowerMultiplier = 5;
 
         switch (role)
         {
@@ -330,7 +336,7 @@ public class Tower : MonoBehaviour
                 goldUpgradeCostMultiplier = 1.25f;
 
                 damageIncreasePerGoldUpgrade = 1;
-                rangeIncreasePerGoldUpgrade = 0.5f;
+                rangeIncreasePerGoldUpgrade = 0.25f;
                 fireRateIncreasePerGoldUpgrade = 0.25f;
                 break;
 
@@ -349,7 +355,7 @@ public class Tower : MonoBehaviour
                 goldUpgradeCostMultiplier = 1.25f;
 
                 damageIncreasePerGoldUpgrade = 1;
-                rangeIncreasePerGoldUpgrade = 0.5f;
+                rangeIncreasePerGoldUpgrade = 0.25f;
                 fireRateIncreasePerGoldUpgrade = 0.25f;
                 break;
 
@@ -368,7 +374,7 @@ public class Tower : MonoBehaviour
                 goldUpgradeCostMultiplier = 1.30f;
 
                 damageIncreasePerGoldUpgrade = 2;
-                rangeIncreasePerGoldUpgrade = 0.4f;
+                rangeIncreasePerGoldUpgrade = 0.20f;
                 fireRateIncreasePerGoldUpgrade = 0.08f;
                 break;
 
@@ -391,7 +397,7 @@ public class Tower : MonoBehaviour
                 goldUpgradeCostMultiplier = 1.30f;
 
                 damageIncreasePerGoldUpgrade = 1;
-                rangeIncreasePerGoldUpgrade = 0.5f;
+                rangeIncreasePerGoldUpgrade = 0.25f;
                 fireRateIncreasePerGoldUpgrade = 0.15f;
                 burnDamageIncreasePerGoldUpgrade = 1;
                 effectDurationIncreasePerGoldUpgrade = 0.35f;
@@ -416,7 +422,7 @@ public class Tower : MonoBehaviour
                 goldUpgradeCostMultiplier = 1.25f;
 
                 damageIncreasePerGoldUpgrade = 1;
-                rangeIncreasePerGoldUpgrade = 0.5f;
+                rangeIncreasePerGoldUpgrade = 0.25f;
                 fireRateIncreasePerGoldUpgrade = 0.25f;
                 slowAmountIncreasePerGoldUpgrade = 0.02f;
                 slowDurationIncreasePerGoldUpgrade = 0.25f;
@@ -441,12 +447,25 @@ public class Tower : MonoBehaviour
                 goldUpgradeCostMultiplier = 1.30f;
 
                 damageIncreasePerGoldUpgrade = 1;
-                rangeIncreasePerGoldUpgrade = 0.5f;
+                rangeIncreasePerGoldUpgrade = 0.25f;
                 fireRateIncreasePerGoldUpgrade = 0.25f;
                 poisonDamageIncreasePerGoldUpgrade = 1;
                 effectDurationIncreasePerGoldUpgrade = 0.35f;
                 break;
         }
+    }
+
+
+    public void InitializeBuildData(int buildCost, Vector2Int gridPosition)
+    {
+        originalBuildCost = Mathf.Max(0, buildCost);
+        builtGridPosition = gridPosition;
+        hasBuildGridPosition = true;
+    }
+
+    public int GetSellRefundAmount()
+    {
+        return Mathf.FloorToInt(Mathf.Max(0, originalBuildCost) * Mathf.Clamp01(sellRefundPercent));
     }
 
     private void HandleWaveStarted(WaveData waveData)

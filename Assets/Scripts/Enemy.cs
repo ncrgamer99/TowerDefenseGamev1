@@ -1538,6 +1538,11 @@ public class Enemy : MonoBehaviour
         return isElite || isMiniBoss || isBoss || enemyRole == EnemyRole.MiniBoss || enemyRole == EnemyRole.Boss;
     }
 
+    public bool IsBossOrMiniBossTarget()
+    {
+        return isMiniBoss || isBoss || enemyRole == EnemyRole.MiniBoss || enemyRole == EnemyRole.Boss;
+    }
+
     public bool HasBurn()
     {
         return isBurning;
