@@ -11,8 +11,8 @@ public class PathTileRailingBuilder : MonoBehaviour
     public Color railingColor = new Color32(58, 68, 82, 255);
 
     [Header("Connection Behaviour")]
-    [Tooltip("Wenn aktiv, bleiben auch zwischen verbundenen PathTiles kleine Geländer sichtbar. Das macht den Labyrinth-Look klarer.")]
-    public bool keepConnectedEdgesClosed = true;
+    [Tooltip("Wenn aktiv, bleiben auch an den Laufweg-Öffnungen kleine Geländer sichtbar.")]
+    public bool keepConnectedEdgesClosed = false;
 
     private Transform railingRoot;
 
