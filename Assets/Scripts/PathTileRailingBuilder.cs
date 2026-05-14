@@ -37,6 +37,7 @@ public class PathTileRailingBuilder : MonoBehaviour
         GameObject rootObject = new GameObject("__AutoRailings");
         rootObject.transform.SetParent(transform, false);
         rootObject.transform.localPosition = Vector3.zero;
+        rootObject.transform.localScale = GetInverseLocalScale(transform.localScale);
         railingRoot = rootObject.transform;
 
         Material material = CreateMaterial(railingColor);
@@ -100,6 +101,23 @@ public class PathTileRailingBuilder : MonoBehaviour
 
         if (GetComponent<Collider>() != null)
             Destroy(GetComponent<Collider>());
+    }
+
+    private Vector3 GetInverseLocalScale(Vector3 localScale)
+    {
+        return new Vector3(
+            GetSafeInverseScaleAxis(localScale.x),
+            GetSafeInverseScaleAxis(localScale.y),
+            GetSafeInverseScaleAxis(localScale.z)
+        );
+    }
+
+    private float GetSafeInverseScaleAxis(float scaleAxis)
+    {
+        if (Mathf.Abs(scaleAxis) < 0.001f)
+            return 1f;
+
+        return 1f / scaleAxis;
     }
 
     private void ClearOldRailings()
