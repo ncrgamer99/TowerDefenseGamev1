@@ -137,6 +137,9 @@ public class BlockedEventManager : MonoBehaviour
             return;
         }
 
+        if (gameManager != null)
+            gameManager.ClosePathAndBuildSelectionsForModal();
+
         CreateDefaultEventsIfEmpty();
         GenerateOptions();
         UpdateUI();
