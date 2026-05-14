@@ -48,9 +48,11 @@ public class PathBuildManager : MonoBehaviour
     private Vector2Int hoveredGridPosition;
     private bool hasValidHover = false;
     private bool choiceOpen = false;
-    private bool optionsGeneratedForCurrentBuildPhase = false;
 
     private PathBuildOption[] currentOptions = new PathBuildOption[3];
+    private Vector2Int[] currentDirectionPositions = new Vector2Int[3];
+    private bool[] currentDirectionValid = new bool[3];
+    private readonly string[] currentDirectionLabels = { "Vorwärts", "Links", "Rechts" };
 
     private void Start()
     {
@@ -237,11 +239,7 @@ public class PathBuildManager : MonoBehaviour
 
         choiceOpen = true;
 
-        if (!optionsGeneratedForCurrentBuildPhase)
-        {
-            GenerateCurrentOptions();
-            optionsGeneratedForCurrentBuildPhase = true;
-        }
+        GenerateCurrentOptions();
 
         UpdateOptionUI();
 
@@ -254,16 +252,7 @@ public class PathBuildManager : MonoBehaviour
 
     private void GenerateCurrentOptions()
     {
-        currentOptions[0] = new PathBuildOption
-        {
-            displayName = "Path Tile",
-            description = "Verlängert den Weg und startet danach die nächste Welle.",
-            optionType = PathBuildOptionType.PathTile
-        };
-
-        currentOptions[1] = GetRandomOption();
-        currentOptions[2] = GetRandomOption();
-    }
+        Vector2Int[] possiblePositions = tileManager.GetPossibleExtensionPositions();
 
     private PathBuildOption GetRandomOption()
     {
@@ -325,23 +314,53 @@ public class PathBuildManager : MonoBehaviour
                 optionType = PathBuildOptionType.KnockTile
             }
         };
+        for (int i = 0; i < currentOptions.Length; i++)
+        {
+            bool hasPosition = possiblePositions != null && i < possiblePositions.Length;
+            Vector2Int directionPosition = hasPosition ? possiblePositions[i] : tileManager.GetBasePosition();
+            bool isValidDirection = hasPosition && tileManager.CanExtendTo(directionPosition);
+
+            currentDirectionPositions[i] = directionPosition;
+            currentDirectionValid[i] = isValidDirection;
+            currentOptions[i] = new PathBuildOption
+            {
+                displayName = currentDirectionLabels[i],
+                description = isValidDirection
+                    ? "OK: Weg wird erweitert und danach startet die nächste Welle."
+                    : "Blockiert: Diese Richtung kann keine Wave starten.",
+                optionType = PathBuildOptionType.PathTile
+            };
+        }
     }
 
     private void UpdateOptionUI()
     {
-        if (optionText1 != null)
-            optionText1.text = "[1] " + currentOptions[0].displayName;
-
-        if (optionText2 != null)
-            optionText2.text = "[2] " + currentOptions[1].displayName;
-
-        if (optionText3 != null)
-            optionText3.text = "[3] " + currentOptions[2].displayName;
+        SetDirectionOptionUI(optionText1, optionButton1, 0);
+        SetDirectionOptionUI(optionText2, optionButton2, 1);
+        SetDirectionOptionUI(optionText3, optionButton3, 2);
 
         if (descriptionText != null)
         {
-            descriptionText.text = "Wähle ein Tile für diese Position.";
+            descriptionText.text = "Wähle eine Richtung. Blockierte Richtungen starten keine Wave.";
         }
+    }
+
+    private void SetDirectionOptionUI(TextMeshProUGUI textField, Button button, int index)
+    {
+        bool isValid = index >= 0 && index < currentDirectionValid.Length && currentDirectionValid[index];
+        string statusText = isValid ? "OK" : "Blockiert";
+
+        if (textField != null)
+        {
+            PathBuildOption option = currentOptions[index];
+            string displayName = option != null ? option.displayName : currentDirectionLabels[index];
+            string description = option != null ? option.description : "Blockiert: Diese Richtung kann keine Wave starten.";
+
+            textField.text = "[" + (index + 1) + "] " + displayName + " - " + statusText + "\n" + description;
+        }
+
+        if (button != null)
+            button.interactable = isValid;
     }
 
     private void HandleHotkeys()
@@ -381,10 +400,9 @@ public class PathBuildManager : MonoBehaviour
         if (option == null)
             return;
 
-        if (!tileManager.CanExtendTo(hoveredGridPosition))
+        if (!currentDirectionValid[index])
         {
-            Debug.Log("Gewählte Position ist nicht mehr gültig.");
-            CancelChoice();
+            ShowInvalidDirectionMessage(index);
             return;
         }
 
@@ -411,13 +429,40 @@ public class PathBuildManager : MonoBehaviour
         if (descriptionText != null)
         {
             descriptionText.text = option.displayName + " konnte hier nicht gebaut werden.";
+        Vector2Int selectedPosition = currentDirectionPositions[index];
+
+        if (!tileManager.CanExtendTo(selectedPosition))
+        {
+            currentDirectionValid[index] = false;
+            UpdateOptionUI();
+            ShowInvalidDirectionMessage(index);
+            return;
         }
+
+        bool success = tileManager.TryExtendPathTo(selectedPosition);
+
+        if (success)
+        {
+            CloseChoiceUI();
+        }
+    }
+
+    private void ShowInvalidDirectionMessage(int index)
+    {
+        string directionName = index >= 0 && index < currentDirectionLabels.Length ? currentDirectionLabels[index] : "Richtung";
+        string message = directionName + " ist blockiert. Wähle eine Richtung mit OK.";
+
+        Debug.Log(message);
+
+        if (descriptionText != null)
+            descriptionText.text = message;
     }
 
     public void CancelChoice()
     {
         choiceOpen = false;
         hasValidHover = false;
+        SetOptionButtonsInteractable(true);
 
         if (pathTopBar != null)
             pathTopBar.SetActive(false);
@@ -440,12 +485,25 @@ public class PathBuildManager : MonoBehaviour
     {
         choiceOpen = false;
         hasValidHover = false;
+        SetOptionButtonsInteractable(true);
 
         if (pathTopBar != null)
             pathTopBar.SetActive(false);
 
         if (currentGhost != null)
             currentGhost.SetActive(false);
+    }
+
+    private void SetOptionButtonsInteractable(bool interactable)
+    {
+        if (optionButton1 != null)
+            optionButton1.interactable = interactable;
+
+        if (optionButton2 != null)
+            optionButton2.interactable = interactable;
+
+        if (optionButton3 != null)
+            optionButton3.interactable = interactable;
     }
 
     public bool IsChoiceOpen()
