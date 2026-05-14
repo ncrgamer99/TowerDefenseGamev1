@@ -173,7 +173,6 @@ public class Enemy : MonoBehaviour
     private bool reachedBase = false;
     private bool isBurning = false;
     private bool isPoisoned = false;
-    private int activeBurnStacks = 0;
     private bool isBleeding = false;
     private bool isSlowed = false;
     private bool isTowerSlowed = false;
@@ -651,7 +650,7 @@ public class Enemy : MonoBehaviour
         RegisterContributor(sourceTower, 0.1f);
         RegisterHealthBarDamageEffect(EnemyHealthBarEffectMode.Burn);
 
-        if (!CanReceiveBurnStack())
+        if (activeBurnStacks >= Mathf.Max(1, maxBurnStacks))
             return;
 
         burnRoutine = StartCoroutine(BurnDamageOverTimeRoutine(damagePerSecond, duration, sourceTower));
@@ -713,6 +712,27 @@ public class Enemy : MonoBehaviour
             StopCoroutine(tileSlowRoutine);
 
         tileSlowRoutine = StartCoroutine(SlowRoutine(slowMultiplier, duration, false));
+    }
+
+    public void ApplyBleed(float damagePerSecond, float duration)
+    {
+        ApplyBleed(damagePerSecond, duration, null);
+    }
+
+    public void ApplyBleed(float damagePerSecond, float duration, Tower sourceTower)
+    {
+        if (isDead || reachedBase || immuneToEffects)
+            return;
+
+        damagePerSecond = Mathf.Max(0.1f, damagePerSecond);
+        duration = Mathf.Max(0.1f, duration);
+        RegisterContributor(sourceTower, 0.1f);
+        RegisterHealthBarDamageEffect(EnemyHealthBarEffectMode.Bleed);
+
+        if (bleedRoutine != null)
+            StopCoroutine(bleedRoutine);
+
+        bleedRoutine = StartCoroutine(DamageOverTimeRoutine(damagePerSecond, duration, sourceTower, false, EnemyDamageOverTimeType.Bleed));
     }
 
     public void ApplyBleed(float damagePerSecond, float duration)

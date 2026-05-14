@@ -87,9 +87,6 @@ public class SpecialPathTileEffect : MonoBehaviour
                 break;
 
             case PathBuildOptionType.KnockTile:
-                if (enemy.IsBossOrMiniBossTarget())
-                    return;
-
                 if (Time.time < nextKnockTime)
                     return;
 
