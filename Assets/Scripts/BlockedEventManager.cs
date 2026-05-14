@@ -7,7 +7,8 @@ public enum BlockedEventType
 {
     Continue,
     GoldBonus,
-    LifeBonus
+    LifeBonus,
+    BuildTimeBonus
 }
 
 [System.Serializable]
@@ -20,6 +21,9 @@ public class BlockedEventOption
     [Header("Event Values")]
     public int goldAmount = 0;
     public int lifeAmount = 0;
+
+    [Tooltip("Optional. Wenn > 0, nutzt diese Option eine eigene Verbau-Buildphase-Dauer.")]
+    public float buildPhaseDurationOverride = 0f;
 }
 
 public class BlockedEventManager : MonoBehaviour
@@ -160,30 +164,93 @@ public class BlockedEventManager : MonoBehaviour
 
     private void GenerateOptions()
     {
-        // "Weiter" ist immer Option 1.
-        currentOptions[0] = CreateContinueOption();
+        List<BlockedEventOption> eventPool = CreateSelectableEventPool();
 
+        for (int i = 0; i < currentOptions.Length; i++)
+            currentOptions[i] = GetRandomOptionFromPool(eventPool);
+    }
+
+    private List<BlockedEventOption> CreateSelectableEventPool()
+    {
         List<BlockedEventOption> eventPool = new List<BlockedEventOption>();
 
-        foreach (BlockedEventOption option in possibleEvents)
+        if (possibleEvents != null)
         {
-            if (option == null)
-                continue;
+            foreach (BlockedEventOption option in possibleEvents)
+            {
+                if (!IsSelectableEventOption(option))
+                    continue;
 
-            if (option.eventType == BlockedEventType.Continue)
-                continue;
-
-            eventPool.Add(option);
+                AddOptionIfUnique(eventPool, option);
+            }
         }
 
-        currentOptions[1] = GetRandomOptionFromPool(eventPool);
-        currentOptions[2] = GetRandomOptionFromPool(eventPool);
+        AddFallbackOptionsUntilReady(eventPool);
+        return eventPool;
+    }
+
+    private bool IsSelectableEventOption(BlockedEventOption option)
+    {
+        if (option == null)
+            return false;
+
+        // "Weiter" ist in Phase 7 keine auswählbare Verbau-Option mehr.
+        return option.eventType != BlockedEventType.Continue;
+    }
+
+    private void AddFallbackOptionsUntilReady(List<BlockedEventOption> eventPool)
+    {
+        List<BlockedEventOption> fallbackOptions = CreateFallbackOptions();
+
+        foreach (BlockedEventOption fallbackOption in fallbackOptions)
+        {
+            if (eventPool.Count >= currentOptions.Length)
+                return;
+
+            AddOptionIfUnique(eventPool, fallbackOption);
+        }
+    }
+
+    private List<BlockedEventOption> CreateFallbackOptions()
+    {
+        return new List<BlockedEventOption>
+        {
+            CreateGoldReserveOption(),
+            CreateLifeRepairOption(),
+            CreateLongBuildPhaseOption()
+        };
+    }
+
+    private void AddOptionIfUnique(List<BlockedEventOption> options, BlockedEventOption option)
+    {
+        if (options == null || option == null)
+            return;
+
+        foreach (BlockedEventOption existingOption in options)
+        {
+            if (IsSameOption(existingOption, option))
+                return;
+        }
+
+        options.Add(option);
+    }
+
+    private bool IsSameOption(BlockedEventOption first, BlockedEventOption second)
+    {
+        if (first == null || second == null)
+            return false;
+
+        return first.eventType == second.eventType &&
+               first.displayName == second.displayName &&
+               first.goldAmount == second.goldAmount &&
+               first.lifeAmount == second.lifeAmount &&
+               Mathf.Approximately(first.buildPhaseDurationOverride, second.buildPhaseDurationOverride);
     }
 
     private BlockedEventOption GetRandomOptionFromPool(List<BlockedEventOption> eventPool)
     {
         if (eventPool == null || eventPool.Count == 0)
-            return CreateContinueOption();
+            return CreateLongBuildPhaseOption();
 
         int randomIndex = Random.Range(0, eventPool.Count);
         BlockedEventOption option = eventPool[randomIndex];
@@ -192,7 +259,7 @@ public class BlockedEventManager : MonoBehaviour
         return option;
     }
 
-    private BlockedEventOption CreateContinueOption()
+    private BlockedEventOption CreateGoldReserveOption()
     {
         return new BlockedEventOption
         {
@@ -223,7 +290,7 @@ public class BlockedEventManager : MonoBehaviour
             titleText.text = "VERBAUT!";
 
         if (descriptionText != null)
-            descriptionText.text = "Du kannst den Weg nicht mehr erweitern. Wähle ein Event.";
+            descriptionText.text = "Du bist verbaut. Wähle eine von drei Hilfen.";
 
         SetOptionText(optionText1, 0);
         SetOptionText(optionText2, 1);
@@ -280,25 +347,45 @@ public class BlockedEventManager : MonoBehaviour
             return;
         }
 
+        int appliedGold = 0;
+        int appliedLives = 0;
+        float buildPhaseDuration = GetBuildPhaseDurationForOption(option);
+
         switch (option.eventType)
         {
-            case BlockedEventType.Continue:
-                Debug.Log("Blocked Event gewählt: Weiter");
-                break;
-
             case BlockedEventType.GoldBonus:
-                gameManager.AddGold(option.goldAmount, true, RunGoldSource.BlockedEvent);
-                Debug.Log("Blocked Event gewählt: Gold +" + option.goldAmount);
+                appliedGold = Mathf.Max(0, option.goldAmount);
+                gameManager.AddGold(appliedGold, true, RunGoldSource.BlockedEvent);
+                Debug.Log("Blocked Event gewählt: Gold +" + appliedGold);
                 break;
 
             case BlockedEventType.LifeBonus:
-                gameManager.AddLives(option.lifeAmount);
-                Debug.Log("Blocked Event gewählt: Leben +" + option.lifeAmount);
+                appliedLives = Mathf.Max(0, option.lifeAmount);
+                gameManager.AddLives(appliedLives);
+                Debug.Log("Blocked Event gewählt: Leben +" + appliedLives);
+                break;
+
+            case BlockedEventType.BuildTimeBonus:
+                Debug.Log("Blocked Event gewählt: Bauzeit " + FormatBuildPhaseDuration(buildPhaseDuration));
+                break;
+
+            case BlockedEventType.Continue:
+                Debug.LogWarning("BlockedEventManager: Continue ist keine auswählbare Verbau-Option mehr und wurde nur als Fallback verarbeitet.");
                 break;
         }
 
+        gameManager.RegisterBlockedEventChoice(option.displayName, option.eventType.ToString(), appliedGold, appliedLives, buildPhaseDuration);
         gameManager.MarkBlockedEventChosenForCurrentPosition();
-        gameManager.StartTimedBuildPhaseAfterBlockedEvent(timedBuildPhaseDuration);
+        gameManager.StartTimedBuildPhaseAfterBlockedEvent(buildPhaseDuration);
+    }
+
+
+    private float GetBuildPhaseDurationForOption(BlockedEventOption option)
+    {
+        if (option != null && option.buildPhaseDurationOverride > 0f)
+            return option.buildPhaseDurationOverride;
+
+        return timedBuildPhaseDuration;
     }
 
 }
