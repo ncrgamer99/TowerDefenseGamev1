@@ -444,10 +444,10 @@ public class TowerUI : MonoBehaviour
             return "";
 
         if (selectedTower.appliesBurn)
-            return "+" + selectedTower.burnDamageIncreasePerGoldUpgrade;
+            return "+" + selectedTower.burnDamageIncreasePerGoldUpgrade + " Burn / +" + selectedTower.effectDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
 
         if (selectedTower.appliesPoison)
-            return "+" + selectedTower.poisonDamageIncreasePerGoldUpgrade;
+            return "+" + selectedTower.poisonDamageIncreasePerGoldUpgrade + " Poison / +" + selectedTower.effectDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
 
         if (selectedTower.appliesSlow)
             return "-" + selectedTower.slowAmountIncreasePerGoldUpgrade.ToString("0.00") + " Slow / +" + selectedTower.slowDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
@@ -461,10 +461,10 @@ public class TowerUI : MonoBehaviour
             return "";
 
         if (selectedTower.appliesBurn)
-            return "+" + selectedTower.GetPointBurnDamageIncreasePreview();
+            return "+" + selectedTower.GetPointBurnDamageIncreasePreview() + " Burn / +" + selectedTower.GetPointEffectDurationIncreasePreview().ToString("0.00") + "s";
 
         if (selectedTower.appliesPoison)
-            return "+" + selectedTower.GetPointPoisonDamageIncreasePreview();
+            return "+" + selectedTower.GetPointPoisonDamageIncreasePreview() + " Poison / +" + selectedTower.GetPointEffectDurationIncreasePreview().ToString("0.00") + "s";
 
         if (selectedTower.appliesSlow)
             return "-" + selectedTower.GetPointSlowAmountIncreasePreview().ToString("0.00") + " Slow / +" + selectedTower.GetPointSlowDurationIncreasePreview().ToString("0.00") + "s";

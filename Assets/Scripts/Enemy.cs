@@ -1604,6 +1604,11 @@ public class Enemy : MonoBehaviour
         return isBurning;
     }
 
+    public bool CanReceiveBurnStack()
+    {
+        return !isDead && !reachedBase && !immuneToEffects && activeBurnStacks < Mathf.Max(1, maxBurnStacks);
+    }
+
     public bool HasPoison()
     {
         return isPoisoned;

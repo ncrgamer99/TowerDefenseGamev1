@@ -728,7 +728,7 @@ public class Tower : MonoBehaviour
         switch (effectTargetMode)
         {
             case TowerTargetMode.NoBurn:
-                return !enemy.HasBurn();
+                return enemy.CanReceiveBurnStack();
             case TowerTargetMode.NoPoison:
                 return !enemy.HasPoison();
             case TowerTargetMode.NoSlow:
@@ -851,7 +851,7 @@ public class Tower : MonoBehaviour
             case TowerTargetMode.Elite:
                 return "Elite";
             case TowerTargetMode.NoBurn:
-                return "No Burn";
+                return appliesBurn ? "Burn Stack" : "No Burn";
             case TowerTargetMode.NoPoison:
                 return "No Poison";
             case TowerTargetMode.NoSlow:
