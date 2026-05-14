@@ -5,22 +5,25 @@ public class PathTileRailingBuilder : MonoBehaviour
     [Header("Generated Railing")]
     public bool generateOnConfigure = true;
     public float tileSize = 1f;
-    public float railingHeight = 0.18f;
-    public float railingThickness = 0.055f;
-    public float railingYOffset = 0.12f;
-    public Color railingColor = new Color32(58, 68, 82, 255);
+    public float railingHeight = 0.6f;
+    public float railingThickness = 0.12f;
+    public float railingYOffset = 0.33f;
+    public float railingOverlap = 0.08f;
+    public Color railingColor = new Color32(38, 48, 62, 255);
 
     [Header("Connection Behaviour")]
-    [Tooltip("Wenn aktiv, bleiben auch zwischen verbundenen PathTiles kleine Geländer sichtbar. Das macht den Labyrinth-Look klarer.")]
-    public bool keepConnectedEdgesClosed = true;
+    [Tooltip("Wenn aktiv, bleiben auch an den Laufweg-Öffnungen kleine Geländer sichtbar.")]
+    public bool keepConnectedEdgesClosed = false;
 
     private Transform railingRoot;
 
     public void Configure(float newTileSize, bool openNorth, bool openEast, bool openSouth, bool openWest, float height, float thickness, Color color)
     {
         tileSize = Mathf.Max(0.1f, newTileSize);
-        railingHeight = Mathf.Max(0.02f, height);
-        railingThickness = Mathf.Max(0.01f, thickness);
+        railingHeight = Mathf.Max(0.6f, height);
+        railingThickness = Mathf.Max(0.12f, thickness);
+        railingYOffset = Mathf.Max(0.08f, railingHeight * 0.5f + 0.03f);
+        railingOverlap = Mathf.Max(0.02f, railingThickness * 0.75f);
         railingColor = color;
 
         if (!generateOnConfigure)
@@ -45,57 +48,38 @@ public class PathTileRailingBuilder : MonoBehaviour
         bool eastClosed = keepConnectedEdgesClosed || !openEast;
         bool westClosed = keepConnectedEdgesClosed || !openWest;
 
+        float halfTile = tileSize * 0.5f;
+        float wallOffset = halfTile + railingThickness * 0.5f;
+        float wallLength = tileSize + railingOverlap * 2f;
+
         if (northClosed)
-            CreateRail("Rail_North", new Vector3(0f, railingYOffset, tileSize * 0.5f), new Vector3(tileSize, railingHeight, railingThickness), material);
+            CreateWall("Wall_North", new Vector3(0f, railingYOffset, wallOffset), new Vector3(wallLength, railingHeight, railingThickness), material);
 
         if (southClosed)
-            CreateRail("Rail_South", new Vector3(0f, railingYOffset, -tileSize * 0.5f), new Vector3(tileSize, railingHeight, railingThickness), material);
+            CreateWall("Wall_South", new Vector3(0f, railingYOffset, -wallOffset), new Vector3(wallLength, railingHeight, railingThickness), material);
 
         if (eastClosed)
-            CreateRail("Rail_East", new Vector3(tileSize * 0.5f, railingYOffset, 0f), new Vector3(railingThickness, railingHeight, tileSize), material);
+            CreateWall("Wall_East", new Vector3(wallOffset, railingYOffset, 0f), new Vector3(railingThickness, railingHeight, wallLength), material);
 
         if (westClosed)
-            CreateRail("Rail_West", new Vector3(-tileSize * 0.5f, railingYOffset, 0f), new Vector3(railingThickness, railingHeight, tileSize), material);
-
-        CreateCornerPost("Post_NE", new Vector3(tileSize * 0.5f, railingYOffset + railingHeight * 0.18f, tileSize * 0.5f), material);
-        CreateCornerPost("Post_NW", new Vector3(-tileSize * 0.5f, railingYOffset + railingHeight * 0.18f, tileSize * 0.5f), material);
-        CreateCornerPost("Post_SE", new Vector3(tileSize * 0.5f, railingYOffset + railingHeight * 0.18f, -tileSize * 0.5f), material);
-        CreateCornerPost("Post_SW", new Vector3(-tileSize * 0.5f, railingYOffset + railingHeight * 0.18f, -tileSize * 0.5f), material);
+            CreateWall("Wall_West", new Vector3(-wallOffset, railingYOffset, 0f), new Vector3(railingThickness, railingHeight, wallLength), material);
     }
 
-    private void CreateRail(string objectName, Vector3 localPosition, Vector3 localScale, Material material)
+    private void CreateWall(string objectName, Vector3 localPosition, Vector3 localScale, Material material)
     {
-        GameObject rail = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        rail.name = objectName;
-        rail.transform.SetParent(railingRoot, false);
-        rail.transform.localPosition = localPosition;
-        rail.transform.localScale = localScale;
+        GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        wall.name = objectName;
+        wall.transform.SetParent(railingRoot, false);
+        wall.transform.localPosition = localPosition;
+        wall.transform.localScale = localScale;
 
-        Renderer renderer = rail.GetComponent<Renderer>();
+        Renderer renderer = wall.GetComponent<Renderer>();
 
         if (renderer != null)
             renderer.sharedMaterial = material;
 
-        Collider collider = rail.GetComponent<Collider>();
+        Collider collider = wall.GetComponent<Collider>();
 
-        if (collider != null)
-            Destroy(collider);
-    }
-
-    private void CreateCornerPost(string objectName, Vector3 localPosition, Material material)
-    {
-        GameObject post = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        post.name = objectName;
-        post.transform.SetParent(railingRoot, false);
-        post.transform.localPosition = localPosition;
-        float postWidth = railingThickness * 1.25f;
-        post.transform.localScale = new Vector3(postWidth, railingHeight * 1.25f, postWidth);
-
-        Renderer renderer = post.GetComponent<Renderer>();
-        if (renderer != null)
-            renderer.sharedMaterial = material;
-
-        Collider collider = post.GetComponent<Collider>();
         if (collider != null)
             Destroy(collider);
     }
