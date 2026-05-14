@@ -9875,7 +9875,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.08627451, g: 0.15294118, b: 0.23529412, a: 1}
+  m_Color: {r: 0.08627451, g: 0.15294118, b: 0.23529412, a: 0.8235294}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -10036,6 +10036,10 @@ MonoBehaviour:
   pathRailingHeight: 0.22
   pathRailingThickness: 0.08
   pathRailingColor: {r: 0.27450982, g: 0.30588236, b: 0.36078432, a: 1}
+  trapTileColor: {r: 0.5882353, g: 0.09803922, b: 0.09803922, a: 1}
+  slowTileColor: {r: 0.27450982, g: 0.7058824, b: 1, a: 1}
+  knockTileColor: {r: 1, g: 0.6666667, b: 0.1764706, a: 1}
+  goldTileColor: {r: 1, g: 0.8235294, b: 0.1764706, a: 1}
 --- !u!1 &1009315211
 GameObject:
   m_ObjectHideFlags: 0
@@ -17579,15 +17583,16 @@ MonoBehaviour:
   - displayName: Trap Tile
     description: "Platzhalter f\xFCr eine sp\xE4tere Falle."
     optionType: 1
-  - displayName: Bridge Tile
+  - displayName: KnockTile
     description: "Platzhalter f\xFCr eine sp\xE4tere Br\xFCcke."
-    optionType: 3
+    optionType: 6
   - displayName: Gold Tile
     description: "Platzhalter f\xFCr ein sp\xE4teres Bonus-Tile."
     optionType: 4
-  - displayName: Special Tile
-    description: "Platzhalter f\xFCr ein Spezial-Tile."
-    optionType: 2
+  - displayName: SlowTile
+    description: "Platzhalter f\xFCr ein sp\xE4teres Bonus-Tile."
+    optionType: 5
+  specialTileSelectionWaveInterval: 5
 --- !u!4 &1677539942
 Transform:
   m_ObjectHideFlags: 0
