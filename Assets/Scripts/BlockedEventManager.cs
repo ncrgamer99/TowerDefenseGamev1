@@ -106,28 +106,9 @@ public class BlockedEventManager : MonoBehaviour
 
         possibleEvents = new List<BlockedEventOption>();
 
-        possibleEvents.Add(new BlockedEventOption
-        {
-            displayName = "Weiter",
-            description = "Der Run läuft weiter. " + GetTimedBuildPhaseText() + ", danach startet automatisch die nächste Wave.",
-            eventType = BlockedEventType.Continue
-        });
-
-        possibleEvents.Add(new BlockedEventOption
-        {
-            displayName = "Goldreserve",
-            description = "Du erhältst 100 Gold. Danach läuft der Run mit " + FormatBuildPhaseDuration() + " Buildphase weiter.",
-            eventType = BlockedEventType.GoldBonus,
-            goldAmount = 100
-        });
-
-        possibleEvents.Add(new BlockedEventOption
-        {
-            displayName = "Notfall-Reparatur",
-            description = "Du erhältst 3 Leben. Danach läuft der Run mit " + FormatBuildPhaseDuration() + " Buildphase weiter.",
-            eventType = BlockedEventType.LifeBonus,
-            lifeAmount = 3
-        });
+        possibleEvents.Add(CreateGoldReserveOption());
+        possibleEvents.Add(CreateLifeRepairOption());
+        possibleEvents.Add(CreateLongBuildPhaseOption());
     }
 
     public void OpenBlockedEventSelection()
@@ -263,20 +244,50 @@ public class BlockedEventManager : MonoBehaviour
     {
         return new BlockedEventOption
         {
-            displayName = "Weiter",
-            description = "Der Run läuft weiter. " + GetTimedBuildPhaseText() + ", danach startet automatisch die nächste Wave.",
-            eventType = BlockedEventType.Continue
+            displayName = "Goldreserve",
+            description = "Du erhältst 100 Gold. Danach " + GetTimedBuildPhaseText() + ".",
+            eventType = BlockedEventType.GoldBonus,
+            goldAmount = 100
+        };
+    }
+
+    private BlockedEventOption CreateLifeRepairOption()
+    {
+        return new BlockedEventOption
+        {
+            displayName = "Notfall-Reparatur",
+            description = "Du erhältst 3 Leben. Danach " + GetTimedBuildPhaseText() + ".",
+            eventType = BlockedEventType.LifeBonus,
+            lifeAmount = 3
+        };
+    }
+
+    private BlockedEventOption CreateLongBuildPhaseOption()
+    {
+        float safeDuration = Mathf.Max(timedBuildPhaseDuration, 90f);
+
+        return new BlockedEventOption
+        {
+            displayName = "Baupause",
+            description = "Keine Sofortbelohnung. Du erhältst " + FormatBuildPhaseDurationFor(safeDuration) + " Buildphase.",
+            eventType = BlockedEventType.BuildTimeBonus,
+            buildPhaseDurationOverride = safeDuration
         };
     }
 
     private string GetTimedBuildPhaseText()
     {
-        return "Du hast " + FormatBuildPhaseDuration() + " Buildphase";
+        return "hast du " + FormatBuildPhaseDuration() + " Buildphase";
     }
 
     private string FormatBuildPhaseDuration()
     {
-        float safeDuration = Mathf.Max(0f, timedBuildPhaseDuration);
+        return FormatBuildPhaseDurationFor(timedBuildPhaseDuration);
+    }
+
+    private string FormatBuildPhaseDurationFor(float duration)
+    {
+        float safeDuration = Mathf.Max(0f, duration);
 
         if (Mathf.Approximately(safeDuration, Mathf.Round(safeDuration)))
             return Mathf.RoundToInt(safeDuration) + " Sekunden";
@@ -366,7 +377,7 @@ public class BlockedEventManager : MonoBehaviour
                 break;
 
             case BlockedEventType.BuildTimeBonus:
-                Debug.Log("Blocked Event gewählt: Bauzeit " + FormatBuildPhaseDuration(buildPhaseDuration));
+                Debug.Log("Blocked Event gewählt: Bauzeit " + FormatBuildPhaseDurationFor(buildPhaseDuration));
                 break;
 
             case BlockedEventType.Continue:
