@@ -115,8 +115,8 @@ public class ChaosJusticeManager : MonoBehaviour
     [Header("V1 Settings")]
     public bool openChoiceAfterBossWaves = true;
     public int maxChaosLevel = 5;
-    public float goldJusticeBonusPerLevel = 0.12f;
-    public float xpJusticeBonusPerLevel = 0.12f;
+    public float goldJusticeBonusPerLevel = 0.02f;
+    public float xpJusticeBonusPerLevel = 0.02f;
 
     [Header("Risk Modifier Pool")]
     public bool useInspectorRiskModifierPool = false;
