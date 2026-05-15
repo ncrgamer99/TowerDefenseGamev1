@@ -85,6 +85,23 @@ public class SpecialPathTileEffect : MonoBehaviour
         if (enemy == null)
             return;
 
+        if (tileType == PathBuildOptionType.TrapTile)
+        {
+            enemy.ApplyBleed(bleedDamagePerSecond, bleedDuration);
+        }
+        else if (tileType == PathBuildOptionType.SlowTile)
+        {
+            enemy.ApplySlow(slowMultiplier, slowDuration);
+        }
+        else if (tileType == PathBuildOptionType.KnockTile)
+        {
+            TryApplyKnock(enemy, knockBackTiles, knockBackDuration, knockCooldown);
+        }
+        else if (tileType == PathBuildOptionType.ComboTile)
+        {
+            enemy.ApplyBleed(comboBleedDamagePerSecond, comboBleedDuration);
+            enemy.ApplySlow(comboSlowMultiplier, comboSlowDuration);
+            TryApplyKnock(enemy, comboKnockBackTiles, comboKnockBackDuration, comboCooldown);
         switch (tileType)
         {
             case PathBuildOptionType.TrapTile:

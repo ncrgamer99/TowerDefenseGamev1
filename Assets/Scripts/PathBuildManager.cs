@@ -473,6 +473,25 @@ public class PathBuildManager : MonoBehaviour
         bool success = false;
 
         if (option.optionType == PathBuildOptionType.PathTile)
+        {
+            success = tileManager.TryExtendPathTo(hoveredGridPosition);
+        }
+        else if (IsSpecialPathOption(option.optionType))
+        {
+            success = tileManager.TryExtendSpecialPathTo(hoveredGridPosition, option.optionType);
+        }
+        else if (option.optionType == PathBuildOptionType.GoldTile)
+        {
+            success = tileManager.TryBuildGoldTileAt(hoveredGridPosition);
+        }
+        else if (IsSupportTileOption(option.optionType))
+        {
+            success = tileManager.TryBuildSupportTileAt(hoveredGridPosition, option.optionType);
+        }
+        else
+        {
+            Debug.Log(option.displayName + " gewählt. Funktion kommt später.");
+        }
             success = tileManager.TryExtendPathTo(hoveredGridPosition);
         else if (option.optionType == PathBuildOptionType.TrapTile ||
                  option.optionType == PathBuildOptionType.SlowTile ||
@@ -505,6 +524,23 @@ public class PathBuildManager : MonoBehaviour
         {
             descriptionText.text = option.displayName + " konnte hier nicht gebaut werden.";
         }
+    }
+
+    private bool IsSpecialPathOption(PathBuildOptionType optionType)
+    {
+        return optionType == PathBuildOptionType.TrapTile ||
+               optionType == PathBuildOptionType.SlowTile ||
+               optionType == PathBuildOptionType.KnockTile ||
+               optionType == PathBuildOptionType.ComboTile;
+    }
+
+    private bool IsSupportTileOption(PathBuildOptionType optionType)
+    {
+        return optionType == PathBuildOptionType.RangeTile ||
+               optionType == PathBuildOptionType.DamageTile ||
+               optionType == PathBuildOptionType.RateTile ||
+               optionType == PathBuildOptionType.XPTile ||
+               optionType == PathBuildOptionType.UpgradeTile;
     }
 
     public void CancelChoice()

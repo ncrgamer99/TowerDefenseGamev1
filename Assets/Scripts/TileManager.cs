@@ -179,6 +179,7 @@ public class TileManager : MonoBehaviour
 
     public bool TryExtendSpecialPathTo(Vector2Int newBasePosition, PathBuildOptionType specialTileType)
     {
+        if (!IsSpecialPathTileType(specialTileType))
         if (specialTileType != PathBuildOptionType.TrapTile &&
             specialTileType != PathBuildOptionType.SlowTile &&
             specialTileType != PathBuildOptionType.KnockTile &&
@@ -190,6 +191,14 @@ public class TileManager : MonoBehaviour
         }
 
         return TryExtendPathTo(newBasePosition, specialTileType);
+    }
+
+    private bool IsSpecialPathTileType(PathBuildOptionType specialTileType)
+    {
+        return specialTileType == PathBuildOptionType.TrapTile ||
+               specialTileType == PathBuildOptionType.SlowTile ||
+               specialTileType == PathBuildOptionType.KnockTile ||
+               specialTileType == PathBuildOptionType.ComboTile;
     }
 
     public bool TryBuildGoldTileAt(Vector2Int goldTilePosition)

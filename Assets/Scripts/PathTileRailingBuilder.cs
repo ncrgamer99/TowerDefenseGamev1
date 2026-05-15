@@ -93,6 +93,14 @@ public class PathTileRailingBuilder : MonoBehaviour
         );
     }
 
+    {
+        return new Vector3(
+            GetSafeInverseScaleAxis(localScale.x),
+            GetSafeInverseScaleAxis(localScale.y),
+            GetSafeInverseScaleAxis(localScale.z)
+        );
+    }
+
     private void CreateRail(string objectName, Vector3 localPosition, Vector3 localScale, Material material)
     {
         CreateWall(objectName, localPosition, localScale, material);
