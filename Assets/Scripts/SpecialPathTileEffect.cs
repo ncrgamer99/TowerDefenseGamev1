@@ -102,6 +102,25 @@ public class SpecialPathTileEffect : MonoBehaviour
             enemy.ApplyBleed(comboBleedDamagePerSecond, comboBleedDuration);
             enemy.ApplySlow(comboSlowMultiplier, comboSlowDuration);
             TryApplyKnock(enemy, comboKnockBackTiles, comboKnockBackDuration, comboCooldown);
+        switch (tileType)
+        {
+            case PathBuildOptionType.TrapTile:
+                enemy.ApplyBleed(bleedDamagePerSecond, bleedDuration);
+                break;
+
+            case PathBuildOptionType.SlowTile:
+                enemy.ApplySlow(slowMultiplier, slowDuration);
+                break;
+
+            case PathBuildOptionType.KnockTile:
+                TryApplyKnock(enemy, knockBackTiles, knockBackDuration, knockCooldown);
+                break;
+
+            case PathBuildOptionType.ComboTile:
+                enemy.ApplyBleed(comboBleedDamagePerSecond, comboBleedDuration);
+                enemy.ApplySlow(comboSlowMultiplier, comboSlowDuration);
+                TryApplyKnock(enemy, comboKnockBackTiles, comboKnockBackDuration, comboCooldown);
+                break;
         }
     }
 
@@ -118,5 +137,13 @@ public class SpecialPathTileEffect : MonoBehaviour
 
         if (enemy.KnockBackPathTiles(tiles, duration))
             nextKnockTime = Time.time + Mathf.Max(0f, cooldown);
+    }
+                if (Time.time < nextKnockTime)
+                    return;
+
+                if (enemy.KnockBackPathTiles(knockBackTiles, knockBackDuration))
+                    nextKnockTime = Time.time + Mathf.Max(0f, knockCooldown);
+                break;
+        }
     }
 }

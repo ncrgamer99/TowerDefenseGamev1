@@ -1198,6 +1198,7 @@ public class Enemy : MonoBehaviour
             : chaosHealthBonusPerLevel;
 
         float multiplier = 1f + Mathf.Max(0f, perLevel) * chaosLevel;
+
         maxHealth = Mathf.Max(1f, maxHealth * multiplier);
         currentHealth = maxHealth;
     }
