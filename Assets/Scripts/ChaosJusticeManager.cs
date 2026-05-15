@@ -27,6 +27,17 @@ public enum ChaosJusticeChoiceStep
     ChaosRiskSubChoice
 }
 
+public enum ChaosModalLockOwner
+{
+    None,
+    ChaosJustice,
+    PathBuild,
+    BlockedEvent,
+    TowerBuild,
+    Lexicon,
+    Unlock
+}
+
 [System.Serializable]
 public class ChaosJusticeChoiceOption
 {
@@ -46,13 +57,22 @@ public class ChaosJusticeChoiceRecord
     public JusticeTrackType justiceTrack = JusticeTrackType.None;
     public string displayName = "";
     public string modifierName = "";
+    public string modifierId = "";
+    public string riskCategorySummary = "";
     public bool bossDefeatedBeforeChoice = false;
     public bool bossWaveCompletedBeforeChoice = false;
     public int chaosLevelAfterChoice = 0;
     public int goldJusticeLevelAfterChoice = 0;
     public int xpJusticeLevelAfterChoice = 0;
     public int modifierLevelAfterChoice = -1;
+    public int riskPressureScoreAfterChoice = 0;
+    public int totalRiskPressureAfterChoice = 0;
+    public float goldRewardMultiplierAfterChoice = 1f;
+    public float xpRewardMultiplierAfterChoice = 1f;
+    public int chaosPercentAfterChoice = 0;
+    public bool wasAtMaxChaos = false;
     public bool noModifierChosen = false;
+    public bool safeChaosHoldChosen = false;
 }
 
 [System.Serializable]
@@ -72,6 +92,12 @@ public class ChaosJusticeRunData
     [Header("Chaos Modifiers")]
     public List<WaveModifier> selectedRiskModifiers = new List<WaveModifier>();
     public List<string> selectedRiskModifierNames = new List<string>();
+    public List<string> selectedRiskModifierKeys = new List<string>();
+
+    [Header("Debug / Replay")]
+    public int riskSeed = 0;
+    public int riskOfferRolls = 0;
+    public int safeChaosHoldChoices = 0;
 
     [Header("Result Prep")]
     public int bossChoicesOpened = 0;
@@ -131,12 +157,19 @@ public class ChaosJusticeManager : MonoBehaviour
     public bool allowDuplicateRiskCardsInSameOffer = false;
     public bool showNoModifierOption = true;
     public bool allowNoModifierAtMaxChaos = true;
+    public bool balanceRiskOffersByCategory = true;
+    public bool preferDifferentRiskCategoriesPerOffer = true;
 
     [Header("Risk Reward Safety V1")]
     public bool useRewardRiskDiminishingReturns = true;
     public float rewardRiskDiminishingFactor = 0.65f;
     public float maxChaosRewardBonus = 0.75f;
     public float maxSingleRiskRewardBonus = 0.25f;
+
+    [Header("Risk Budget V1")]
+    public bool enforceTotalRiskPressureBudget = true;
+    public int maxTotalRiskPressureBudget = 42;
+    public int maxWaveRiskPressureBudget = 28;
 
     [Header("Risk Level Caps V1")]
     public float maxEnemyCountMultiplierPerRisk = 1.65f;
@@ -178,6 +211,7 @@ public class ChaosJusticeManager : MonoBehaviour
     public bool closeBuildSelectionPanelWhenOpening = true;
     public bool closeTowerUIWhenOpening = true;
     public bool refreshPreviewAfterChoice = true;
+    public ChaosModalLockOwner currentModalLockOwner = ChaosModalLockOwner.None;
 
     [Header("Balance / Pressure Display V1")]
     public int baseSafetyScore = 6;
@@ -188,6 +222,11 @@ public class ChaosJusticeManager : MonoBehaviour
     public int riskScorePerExtraHeavyEnemy = 2;
     public int balanceBarWidth = 18;
     public int maxRiskDetailsInHud = 5;
+
+    [Header("Debug / Replay V1")]
+    public bool useDeterministicRiskSeed = true;
+    public int defaultRiskSeed = 0;
+    public int riskSeedSalt = 73013;
 
     [Header("Runtime Debug")]
     public ChaosJusticeRunData runData = new ChaosJusticeRunData();
@@ -218,11 +257,52 @@ public class ChaosJusticeManager : MonoBehaviour
         if (runData.justiceSelectionHistory == null)
             runData.justiceSelectionHistory = new List<JusticeTrackType>();
 
+        if (runData.selectedRiskModifierKeys == null)
+            runData.selectedRiskModifierKeys = new List<string>();
+
+        EnsureRiskSeedInitialized();
+
         if (riskRandom == null)
-            riskRandom = new System.Random(System.Environment.TickCount ^ GetInstanceID());
+            riskRandom = CreateRiskRandom(0);
 
         if (riskRotationCursor < 0)
-            riskRotationCursor = randomizeFirstRiskOffer ? Random.Range(0, 1000000) : 0;
+            riskRotationCursor = randomizeFirstRiskOffer ? riskRandom.Next(0, 1000000) : 0;
+    }
+
+    private void EnsureRiskSeedInitialized()
+    {
+        if (runData == null)
+            return;
+
+        if (!useDeterministicRiskSeed)
+        {
+            if (runData.riskSeed == 0)
+                runData.riskSeed = System.Environment.TickCount ^ GetInstanceID();
+
+            return;
+        }
+
+        if (runData.riskSeed != 0)
+            return;
+
+        runData.riskSeed = defaultRiskSeed != 0 ? defaultRiskSeed : Mathf.Abs(riskSeedSalt);
+
+        if (runData.riskSeed == 0)
+            runData.riskSeed = riskSeedSalt;
+    }
+
+    private System.Random CreateRiskRandom(int extraSalt)
+    {
+        EnsureRiskSeedInitialized();
+
+        int seed = runData != null ? runData.riskSeed : riskSeedSalt;
+        unchecked
+        {
+            seed = seed * 31 + riskSeedSalt;
+            seed = seed * 31 + extraSalt;
+        }
+
+        return new System.Random(seed);
     }
 
     private void Start()
@@ -337,10 +417,26 @@ public class ChaosJusticeManager : MonoBehaviour
             towerUI = FindObjectOfType<TowerUI>();
     }
 
+    private bool TryAcquireModalLock(ChaosModalLockOwner owner)
+    {
+        if (currentModalLockOwner != ChaosModalLockOwner.None && currentModalLockOwner != owner)
+            return false;
+
+        currentModalLockOwner = owner;
+        return true;
+    }
+
+    private void ReleaseModalLock(ChaosModalLockOwner owner)
+    {
+        if (currentModalLockOwner == owner)
+            currentModalLockOwner = ChaosModalLockOwner.None;
+    }
+
     private void ApplyModalLockBeforeOpeningChoice()
     {
         ResolveReferences();
         ResolveOptionalInteractionReferences();
+        TryAcquireModalLock(ChaosModalLockOwner.ChaosJustice);
 
         if (closeBlockedEventSelectionWhenOpening && blockedEventManager != null)
             blockedEventManager.CloseSelection();
@@ -376,6 +472,10 @@ public class ChaosJusticeManager : MonoBehaviour
             return true;
 
         ResolveReferences();
+
+        if (!TryAcquireModalLock(ChaosModalLockOwner.ChaosJustice))
+            return false;
+
         ApplyModalLockBeforeOpeningChoice();
         pendingBossResult = bossResult;
         selectionOpen = true;
@@ -550,7 +650,7 @@ public class ChaosJusticeManager : MonoBehaviour
         if (modifier == null)
             return CreateNoModifierOption();
 
-        int nextRiskLevel = GetNextRiskModifierLevel(modifier.displayName);
+        int nextRiskLevel = GetNextRiskModifierLevel(GetRiskModifierKey(modifier));
         WaveModifier previewModifier = CreateLeveledModifierCopy(modifier, nextRiskLevel);
 
         return new ChaosJusticeChoiceOption
@@ -573,8 +673,8 @@ public class ChaosJusticeManager : MonoBehaviour
             : "Chaos bleibt bewusst auf dem V1-Maximum " + runData.maxChaosLevel + ".";
         string displayName = chaosCanRise ? "Kein Modifikator" : "Chaos halten";
         string noRiskText = chaosCanRise
-            ? "Es wird kein Risiko-Modifikator aktiviert und keine Gerechtigkeit reduziert. Keine Zusatzbelohnung."
-            : "Bewusste Safe-Option am Chaos-Maximum: kein neues Risiko, kein Gerechtigkeits-Rückbau, keine Zusatzbelohnung.";
+            ? "Safe-Option: kein Risiko, kein Gerechtigkeits-Rückbau, keine Zusatzbelohnung."
+            : "Bewusste Safe-Option: Risiko-Pool bleibt unverändert, keine Zusatzbelohnung.";
 
         return new ChaosJusticeChoiceOption
         {
@@ -602,8 +702,10 @@ public class ChaosJusticeManager : MonoBehaviour
 
         int safeCount = Mathf.Max(1, requestedCount);
 
-        if (riskRandom == null)
-            riskRandom = new System.Random(System.Environment.TickCount ^ GetInstanceID());
+        System.Random previousRiskRandom = riskRandom;
+
+        if (riskRandom == null || !consumeOffers)
+            riskRandom = CreateRiskRandom(runData != null ? runData.riskOfferRolls : 0);
 
         List<WaveModifier> workingPool = new List<WaveModifier>();
 
@@ -612,18 +714,24 @@ public class ChaosJusticeManager : MonoBehaviour
             if (modifier == null || !modifier.IsValid())
                 continue;
 
-            if (!allowDuplicateRiskCardsInSameOffer && ContainsModifierName(workingPool, modifier.displayName))
+            if (!allowDuplicateRiskCardsInSameOffer && ContainsModifierName(workingPool, GetRiskModifierKey(modifier)))
                 continue;
 
             workingPool.Add(modifier);
         }
 
         if (workingPool.Count == 0)
+        {
+            if (!consumeOffers)
+                riskRandom = previousRiskRandom;
+
             return result;
+        }
 
         while (result.Count < safeCount && workingPool.Count > 0)
         {
             int index = GetRiskOfferIndexFromWorkingPool(workingPool);
+            index = BalanceRiskOfferIndexByCategory(workingPool, result, index);
 
             if (index < 0 || index >= workingPool.Count)
                 break;
@@ -633,10 +741,15 @@ public class ChaosJusticeManager : MonoBehaviour
             if (selected != null)
             {
                 if (consumeOffers)
+                {
+                    if (runData != null)
+                        runData.riskOfferRolls++;
+
                     RememberOfferedRiskModifier(selected, index, workingPool.Count);
+                }
 
                 WaveModifier copy = selected.CreateCopy();
-                copy.riskLevel = GetNextRiskModifierLevel(copy.displayName);
+                copy.riskLevel = GetNextRiskModifierLevel(GetRiskModifierKey(copy));
                 copy.timesSelected = Mathf.Max(1, copy.riskLevel + 1);
                 result.Add(copy);
 
@@ -648,7 +761,58 @@ public class ChaosJusticeManager : MonoBehaviour
                 workingPool.RemoveAt(index);
         }
 
+        if (!consumeOffers)
+            riskRandom = previousRiskRandom;
+
         return result;
+    }
+
+    private int BalanceRiskOfferIndexByCategory(List<WaveModifier> workingPool, List<WaveModifier> currentResult, int proposedIndex)
+    {
+        if (!balanceRiskOffersByCategory || !preferDifferentRiskCategoriesPerOffer)
+            return proposedIndex;
+
+        if (workingPool == null || currentResult == null || currentResult.Count == 0)
+            return proposedIndex;
+
+        if (proposedIndex < 0 || proposedIndex >= workingPool.Count)
+            return proposedIndex;
+
+        WaveModifier proposed = workingPool[proposedIndex];
+        if (!OfferAlreadyUsesPrimaryCategory(currentResult, proposed))
+            return proposedIndex;
+
+        for (int i = 0; i < workingPool.Count; i++)
+        {
+            WaveModifier candidate = workingPool[i];
+
+            if (candidate == null || !candidate.IsValid())
+                continue;
+
+            if (!OfferAlreadyUsesPrimaryCategory(currentResult, candidate))
+                return i;
+        }
+
+        return proposedIndex;
+    }
+
+    private bool OfferAlreadyUsesPrimaryCategory(List<WaveModifier> currentResult, WaveModifier candidate)
+    {
+        if (currentResult == null || candidate == null)
+            return false;
+
+        string category = GetRiskCategory(candidate);
+
+        foreach (WaveModifier offered in currentResult)
+        {
+            if (offered == null)
+                continue;
+
+            if (GetRiskCategory(offered) == category)
+                return true;
+        }
+
+        return false;
     }
 
     private int GetRiskOfferIndexFromWorkingPool(List<WaveModifier> workingPool)
@@ -698,9 +862,9 @@ public class ChaosJusticeManager : MonoBehaviour
         return validIndices[riskRandom.Next(validIndices.Count)];
     }
 
-    private bool ContainsModifierName(List<WaveModifier> modifiers, string modifierName)
+    private bool ContainsModifierName(List<WaveModifier> modifiers, string modifierKey)
     {
-        if (modifiers == null || string.IsNullOrEmpty(modifierName))
+        if (modifiers == null || string.IsNullOrEmpty(modifierKey))
             return false;
 
         foreach (WaveModifier modifier in modifiers)
@@ -708,7 +872,7 @@ public class ChaosJusticeManager : MonoBehaviour
             if (modifier == null)
                 continue;
 
-            if (modifier.displayName == modifierName)
+            if (GetRiskModifierKey(modifier) == modifierKey)
                 return true;
         }
 
@@ -847,7 +1011,7 @@ public class ChaosJusticeManager : MonoBehaviour
             return null;
 
         if (riskRandom == null)
-            riskRandom = new System.Random(System.Environment.TickCount ^ GetInstanceID());
+            riskRandom = CreateRiskRandom(runData != null ? runData.riskOfferRolls : 0);
 
         int selectedListIndex = riskRandom.Next(validIndices.Count);
         int selectedPoolIndex = validIndices[selectedListIndex];
@@ -877,7 +1041,7 @@ public class ChaosJusticeManager : MonoBehaviour
         if (avoidOfferingSameRiskTwiceInARow && validIndices.Count > 1)
             RemoveLastOfferedRiskFromIndexList(pool, validIndices);
 
-        int selectedListIndex = Random.Range(0, validIndices.Count);
+        int selectedListIndex = riskRandom.Next(validIndices.Count);
         int selectedPoolIndex = validIndices[selectedListIndex];
         WaveModifier selected = pool[selectedPoolIndex];
 
@@ -950,7 +1114,7 @@ public class ChaosJusticeManager : MonoBehaviour
             if (candidate == null || !candidate.IsValid())
                 continue;
 
-            if (excludeAlreadySelected && avoidDuplicateRiskModifiersUntilPoolExhausted && HasSelectedRiskModifierName(candidate.displayName))
+            if (excludeAlreadySelected && avoidDuplicateRiskModifiersUntilPoolExhausted && HasSelectedRiskModifierName(GetRiskModifierKey(candidate)))
                 continue;
 
             indices.Add(i);
@@ -967,13 +1131,13 @@ public class ChaosJusticeManager : MonoBehaviour
         int safeCount = pool.Count;
         int startIndex = riskRotationCursor >= 0
             ? riskRotationCursor % safeCount
-            : (randomizeFirstRiskOffer ? Random.Range(0, safeCount) : 0);
+            : (randomizeFirstRiskOffer ? riskRandom.Next(safeCount) : 0);
 
         // V1-Fix: Der Default-Pool startet mit "Mehr Gegner". Bei frischen Tests
         // soll der erste angebotene Modifier nicht immer genau dieser erste Listeneintrag sein.
         if (safeCount > 1 && randomizeFirstRiskOffer && offeredRiskModifierNames != null && offeredRiskModifierNames.Count == 0)
         {
-            if (pool[startIndex] != null && pool[startIndex].displayName == "Mehr Gegner")
+            if (pool[startIndex] != null && GetRiskModifierKey(pool[startIndex]) == GetRiskModifierKey(pool[0]) && pool[startIndex].displayName == "Mehr Gegner")
                 startIndex = (startIndex + 1) % safeCount;
         }
 
@@ -1000,7 +1164,7 @@ public class ChaosJusticeManager : MonoBehaviour
             if (candidate == null)
                 continue;
 
-            if (candidate.displayName == lastOfferedRiskModifierName)
+            if (GetRiskModifierKey(candidate) == lastOfferedRiskModifierName)
                 indices.RemoveAt(i);
         }
     }
@@ -1028,7 +1192,7 @@ public class ChaosJusticeManager : MonoBehaviour
             if (candidate == null)
                 continue;
 
-            if (HasOfferedRiskModifierName(candidate.displayName))
+            if (HasOfferedRiskModifierName(GetRiskModifierKey(candidate)))
                 indices.RemoveAt(i);
         }
     }
@@ -1048,7 +1212,7 @@ public class ChaosJusticeManager : MonoBehaviour
             if (candidate == null || !candidate.IsValid())
                 continue;
 
-            if (!HasOfferedRiskModifierName(candidate.displayName))
+            if (!HasOfferedRiskModifierName(GetRiskModifierKey(candidate)))
                 return false;
         }
 
@@ -1076,39 +1240,59 @@ public class ChaosJusticeManager : MonoBehaviour
 
         if (modifier != null)
         {
-            lastOfferedRiskModifierName = modifier.displayName;
+            lastOfferedRiskModifierName = GetRiskModifierKey(modifier);
 
-            if (!HasOfferedRiskModifierName(modifier.displayName))
-                offeredRiskModifierNames.Add(modifier.displayName);
+            if (!HasOfferedRiskModifierName(lastOfferedRiskModifierName))
+                offeredRiskModifierNames.Add(lastOfferedRiskModifierName);
         }
 
         int safeCount = Mathf.Max(1, poolCount);
         riskRotationCursor = (Mathf.Max(0, selectedIndex) + 1) % safeCount;
     }
 
-    private bool HasSelectedRiskModifierName(string modifierName)
+    private string GetRiskModifierKey(WaveModifier modifier)
     {
-        if (string.IsNullOrEmpty(modifierName))
+        if (modifier == null)
+            return "";
+
+        return modifier.GetStableId();
+    }
+
+    private bool HasSelectedRiskModifierName(string modifierKey)
+    {
+        if (string.IsNullOrEmpty(modifierKey))
             return false;
 
-        if (runData == null || runData.selectedRiskModifierNames == null)
+        if (runData == null)
             return false;
 
-        foreach (string selectedName in runData.selectedRiskModifierNames)
+        if (runData.selectedRiskModifierKeys != null)
         {
-            if (string.IsNullOrEmpty(selectedName))
-                continue;
+            foreach (string selectedKey in runData.selectedRiskModifierKeys)
+            {
+                if (selectedKey == modifierKey)
+                    return true;
+            }
+        }
 
-            if (selectedName == modifierName)
-                return true;
+        if (runData.selectedRiskModifiers != null)
+        {
+            foreach (WaveModifier modifier in runData.selectedRiskModifiers)
+            {
+                if (modifier == null)
+                    continue;
+
+                if (GetRiskModifierKey(modifier) == modifierKey)
+                    return true;
+            }
         }
 
         return false;
     }
 
-    private int GetSelectedRiskModifierIndex(string modifierName)
+    private int GetSelectedRiskModifierIndex(string modifierKey)
     {
-        if (runData == null || runData.selectedRiskModifiers == null || string.IsNullOrEmpty(modifierName))
+        if (runData == null || runData.selectedRiskModifiers == null || string.IsNullOrEmpty(modifierKey))
             return -1;
 
         for (int i = 0; i < runData.selectedRiskModifiers.Count; i++)
@@ -1118,16 +1302,16 @@ public class ChaosJusticeManager : MonoBehaviour
             if (modifier == null)
                 continue;
 
-            if (modifier.displayName == modifierName)
+            if (GetRiskModifierKey(modifier) == modifierKey)
                 return i;
         }
 
         return -1;
     }
 
-    private int GetCurrentRiskModifierLevel(string modifierName)
+    private int GetCurrentRiskModifierLevel(string modifierKey)
     {
-        int index = GetSelectedRiskModifierIndex(modifierName);
+        int index = GetSelectedRiskModifierIndex(modifierKey);
 
         if (index < 0 || runData == null || runData.selectedRiskModifiers == null)
             return -1;
@@ -1136,9 +1320,9 @@ public class ChaosJusticeManager : MonoBehaviour
         return modifier != null ? Mathf.Max(0, modifier.riskLevel) : -1;
     }
 
-    private int GetNextRiskModifierLevel(string modifierName)
+    private int GetNextRiskModifierLevel(string modifierKey)
     {
-        int currentLevel = GetCurrentRiskModifierLevel(modifierName);
+        int currentLevel = GetCurrentRiskModifierLevel(modifierKey);
 
         if (currentLevel < 0)
             return 0;
@@ -1290,35 +1474,38 @@ public class ChaosJusticeManager : MonoBehaviour
             return "Chaos ist aktuell nicht verfügbar.";
 
         bool chaosCanRise = runData.chaosLevel < runData.maxChaosLevel;
-        string chaosText = chaosCanRise
-            ? "Chaos steigt auf Level " + nextChaosLevel + "."
-            : "Chaos bleibt auf dem V1-Maximum " + runData.maxChaosLevel + ".";
+        string chaosLine = chaosCanRise
+            ? "Chaos: Level " + runData.chaosLevel + " -> " + nextChaosLevel
+            : "Chaos: Maximum halten (Level " + runData.maxChaosLevel + ")";
 
-        int displayRiskLevel = Mathf.Max(0, nextRiskLevel) + 1;
-        string levelText = nextRiskLevel <= 0
-            ? "Dieser dauerhafte Risiko-Modifikator startet auf Stufe 1."
-            : "Dieser dauerhafte Risiko-Modifikator wird auf Stufe " + displayRiskLevel + " erhöht.";
+        string costLine = GetCompactJusticeLossPreviewText();
+        string rewardLine = GetModifierRewardPreviewText(modifier);
 
         string text =
-            "Riskanter Weg. " + chaosText + " " + levelText + " " +
-            "Die Wirkung wird dadurch stärker, aber abflachend skaliert.";
-
-        if (!string.IsNullOrEmpty(modifier.description))
-            text += "\n" + modifier.description;
-
-        if (includeRiskSummaryInChoiceText)
-        {
-            text +=
-                "\n\nRisiko-Vorschau: " + GetModifierImpactPreviewText(modifier) +
-                "\nReward-Vorschau: " + GetModifierRewardPreviewText(modifier);
-        }
-
-        text += "\n" + GetJusticeLossPreviewText();
+            "Stufe: " + modifier.GetDisplayRiskLevel() +
+            "\n" + chaosLine +
+            "\nKategorie: " + GetRiskCategorySummary(modifier) +
+            "\nEffekt: " + GetModifierImpactPreviewText(modifier) +
+            "\nKosten: " + costLine +
+            "\nReward: " + rewardLine;
 
         if (includeFairnessNotesInChoiceText)
-            text += "\nFairness: Keine Tower-Zerstörung. Keine versteckten Chaos-6/7-Regeln. Die nächste Wave-Preview bleibt ehrlich.";
+            text += "\nFairness: sichtbar, keine Tower-Zerstörung.";
 
         return text;
+    }
+
+    private string GetCompactJusticeLossPreviewText()
+    {
+        JusticeTrackType track = PeekLastActiveJusticeTrack();
+
+        if (track == JusticeTrackType.GoldJustice)
+            return "Gold-Gerechtigkeit -1";
+
+        if (track == JusticeTrackType.XpJustice)
+            return "XP-Gerechtigkeit -1";
+
+        return "keine Gerechtigkeit aktiv";
     }
 
     private string GetModifierImpactPreviewText(WaveModifier modifier)
@@ -1534,7 +1721,8 @@ public class ChaosJusticeManager : MonoBehaviour
 
         pool.Add(new WaveModifier
         {
-            displayName = "Mehr Gegner",
+            modifierId = "risk_extra_enemies",
+                displayName = "Mehr Gegner",
             description = "Alle zukünftigen Waves erhalten mehr Gegner. Die Stärke skaliert vorsichtig mit dem aktuellen Chaos-Level.",
             modifierType = WaveModifierType.ExtraEnemies,
             enemyCountMultiplier = enemyMultiplier,
@@ -1544,7 +1732,8 @@ public class ChaosJusticeManager : MonoBehaviour
 
         pool.Add(new WaveModifier
         {
-            displayName = "Runner-Druck",
+            modifierId = "risk_runner_pressure",
+                displayName = "Runner-Druck",
             description = "Zukünftige Waves erhalten zusätzliche Runner. Das erhöht vor allem frühen Durchbruchsdruck.",
             modifierType = WaveModifierType.MoreRunners,
             extraRoleAmount = lightExtra,
@@ -1554,7 +1743,8 @@ public class ChaosJusticeManager : MonoBehaviour
 
         pool.Add(new WaveModifier
         {
-            displayName = "Tank-Druck",
+            modifierId = "risk_tank_pressure",
+                displayName = "Tank-Druck",
             description = "Zukünftige Waves erhalten zusätzliche Tanks. Das erhöht den Bedarf an DoT, Heavy-Schaden und Fokusfeuer.",
             modifierType = WaveModifierType.MoreTanks,
             extraRoleAmount = heavyExtra,
@@ -1564,7 +1754,8 @@ public class ChaosJusticeManager : MonoBehaviour
 
         pool.Add(new WaveModifier
         {
-            displayName = "Knight-Druck",
+            modifierId = "risk_knight_pressure",
+                displayName = "Knight-Druck",
             description = "Zukünftige Waves erhalten zusätzliche Knights. Das prüft Schaden pro Treffer und Targeting.",
             modifierType = WaveModifierType.MoreKnights,
             extraRoleAmount = heavyExtra,
@@ -1578,7 +1769,8 @@ public class ChaosJusticeManager : MonoBehaviour
             {
                 pool.Add(new WaveModifier
                 {
-                    displayName = "Mage-Druck",
+                    modifierId = "risk_mage_pressure",
+                displayName = "Mage-Druck",
                     description = "Zukünftige Waves erhalten zusätzliche Mages. Das prüft Kontrolle, Fokusfeuer und Umgang mit Teleport-Druck.",
                     modifierType = WaveModifierType.MoreMages,
                     extraRoleAmount = supportExtra,
@@ -1591,7 +1783,8 @@ public class ChaosJusticeManager : MonoBehaviour
             {
                 pool.Add(new WaveModifier
                 {
-                    displayName = "Learner-Druck",
+                    modifierId = "risk_learner_pressure",
+                displayName = "Learner-Druck",
                     description = "Zukünftige Waves erhalten zusätzliche Learner. Normale Learner ignorieren Status-Effekte wie Burn, Poison, Slow, Bleed und Darkness; Chaos-Learner schwächen DoT-Pläne.",
                     modifierType = WaveModifierType.MoreLearners,
                     extraRoleAmount = supportExtra,
@@ -1603,7 +1796,8 @@ public class ChaosJusticeManager : MonoBehaviour
 
         pool.Add(new WaveModifier
         {
-            displayName = "Schnellere Spawns",
+            modifierId = "risk_faster_spawns",
+                displayName = "Schnellere Spawns",
             description = "Zukünftige Waves spawnen dichter. Der Effekt startet moderat und wird mit höherem Chaos spürbarer.",
             modifierType = WaveModifierType.FasterSpawns,
             spawnDelayMultiplier = fasterSpawnMultiplier,
@@ -1614,6 +1808,7 @@ public class ChaosJusticeManager : MonoBehaviour
         {
             pool.Add(new WaveModifier
             {
+                modifierId = "risk_mixed_role_pressure",
                 displayName = "Gemischter Rollendruck",
                 description = "Zukünftige Waves erhalten mehrere Zusatzrollen gleichzeitig. Das ist breiter Druck statt nur mehr Masse.",
                 modifierType = WaveModifierType.MixedRolePressure,
@@ -1636,6 +1831,7 @@ public class ChaosJusticeManager : MonoBehaviour
         {
             pool.Add(new WaveModifier
             {
+                modifierId = "risk_allrounder_pressure",
                 displayName = "AllRounder-Druck",
                 description = "Zukünftige Waves erhalten zusätzliche AllRounder. Das ist ein späteres V1-Risiko, weil AllRounder mehrere Rollenchecks kombiniert.",
                 modifierType = WaveModifierType.MoreAllRounders,
@@ -1649,6 +1845,7 @@ public class ChaosJusticeManager : MonoBehaviour
         {
             pool.Add(new WaveModifier
             {
+                modifierId = "risk_pre_boss_pressure",
                 displayName = "Vor-Boss-Druck",
                 description = "Vor-Boss- und Boss-Waves erhalten zusätzliche harte Vorhut. Der Effekt ist nicht jede Wave aktiv, wird aber in der Preview ehrlich angezeigt.",
                 modifierType = WaveModifierType.PreBossPressure,
@@ -1667,6 +1864,7 @@ public class ChaosJusticeManager : MonoBehaviour
         {
             pool.Add(new WaveModifier
             {
+                modifierId = "risk_miniboss_light",
                 displayName = "MiniBoss-Druck light",
                 description = "Zukünftige MiniBoss-Waves erhalten einen zusätzlichen MiniBoss. Das ist kein Elite-System und zerstört keine Tower.",
                 modifierType = WaveModifierType.MiniBossPressure,
@@ -1681,6 +1879,7 @@ public class ChaosJusticeManager : MonoBehaviour
         {
             pool.Add(new WaveModifier
             {
+                modifierId = "risk_chaos_variants",
                 displayName = "Violette Verformung",
                 description = "Zukünftige Waves enthalten häufiger sichtbare Chaos-Varianten. Diese Gegner ersetzen normale Gegner; es entstehen dadurch keine zusätzlichen Gegner.",
                 modifierType = WaveModifierType.ChaosVariantPressure,
@@ -1697,6 +1896,7 @@ public class ChaosJusticeManager : MonoBehaviour
         {
             pool.Add(new WaveModifier
             {
+                modifierId = "risk_wave_density",
                 displayName = "Stärkere Verdichtung",
                 description = "Chaos-Waves können häufiger und stärker verdichtet sein. Das betrifft Spawn-Abstände, nicht globale Gegnergeschwindigkeit.",
                 modifierType = WaveModifierType.ChaosWaveBlockPressure,
@@ -1711,6 +1911,7 @@ public class ChaosJusticeManager : MonoBehaviour
 
             pool.Add(new WaveModifier
             {
+                modifierId = "risk_wave_toughness",
                 displayName = "Zähe Wellen",
                 description = "Chaos-Waves können häufiger und stärker zäh werden. Das erhöht Haltbarkeit einzelner Waves, aber nicht Base-Schaden oder Speed.",
                 modifierType = WaveModifierType.ChaosWaveBlockPressure,
@@ -1728,6 +1929,7 @@ public class ChaosJusticeManager : MonoBehaviour
         {
             pool.Add(new WaveModifier
             {
+                modifierId = "risk_wave_rearguard",
                 displayName = "Stärkere Nachhut",
                 description = "Chaos-Waves können häufiger und stärker eine Nachhut bilden. Gegner werden innerhalb der Wave verlagert; es entstehen keine zusätzlichen Gegner.",
                 modifierType = WaveModifierType.ChaosWaveBlockPressure,
@@ -1743,6 +1945,7 @@ public class ChaosJusticeManager : MonoBehaviour
 
             pool.Add(new WaveModifier
             {
+                modifierId = "risk_wave_chaos_variant_group",
                 displayName = "Violette Wellen",
                 description = "Chaos-Waves können häufiger violette Gruppen bilden. Chaos-Varianten ersetzen normale Gegner; die Gegneranzahl steigt dadurch nicht automatisch.",
                 modifierType = WaveModifierType.ChaosWaveBlockPressure,
@@ -1760,6 +1963,7 @@ public class ChaosJusticeManager : MonoBehaviour
         {
             pool.Add(new WaveModifier
             {
+                modifierId = "risk_wave_armor",
                 displayName = "Chaos-Panzerung",
                 description = "Chaos-Waves können häufiger kleine Armor-Gruppen bilden. Boss/MiniBoss werden dadurch in V1 nicht unfair eskaliert.",
                 modifierType = WaveModifierType.ChaosWaveBlockPressure,
@@ -1775,6 +1979,7 @@ public class ChaosJusticeManager : MonoBehaviour
 
         pool.Add(new WaveModifier
         {
+            modifierId = "risk_greedy_swarm",
             displayName = "Gieriger Ansturm",
             description = "Zukünftige Waves erhalten mehr Gegner. Dafür geben Rewards über diesen Modifier zusätzlich Gold und XP.",
             modifierType = WaveModifierType.ChaosPrepared,
@@ -1790,6 +1995,7 @@ public class ChaosJusticeManager : MonoBehaviour
         {
             pool.Add(new WaveModifier
             {
+                modifierId = "risk_gold_rush",
                 displayName = "Goldrausch-Risiko",
                 description = "Zukünftige Waves erhalten etwas mehr Gegner. Dafür steigen Gold-Rewards stärker.",
                 modifierType = WaveModifierType.ChaosPrepared,
@@ -1804,7 +2010,8 @@ public class ChaosJusticeManager : MonoBehaviour
             {
                 pool.Add(new WaveModifier
                 {
-                    displayName = "XP-Prüfung",
+                    modifierId = "risk_xp_trial",
+                displayName = "XP-Prüfung",
                     description = "Zukünftige Waves erhalten zusätzliche Learner und Mages. Dafür steigen XP-Rewards.",
                     modifierType = WaveModifierType.MixedRolePressure,
                     roleToAdd = EnemyRole.Learner,
@@ -1822,6 +2029,7 @@ public class ChaosJusticeManager : MonoBehaviour
 
             pool.Add(new WaveModifier
             {
+                modifierId = "risk_haste_for_gold",
                 displayName = "Eile gegen Gold",
                 description = "Zukünftige Waves spawnen dichter. Dafür steigen Gold-Rewards leicht.",
                 modifierType = WaveModifierType.FasterSpawns,
@@ -1925,6 +2133,7 @@ public class ChaosJusticeManager : MonoBehaviour
         pendingBossResult = null;
         currentRiskOffers.Clear();
         chaosCommittedForCurrentChoice = false;
+        ReleaseModalLock(ChaosModalLockOwner.ChaosJustice);
 
         if (gameManager != null)
             gameManager.ResumeBuildPhaseAfterChaosJusticeChoice();
@@ -2019,8 +2228,15 @@ public class ChaosJusticeManager : MonoBehaviour
 
     private void ApplyNoRiskModifierChoice(ChaosJusticeChoiceOption option)
     {
+        bool wasAtMax = runData != null && runData.chaosLevel >= runData.maxChaosLevel;
         IncreaseChaosLevelForChoice();
-        Debug.Log("Chaos gewählt ohne Risiko-Modifikator. Gerechtigkeit bleibt unverändert.");
+
+        if (wasAtMax && runData != null)
+            runData.safeChaosHoldChoices++;
+
+        Debug.Log(wasAtMax
+            ? "Chaos bewusst gehalten. Risiko und Gerechtigkeit bleiben unverändert."
+            : "Chaos gewählt ohne Risiko-Modifikator. Gerechtigkeit bleibt unverändert.");
     }
 
     private void IncreaseChaosLevelForChoice()
@@ -2044,7 +2260,11 @@ public class ChaosJusticeManager : MonoBehaviour
         if (runData.selectedRiskModifierNames == null)
             runData.selectedRiskModifierNames = new List<string>();
 
-        int index = GetSelectedRiskModifierIndex(selectedModifier.displayName);
+        if (runData.selectedRiskModifierKeys == null)
+            runData.selectedRiskModifierKeys = new List<string>();
+
+        string riskKey = GetRiskModifierKey(selectedModifier);
+        int index = GetSelectedRiskModifierIndex(riskKey);
         int targetLevel = index >= 0 ? Mathf.Max(0, runData.selectedRiskModifiers[index].riskLevel + 1) : 0;
         WaveModifier leveledCopy = selectedModifier.CreateCopy();
 
@@ -2065,8 +2285,11 @@ public class ChaosJusticeManager : MonoBehaviour
         {
             runData.selectedRiskModifiers.Add(leveledCopy);
 
-            if (!HasSelectedRiskModifierName(leveledCopy.displayName))
+            if (!runData.selectedRiskModifierNames.Contains(leveledCopy.displayName))
                 runData.selectedRiskModifierNames.Add(leveledCopy.displayName);
+
+            if (!runData.selectedRiskModifierKeys.Contains(riskKey))
+                runData.selectedRiskModifierKeys.Add(riskKey);
 
             Debug.Log("Risiko-Modifikator aktiviert: " + leveledCopy.GetDisplayNameWithLevel());
         }
@@ -2131,6 +2354,10 @@ public class ChaosJusticeManager : MonoBehaviour
 
     private void AddChoiceRecord(ChaosJusticeChoiceOption option)
     {
+        ChaosJusticeBalanceSnapshot snapshot = GetBalanceSnapshot();
+        bool noModifier = option.choiceType == ChaosJusticeChoiceType.NoRiskModifier;
+        bool safeHold = noModifier && option != null && option.displayName == "Chaos halten";
+
         ChaosJusticeChoiceRecord record = new ChaosJusticeChoiceRecord
         {
             afterBossWaveNumber = pendingBossResult != null ? pendingBossResult.waveNumber : 0,
@@ -2138,13 +2365,22 @@ public class ChaosJusticeManager : MonoBehaviour
             justiceTrack = GetJusticeTrackForOption(option.choiceType),
             displayName = option.displayName,
             modifierName = option.modifier != null ? option.modifier.displayName : "",
+            modifierId = option.modifier != null ? GetRiskModifierKey(option.modifier) : "",
+            riskCategorySummary = option.modifier != null ? GetRiskCategorySummary(option.modifier) : "Keine",
             bossDefeatedBeforeChoice = pendingBossResult != null && pendingBossResult.bossDefeated,
             bossWaveCompletedBeforeChoice = pendingBossResult != null && pendingBossResult.waveCompleted,
             chaosLevelAfterChoice = runData.chaosLevel,
             goldJusticeLevelAfterChoice = runData.goldJusticeLevel,
             xpJusticeLevelAfterChoice = runData.xpJusticeLevel,
-            modifierLevelAfterChoice = option.modifier != null ? GetCurrentRiskModifierLevel(option.modifier.displayName) : -1,
-            noModifierChosen = option.choiceType == ChaosJusticeChoiceType.NoRiskModifier
+            modifierLevelAfterChoice = option.modifier != null ? GetCurrentRiskModifierLevel(GetRiskModifierKey(option.modifier)) : -1,
+            riskPressureScoreAfterChoice = option.modifier != null ? GetRiskPressureScore(option.modifier) : 0,
+            totalRiskPressureAfterChoice = GetTotalRiskPressureScore(),
+            goldRewardMultiplierAfterChoice = GetGoldRewardMultiplier(),
+            xpRewardMultiplierAfterChoice = GetXPRewardMultiplier(),
+            chaosPercentAfterChoice = snapshot.chaosPercent,
+            wasAtMaxChaos = runData.chaosLevel >= runData.maxChaosLevel,
+            noModifierChosen = noModifier,
+            safeChaosHoldChosen = safeHold
         };
 
         if (runData.choiceHistory == null)
@@ -2179,7 +2415,36 @@ public class ChaosJusticeManager : MonoBehaviour
             return;
         }
 
-        enemySpawner.SetPreparedWaveModifiers(runData.selectedRiskModifiers);
+        enemySpawner.maxWaveRiskPressureBudget = Mathf.Max(1, maxWaveRiskPressureBudget);
+        enemySpawner.useWaveRiskPressureBudget = enforceTotalRiskPressureBudget;
+        enemySpawner.SetPreparedWaveModifiers(GetBudgetedRiskModifierCopiesForRun());
+    }
+
+    private List<WaveModifier> GetBudgetedRiskModifierCopiesForRun()
+    {
+        List<WaveModifier> result = new List<WaveModifier>();
+
+        if (runData == null || runData.selectedRiskModifiers == null)
+            return result;
+
+        int budget = Mathf.Max(1, maxTotalRiskPressureBudget);
+        int used = 0;
+
+        foreach (WaveModifier modifier in runData.selectedRiskModifiers)
+        {
+            if (modifier == null || !modifier.IsValid())
+                continue;
+
+            int cost = Mathf.Max(1, GetRiskPressureScore(modifier));
+
+            if (enforceTotalRiskPressureBudget && used + cost > budget)
+                continue;
+
+            result.Add(modifier.CreateCopy());
+            used += cost;
+        }
+
+        return result;
     }
 
     public int ApplyGoldRewardModifiers(int baseAmount)
@@ -2232,7 +2497,7 @@ public class ChaosJusticeManager : MonoBehaviour
         float safeDiminishingFactor = Mathf.Clamp(rewardRiskDiminishingFactor, 0.1f, 1f);
         float safeSingleCap = Mathf.Max(0f, maxSingleRiskRewardBonus);
 
-        foreach (WaveModifier modifier in runData.selectedRiskModifiers)
+        foreach (WaveModifier modifier in GetSelectedRiskModifierCopies())
         {
             if (modifier == null)
                 continue;
@@ -2284,6 +2549,11 @@ public class ChaosJusticeManager : MonoBehaviour
 
 
     public List<WaveModifier> GetSelectedRiskModifierCopies()
+    {
+        return enforceTotalRiskPressureBudget ? GetBudgetedRiskModifierCopiesForRun() : GetAllSelectedRiskModifierCopies();
+    }
+
+    private List<WaveModifier> GetAllSelectedRiskModifierCopies()
     {
         List<WaveModifier> copies = new List<WaveModifier>();
 
@@ -2391,7 +2661,8 @@ public class ChaosJusticeManager : MonoBehaviour
             " | Chaos: " + snapshot.chaosScore + " (" + snapshot.chaosPercent + "%)" +
             "\nGold-Gerechtigkeit: " + runData.goldJusticeLevel + " | XP-Gerechtigkeit: " + runData.xpJusticeLevel +
             "\nGold-Reward x" + GetGoldRewardMultiplier().ToString("0.00") + " | XP-Reward x" + GetXPRewardMultiplier().ToString("0.00") +
-            "\nRisiko-Auswahlmodus: " + GetRiskSelectionModeLabel() +
+            "\nRisiko-Budget: Run " + GetBudgetedRiskPressureScoreForRun() + "/" + Mathf.Max(1, maxTotalRiskPressureBudget) +
+            " | Wave-Cap " + Mathf.Max(1, maxWaveRiskPressureBudget) +
             "\nRisiko-Gruppen:\n" + GetGroupedRiskModifierSummary() +
             "\nAktive Risiken:\n" + GetDetailedRiskModifierText(maxRiskDetailsInHud);
     }
@@ -2487,6 +2758,18 @@ public class ChaosJusticeManager : MonoBehaviour
             return "Keine";
 
         return text;
+    }
+
+    public int GetBudgetedRiskPressureScoreForRun()
+    {
+        int score = 0;
+
+        foreach (WaveModifier modifier in GetBudgetedRiskModifierCopiesForRun())
+        {
+            score += GetRiskPressureScore(modifier);
+        }
+
+        return Mathf.Max(0, score);
     }
 
     public int GetTotalRiskPressureScore()
@@ -2737,7 +3020,7 @@ public class ChaosJusticeManager : MonoBehaviour
             if (shown >= safeMax)
                 break;
 
-            WaveModifier preview = CreateLeveledModifierCopy(modifier, GetNextRiskModifierLevel(modifier.displayName));
+            WaveModifier preview = CreateLeveledModifierCopy(modifier, GetNextRiskModifierLevel(GetRiskModifierKey(modifier)));
 
             if (preview == null)
                 continue;
@@ -2815,6 +3098,9 @@ public class ChaosJusticeManager : MonoBehaviour
 
         if (!modifier.IsValid())
             issues.Add(name + ": ungültiger ModifierType.");
+
+        if (string.IsNullOrWhiteSpace(modifier.modifierId))
+            issues.Add(name + ": stabile modifierId fehlt; Fallback nutzt Name/Typ.");
 
         if (string.IsNullOrWhiteSpace(modifier.displayName))
             issues.Add(name + ": Anzeigename fehlt.");
@@ -3041,7 +3327,8 @@ public class ChaosJusticeManager : MonoBehaviour
         return
             "Gerechtigkeit: " + justice +
             " | Chaos gesamt: " + chaos +
-            " | Chaos halten/kein Modifikator: " + noModifier;
+            " | Chaos halten/kein Modifikator: " + noModifier +
+            " | bewusste Holds: " + (runData != null ? runData.safeChaosHoldChoices : 0);
     }
 
     public string GetRunStyleLabel()
@@ -3087,6 +3374,7 @@ public class ChaosJusticeManager : MonoBehaviour
             "\nEntscheidungen: " + GetDecisionMixText() +
             "\nRisiko-Gruppen:\n" + GetGroupedRiskModifierSummary() +
             "\nAktive Risiko-Modifikatoren:\n" + GetDetailedRiskModifierText(12) +
+            "\nRisk-Seed: " + runData.riskSeed + " | Offer-Rolls: " + runData.riskOfferRolls +
             "\nÜberstandene Chaos-Waves: " + runData.chaosWavesSurvived +
             "\n" + historyText;
     }
@@ -3154,5 +3442,7 @@ public class ChaosJusticeManager : MonoBehaviour
 
         if (choiceUI != null)
             choiceUI.CloseSelection();
+
+        ReleaseModalLock(ChaosModalLockOwner.ChaosJustice);
     }
 }

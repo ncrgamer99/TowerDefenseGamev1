@@ -33,6 +33,8 @@ public enum WaveModifierType
 public class WaveModifier
 {
     [Header("Info")]
+    [Tooltip("Stabile technische ID für Risiko-Logik. Leer lassen nutzt einen sicheren Fallback aus Typ/Name.")]
+    public string modifierId = "";
     public string displayName = "Modifier";
     public string description = "";
 
@@ -134,6 +136,7 @@ public class WaveModifier
     {
         return new WaveModifier
         {
+            modifierId = modifierId,
             displayName = displayName,
             description = description,
             modifierType = modifierType,
@@ -195,6 +198,54 @@ public class WaveModifier
         }
     }
 
+
+
+    public string GetStableId()
+    {
+        if (!string.IsNullOrEmpty(modifierId))
+            return modifierId;
+
+        if (!string.IsNullOrEmpty(displayName))
+            return modifierType + ":" + displayName;
+
+        return modifierType.ToString();
+    }
+
+    public int GetPressureCostEstimate()
+    {
+        if (!IsValid())
+            return 0;
+
+        int cost = 1 + Mathf.Max(0, riskLevel);
+
+        if (enemyCountMultiplier > 1f)
+            cost += Mathf.RoundToInt((enemyCountMultiplier - 1f) * 18f);
+
+        if (flatEnemyCountBonus > 0)
+            cost += flatEnemyCountBonus;
+
+        cost += Mathf.Max(0, extraRoleAmount);
+
+        if (HasSecondaryRoleAdd())
+            cost += Mathf.Max(0, secondaryExtraRoleAmount);
+
+        if (HasTertiaryRoleAdd())
+            cost += Mathf.Max(0, tertiaryExtraRoleAmount);
+
+        if (spawnDelayMultiplier > 0f && spawnDelayMultiplier < 1f)
+            cost += Mathf.RoundToInt((1f - spawnDelayMultiplier) * 14f);
+
+        if (modifierType == WaveModifierType.ChaosVariantPressure || increasesChaosVariantChance)
+            cost += 2 + Mathf.RoundToInt(Mathf.Max(0f, chaosVariantChanceBonus) * 20f) + Mathf.Max(0, flatChaosVariantBonus);
+
+        if (modifierType == WaveModifierType.ChaosWaveBlockPressure || strengthensChaosWaveBlocks)
+            cost += 2 + Mathf.Max(0, chaosWaveBlockStrengthBonus) + Mathf.RoundToInt(Mathf.Max(0f, chaosWaveBlockChanceBonus) * 12f);
+
+        if (modifierType == WaveModifierType.MiniBossPressure || modifierType == WaveModifierType.PreBossPressure)
+            cost += 3;
+
+        return Mathf.Max(1, cost);
+    }
 
     public int GetDisplayRiskLevel()
     {
