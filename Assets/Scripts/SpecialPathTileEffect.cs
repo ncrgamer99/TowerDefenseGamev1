@@ -11,8 +11,10 @@ public class SpecialPathTileEffect : MonoBehaviour
     public float tileSize = 1f;
 
     [Header("Trap Tile")]
-    public float bleedDamagePerSecond = 3f;
-    public float bleedDuration = 5f;
+    [HideInInspector] public float bleedDamagePerSecond = 3f;
+    public float bleedDamagePerTick = 2f;
+    public float bleedTickInterval = 3f;
+    public float bleedDuration = 20f;
 
     [Header("Slow Tile")]
     public float slowMultiplier = 0.45f;
@@ -21,16 +23,12 @@ public class SpecialPathTileEffect : MonoBehaviour
     [Header("Knock Tile")]
     public int knockBackTiles = 3;
     public float knockBackDuration = 0.35f;
-    public float knockCooldown = 5f;
+    public float knockCooldown = 8f;
 
     [Header("Combo Tile")]
-    public float comboBleedDamagePerSecond = 2f;
-    public float comboBleedDuration = 4f;
-    public float comboSlowMultiplier = 0.65f;
-    public float comboSlowDuration = 1.5f;
-    public int comboKnockBackTiles = 1;
-    public float comboKnockBackDuration = 0.20f;
-    public float comboCooldown = 4f;
+    public float darknessDamagePerTick = 4f;
+    public float darknessTickInterval = 1f;
+    public float darknessDuration = 5f;
 
     private float nextKnockTime = 0f;
 
@@ -87,7 +85,7 @@ public class SpecialPathTileEffect : MonoBehaviour
 
         if (tileType == PathBuildOptionType.TrapTile)
         {
-            enemy.ApplyBleed(bleedDamagePerSecond, bleedDuration);
+            enemy.ApplyBleed(bleedDamagePerTick, bleedDuration, bleedTickInterval);
         }
         else if (tileType == PathBuildOptionType.SlowTile)
         {
@@ -99,10 +97,19 @@ public class SpecialPathTileEffect : MonoBehaviour
         }
         else if (tileType == PathBuildOptionType.ComboTile)
         {
-            enemy.ApplyBleed(comboBleedDamagePerSecond, comboBleedDuration);
-            enemy.ApplySlow(comboSlowMultiplier, comboSlowDuration);
-            TryApplyKnock(enemy, comboKnockBackTiles, comboKnockBackDuration, comboCooldown);
+            TryApplyDarknessCombo(enemy);
         }
+    }
+
+    private void TryApplyDarknessCombo(Enemy enemy)
+    {
+        if (enemy == null)
+            return;
+
+        if (!enemy.HasBurn() || !enemy.HasPoison() || !enemy.HasBleed())
+            return;
+
+        enemy.ApplyDarkness(darknessDamagePerTick, darknessDuration, darknessTickInterval);
     }
 
     private void TryApplyKnock(Enemy enemy, int tiles, float duration, float cooldown)
