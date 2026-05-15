@@ -45,7 +45,7 @@ GameObject:
   - component: {fileID: 6749742206159897165}
   - component: {fileID: 3507277476201562188}
   m_Layer: 0
-  m_Name: Sniper_Tower
+  m_Name: Lightning_Tower
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -100,7 +100,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: f877ab7799b64ed3963eaa205dd1b1e1, type: 2}
+  - {fileID: 2100000, guid: 374731fd269046d6b410b41f998769e9, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -159,13 +159,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab8730dc9e6c84846b51a8f9c5f21239, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tower
-  towerName: Sniper Tower
-  towerRole: 6
+  towerName: Lightning Tower
+  towerRole: 8
   autoApplyTowerRoleStats: 1
-  damage: 24
-  range: 6.2
-  fireRate: 0.35
-  targetMode: 4
+  damage: 4
+  range: 4.0
+  fireRate: 0.9
+  targetMode: 0
   level: 1
   currentXP: 0
   xpToNextLevel: 30
