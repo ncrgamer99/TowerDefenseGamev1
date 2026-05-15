@@ -68,7 +68,7 @@ public class TowerRangeIndicator : MonoBehaviour
         EnsureVisuals();
         RefreshVisualRootScale();
 
-        float range = Mathf.Max(0.05f, tower.range);
+        float range = Mathf.Max(0.05f, tower.GetEffectiveRange());
 
         if (!force && Mathf.Abs(range - lastRange) < 0.001f)
             return;

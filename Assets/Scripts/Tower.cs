@@ -269,7 +269,7 @@ public class Tower : MonoBehaviour
 
             Shoot(target);
 
-            float shotInterval = 1f / Mathf.Max(0.01f, fireRate);
+            float shotInterval = 1f / Mathf.Max(0.01f, GetEffectiveFireRate());
             fireCooldown += shotInterval;
 
             shotsThisFrame++;
@@ -784,7 +784,7 @@ public class Tower : MonoBehaviour
             return false;
 
         float distance = Vector3.Distance(transform.position, enemy.transform.position);
-        return distance <= range;
+        return distance <= GetEffectiveRange();
     }
 
     private void Shoot(Enemy target)
@@ -805,7 +805,7 @@ public class Tower : MonoBehaviour
             return;
         }
 
-        projectile.damage = damage;
+        projectile.damage = GetEffectiveDamage();
         projectile.appliesBurn = appliesBurn;
         projectile.burnDamage = burnDamage;
         projectile.burnDuration = burnDuration;
@@ -906,8 +906,10 @@ public class Tower : MonoBehaviour
         if (amount <= 0)
             return;
 
-        currentXP += amount;
-        RecordTowerXPGainedForRunStats(amount);
+        int finalAmount = TowerSupportTileEffect.ApplyXPMultiplier(this, amount);
+
+        currentXP += finalAmount;
+        RecordTowerXPGainedForRunStats(finalAmount);
 
         if (xpToNextLevel <= 0)
             xpToNextLevel = CalculateXPToNextLevel(level);
@@ -1362,44 +1364,64 @@ public class Tower : MonoBehaviour
         return appliesBurn || appliesPoison || appliesSlow;
     }
 
+    public float GetEffectiveRange()
+    {
+        return Mathf.Max(0f, range + TowerSupportTileEffect.GetRangeBonus(this));
+    }
+
+    public float GetEffectiveFireRate()
+    {
+        return Mathf.Max(0.01f, fireRate * TowerSupportTileEffect.GetFireRateMultiplier(this));
+    }
+
+    public int GetEffectiveDamage()
+    {
+        return Mathf.Max(0, Mathf.RoundToInt(damage * TowerSupportTileEffect.GetDamageMultiplier(this)));
+    }
+
+    private int GetEffectivePointUpgradePowerMultiplier()
+    {
+        return Mathf.Max(1, pointUpgradePowerMultiplier + TowerSupportTileEffect.GetPointUpgradePowerBonus(this));
+    }
+
     public int GetPointDamageIncreasePreview()
     {
-        return Mathf.Max(1, damageIncreasePerGoldUpgrade * pointUpgradePowerMultiplier);
+        return Mathf.Max(1, damageIncreasePerGoldUpgrade * GetEffectivePointUpgradePowerMultiplier());
     }
 
     public float GetPointRangeIncreasePreview()
     {
-        return rangeIncreasePerGoldUpgrade * pointUpgradePowerMultiplier;
+        return rangeIncreasePerGoldUpgrade * GetEffectivePointUpgradePowerMultiplier();
     }
 
     public float GetPointFireRateIncreasePreview()
     {
-        return fireRateIncreasePerGoldUpgrade * pointUpgradePowerMultiplier;
+        return fireRateIncreasePerGoldUpgrade * GetEffectivePointUpgradePowerMultiplier();
     }
 
     public int GetPointBurnDamageIncreasePreview()
     {
-        return burnDamageIncreasePerGoldUpgrade * pointUpgradePowerMultiplier;
+        return burnDamageIncreasePerGoldUpgrade * GetEffectivePointUpgradePowerMultiplier();
     }
 
     public int GetPointPoisonDamageIncreasePreview()
     {
-        return poisonDamageIncreasePerGoldUpgrade * pointUpgradePowerMultiplier;
+        return poisonDamageIncreasePerGoldUpgrade * GetEffectivePointUpgradePowerMultiplier();
     }
 
     public float GetPointEffectDurationIncreasePreview()
     {
-        return effectDurationIncreasePerGoldUpgrade * pointUpgradePowerMultiplier;
+        return effectDurationIncreasePerGoldUpgrade * GetEffectivePointUpgradePowerMultiplier();
     }
 
     public float GetPointSlowAmountIncreasePreview()
     {
-        return slowAmountIncreasePerGoldUpgrade * pointUpgradePowerMultiplier;
+        return slowAmountIncreasePerGoldUpgrade * GetEffectivePointUpgradePowerMultiplier();
     }
 
     public float GetPointSlowDurationIncreasePreview()
     {
-        return slowDurationIncreasePerGoldUpgrade * pointUpgradePowerMultiplier;
+        return slowDurationIncreasePerGoldUpgrade * GetEffectivePointUpgradePowerMultiplier();
     }
 
     public int GetUpgradePointCost()

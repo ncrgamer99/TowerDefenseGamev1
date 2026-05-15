@@ -377,6 +377,20 @@ public class TileManager : MonoBehaviour
         return true;
     }
 
+
+    private bool HasAlternativeValidExtension(Vector2Int blockedPosition)
+    {
+        List<Vector2Int> validExtensions = GetValidExtensionPositions();
+
+        foreach (Vector2Int position in validExtensions)
+        {
+            if (position != blockedPosition)
+                return true;
+        }
+
+        return false;
+    }
+
     private void AddPathTile(Vector2Int gridPosition)
     {
         AddPathTile(gridPosition, PathBuildOptionType.PathTile);

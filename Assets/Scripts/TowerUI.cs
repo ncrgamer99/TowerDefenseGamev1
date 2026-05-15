@@ -340,9 +340,9 @@ public class TowerUI : MonoBehaviour
 
         statsText.text =
             "Stats" +
-            "\nDMG: " + selectedTower.damage +
-            " | RNG: " + selectedTower.range.ToString("0.0") +
-            " | FR: " + selectedTower.fireRate.ToString("0.00") +
+            "\nDMG: " + BuildEffectiveStatText(selectedTower.damage.ToString(), selectedTower.GetEffectiveDamage().ToString()) +
+            " | RNG: " + BuildEffectiveStatText(selectedTower.range.ToString("0.0"), selectedTower.GetEffectiveRange().ToString("0.0")) +
+            " | FR: " + BuildEffectiveStatText(selectedTower.fireRate.ToString("0.00"), selectedTower.GetEffectiveFireRate().ToString("0.00")) +
             "\nTarget: " + selectedTower.GetTargetModeName() +
             GetEffectStatsText() +
             "\n\nWave" +
@@ -353,6 +353,14 @@ public class TowerUI : MonoBehaviour
             "\nKills: " + selectedTower.totalKills +
             " | Assists: " + selectedTower.totalAssists +
             "\nDamage: " + selectedTower.totalDamageDealt.ToString("0");
+    }
+
+    private string BuildEffectiveStatText(string baseValue, string effectiveValue)
+    {
+        if (baseValue == effectiveValue)
+            return baseValue;
+
+        return baseValue + " > " + effectiveValue;
     }
 
     private string GetEffectStatsText()
