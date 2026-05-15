@@ -2391,6 +2391,7 @@ public class ChaosJusticeManager : MonoBehaviour
             " | Chaos: " + snapshot.chaosScore + " (" + snapshot.chaosPercent + "%)" +
             "\nGold-Gerechtigkeit: " + runData.goldJusticeLevel + " | XP-Gerechtigkeit: " + runData.xpJusticeLevel +
             "\nGold-Reward x" + GetGoldRewardMultiplier().ToString("0.00") + " | XP-Reward x" + GetXPRewardMultiplier().ToString("0.00") +
+            "\nRisiko-Auswahlmodus: " + GetRiskSelectionModeLabel() +
             "\nRisiko-Gruppen:\n" + GetGroupedRiskModifierSummary() +
             "\nAktive Risiken:\n" + GetDetailedRiskModifierText(maxRiskDetailsInHud);
     }
