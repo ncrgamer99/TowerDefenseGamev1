@@ -70,19 +70,19 @@ public class BuildSelectionUI : MonoBehaviour
     public bool hideSelectionTitleAndCloseButton = true;
     public bool autoRepairSlotGridLayout = true;
     public int slotGridColumns = 6;
-    public Vector2 slotGridSpacing = new Vector2(8f, 6f);
-    public Vector2 slotSize = new Vector2(76f, 86f);
-    public Vector2 iconSize = new Vector2(40f, 40f);
-    public Vector2 labelSize = new Vector2(82f, 18f);
-    public Vector2 costLabelSize = new Vector2(82f, 16f);
-    public float labelYOffset = -18f;
-    public float costLabelYOffset = -33f;
-    public float slotIconYOffset = 13f;
+    public Vector2 slotGridSpacing = new Vector2(6f, 5f);
+    public Vector2 slotSize = new Vector2(68f, 78f);
+    public Vector2 iconSize = new Vector2(36f, 36f);
+    public Vector2 labelSize = new Vector2(72f, 16f);
+    public Vector2 costLabelSize = new Vector2(72f, 14f);
+    public float labelYOffset = -16f;
+    public float costLabelYOffset = -29f;
+    public float slotIconYOffset = 12f;
     public bool preserveIconAspect = true;
 
     [Header("Top Right Layout QoL")]
     public bool autoPlaceSelectedWindowBelowUtilityButtons = true;
-    public Vector2 selectedWindowTopRightPosition = new Vector2(-170f, -172f);
+    public Vector2 selectedWindowTopRightPosition = new Vector2(-170f, -215f);
 
     [Header("Theme Colors")]
     public Color panelColor = new Color32(20, 24, 31, 245);
