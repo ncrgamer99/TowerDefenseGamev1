@@ -4,6 +4,16 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
+public enum PathBuildOptionType
+{
+    PathTile = 0,
+    TrapTile = 1,
+    SpecialTile = 2,
+    GoldTile = 4,
+    SlowTile = 5,
+    KnockTile = 6
+}
+
 [System.Serializable]
 public class PathBuildOption
 {
@@ -327,6 +337,7 @@ public class PathBuildManager : MonoBehaviour
                option.optionType == PathBuildOptionType.XPTile ||
                option.optionType == PathBuildOptionType.UpgradeTile ||
                option.optionType == PathBuildOptionType.ComboTile;
+               option.optionType == PathBuildOptionType.KnockTile;
     }
 
     private List<PathBuildOption> CreateDefaultSpecialOptions()
@@ -392,6 +403,8 @@ public class PathBuildManager : MonoBehaviour
                 displayName = "Combo Tile",
                 description = "Zählt als PathTile. Blutet und verlangsamt Gegner; normale Gegner können zurückgeworfen werden.",
                 optionType = PathBuildOptionType.ComboTile
+                description = "Zählt als PathTile. Wirft Gegner 3 PathTiles zurück. 2s Cooldown pro Tile.",
+                optionType = PathBuildOptionType.KnockTile
             }
         };
     }
@@ -474,6 +487,10 @@ public class PathBuildManager : MonoBehaviour
                  option.optionType == PathBuildOptionType.XPTile ||
                  option.optionType == PathBuildOptionType.UpgradeTile)
             success = tileManager.TryBuildSupportTileAt(hoveredGridPosition, option.optionType);
+                 option.optionType == PathBuildOptionType.KnockTile)
+            success = tileManager.TryExtendSpecialPathTo(hoveredGridPosition, option.optionType);
+        else if (option.optionType == PathBuildOptionType.GoldTile)
+            success = tileManager.TryBuildGoldTileAt(hoveredGridPosition);
         else
             Debug.Log(option.displayName + " gewählt. Funktion kommt später.");
 

@@ -121,4 +121,12 @@ public class SpecialPathTileEffect : MonoBehaviour
         if (enemy.KnockBackPathTiles(tiles, duration))
             nextKnockTime = Time.time + Mathf.Max(0f, cooldown);
     }
+                if (Time.time < nextKnockTime)
+                    return;
+
+                if (enemy.KnockBackPathTiles(knockBackTiles, knockBackDuration))
+                    nextKnockTime = Time.time + Mathf.Max(0f, knockCooldown);
+                break;
+        }
+    }
 }

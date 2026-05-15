@@ -385,6 +385,7 @@ public class Tower : MonoBehaviour
                 damageIncreasePerGoldUpgrade = 5;
                 rangeIncreasePerGoldUpgrade = 0.35f;
                 fireRateIncreasePerGoldUpgrade = 0.06f;
+                fireRateIncreasePerGoldUpgrade = 0.25f;
                 break;
 
             case TowerRole.Heavy:
@@ -404,6 +405,9 @@ public class Tower : MonoBehaviour
                 damageIncreasePerGoldUpgrade = 3;
                 rangeIncreasePerGoldUpgrade = 0.20f;
                 fireRateIncreasePerGoldUpgrade = 0.10f;
+                damageIncreasePerGoldUpgrade = 2;
+                rangeIncreasePerGoldUpgrade = 0.20f;
+                fireRateIncreasePerGoldUpgrade = 0.08f;
                 break;
 
             case TowerRole.Fire:
@@ -412,6 +416,7 @@ public class Tower : MonoBehaviour
                 range = 3.5f;
                 fireRate = 1.25f;
                 targetMode = TowerTargetMode.NoBurn;
+                targetMode = TowerTargetMode.First;
 
                 appliesBurn = true;
                 burnDamage = 1;
@@ -427,6 +432,7 @@ public class Tower : MonoBehaviour
                 damageIncreasePerGoldUpgrade = 1;
                 rangeIncreasePerGoldUpgrade = 0.25f;
                 fireRateIncreasePerGoldUpgrade = 0.20f;
+                fireRateIncreasePerGoldUpgrade = 0.15f;
                 burnDamageIncreasePerGoldUpgrade = 1;
                 effectDurationIncreasePerGoldUpgrade = 0.25f;
                 break;
