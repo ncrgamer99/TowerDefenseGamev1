@@ -23,7 +23,7 @@ public class SpecialPathTileEffect : MonoBehaviour
     [Header("Knock Tile")]
     public int knockBackTiles = 3;
     public float knockBackDuration = 0.35f;
-    public float knockCooldown = 5f;
+    public float knockCooldown = 3f;
 
     [Header("Combo Tile")]
     public float darknessDamagePerTick = 4f;
