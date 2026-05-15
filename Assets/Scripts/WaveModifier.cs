@@ -196,12 +196,17 @@ public class WaveModifier
     }
 
 
+    public int GetDisplayRiskLevel()
+    {
+        return Mathf.Max(0, riskLevel) + 1;
+    }
+
     public string GetDisplayNameWithLevel()
     {
         string safeName = string.IsNullOrEmpty(displayName) ? modifierType.ToString() : displayName;
 
         if (isPermanentRiskModifier)
-            return safeName + " (Stufe " + (Mathf.Max(0, riskLevel) + 1) + ")";
+            return safeName + " (Stufe " + GetDisplayRiskLevel() + ")";
 
         return safeName;
     }
