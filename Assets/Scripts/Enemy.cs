@@ -175,6 +175,7 @@ public class Enemy : MonoBehaviour
     private bool isPoisoned = false;
     private int activeBurnStacks = 0;
     private bool isBleeding = false;
+    private bool isDarkened = false;
     private bool isSlowed = false;
     private bool isTowerSlowed = false;
     private bool isTileSlowed = false;
@@ -188,6 +189,7 @@ public class Enemy : MonoBehaviour
     private Coroutine burnRoutine;
     private Coroutine poisonRoutine;
     private Coroutine bleedRoutine;
+    private Coroutine darknessRoutine;
     private Coroutine towerSlowRoutine;
     private Coroutine tileSlowRoutine;
     private Coroutine knockBackRoutine;
@@ -200,8 +202,9 @@ public class Enemy : MonoBehaviour
     public int ActiveBurnStacks => activeBurnStacks;
     public bool IsPoisoned => isPoisoned;
     public bool IsBleeding => isBleeding;
+    public bool IsDarkened => isDarkened;
     public bool IsSlowed => isSlowed;
-    public bool HasAnyEffect => isBurning || isPoisoned || isBleeding || isSlowed;
+    public bool HasAnyEffect => isBurning || isPoisoned || isBleeding || isDarkened || isSlowed;
 
     private void Awake()
     {
@@ -720,12 +723,39 @@ public class Enemy : MonoBehaviour
         ApplyBleedFromSource(damagePerSecond, duration, null);
     }
 
-    private void ApplyBleedFromSource(float damagePerSecond, float duration, Tower sourceTower)
+    public void ApplyBleed(float damagePerTick, float duration, float tickInterval)
+    {
+        ApplyBleedFromSource(damagePerTick, duration, null, tickInterval, true);
+    }
+
+    public void ApplyDarkness(float damagePerTick, float duration, float tickInterval)
     {
         if (isDead || reachedBase || immuneToEffects)
             return;
 
-        damagePerSecond = Mathf.Max(0.1f, damagePerSecond);
+        damagePerTick = Mathf.Max(0.1f, damagePerTick);
+        duration = Mathf.Max(0.1f, duration);
+        tickInterval = Mathf.Max(0.1f, tickInterval);
+        RegisterContributor(null, 0.1f);
+        RegisterHealthBarDamageEffect(EnemyHealthBarEffectMode.Darkness);
+
+        if (darknessRoutine != null)
+            StopCoroutine(darknessRoutine);
+
+        darknessRoutine = StartCoroutine(DamageOverTimeRoutine(damagePerTick, duration, null, true, EnemyDamageOverTimeType.Darkness, tickInterval, true));
+    }
+
+    private void ApplyBleedFromSource(float damagePerSecond, float duration, Tower sourceTower)
+    {
+        ApplyBleedFromSource(damagePerSecond, duration, sourceTower, 0f, false);
+    }
+
+    private void ApplyBleedFromSource(float damageValue, float duration, Tower sourceTower, float tickInterval, bool damageValueIsPerTick)
+    {
+        if (isDead || reachedBase || immuneToEffects)
+            return;
+
+        damageValue = Mathf.Max(0.1f, damageValue);
         duration = Mathf.Max(0.1f, duration);
         RegisterContributor(sourceTower, 0.1f);
         RegisterHealthBarDamageEffect(EnemyHealthBarEffectMode.Bleed);
@@ -733,7 +763,10 @@ public class Enemy : MonoBehaviour
         if (bleedRoutine != null)
             StopCoroutine(bleedRoutine);
 
-        bleedRoutine = StartCoroutine(DamageOverTimeRoutine(damagePerSecond, duration, sourceTower, false, EnemyDamageOverTimeType.Bleed));
+        if (damageValueIsPerTick)
+            bleedRoutine = StartCoroutine(DamageOverTimeRoutine(damageValue, duration, sourceTower, false, EnemyDamageOverTimeType.Bleed, tickInterval, true));
+        else
+            bleedRoutine = StartCoroutine(DamageOverTimeRoutine(damageValue, duration, sourceTower, false, EnemyDamageOverTimeType.Bleed));
     }
 
 
@@ -777,23 +810,31 @@ public class Enemy : MonoBehaviour
 
     private IEnumerator DamageOverTimeRoutine(float damagePerSecond, float duration, Tower sourceTower, bool ignoreArmor, EnemyDamageOverTimeType dotType)
     {
+        return DamageOverTimeRoutine(damagePerSecond, duration, sourceTower, ignoreArmor, dotType, 0f, false);
+    }
+
+    private IEnumerator DamageOverTimeRoutine(float damageValue, float duration, Tower sourceTower, bool ignoreArmor, EnemyDamageOverTimeType dotType, float tickRateOverride, bool damageValueIsPerTick)
+    {
         if (dotType == EnemyDamageOverTimeType.Poison)
             isPoisoned = true;
 
         if (dotType == EnemyDamageOverTimeType.Bleed)
             isBleeding = true;
 
+        if (dotType == EnemyDamageOverTimeType.Darkness)
+            isDarkened = true;
+
         UpdateVisualColor();
         float elapsed = 0f;
-        float tickRate = Mathf.Max(0.1f, defaultEffectTickRate);
+        float tickRate = tickRateOverride > 0f ? Mathf.Max(0.1f, tickRateOverride) : Mathf.Max(0.1f, defaultEffectTickRate);
 
         while (elapsed < duration && !isDead && !reachedBase)
         {
-            float tickDamage = damagePerSecond * tickRate * effectDamageMultiplier;
+            float tickDamage = damageValueIsPerTick ? damageValue * effectDamageMultiplier : damageValue * tickRate * effectDamageMultiplier;
 
             if (tickDamage > 0f)
             {
-                if (IsChaosVariantRole(EnemyRole.Learner) && (dotType == EnemyDamageOverTimeType.Burn || dotType == EnemyDamageOverTimeType.Poison || dotType == EnemyDamageOverTimeType.Bleed))
+                if (IsChaosVariantRole(EnemyRole.Learner) && (dotType == EnemyDamageOverTimeType.Burn || dotType == EnemyDamageOverTimeType.Poison || dotType == EnemyDamageOverTimeType.Bleed || dotType == EnemyDamageOverTimeType.Darkness))
                 {
                     float reducedDamage = tickDamage * Mathf.Clamp01(chaosLearnerDotDamageMultiplier);
                     TakeDamageInternal(reducedDamage, sourceTower, ignoreArmor, false);
@@ -814,6 +855,9 @@ public class Enemy : MonoBehaviour
 
         if (dotType == EnemyDamageOverTimeType.Bleed)
             isBleeding = false;
+
+        if (dotType == EnemyDamageOverTimeType.Darkness)
+            isDarkened = false;
 
         RefreshHealthBarEffectModeAfterEffectEnded();
         RefreshHealthBar();
@@ -1124,6 +1168,8 @@ public class Enemy : MonoBehaviour
                 return isSlowed;
             case EnemyEffectCheck.Bleed:
                 return isBleeding;
+            case EnemyEffectCheck.Darkness:
+                return isDarkened;
             case EnemyEffectCheck.Any:
                 return HasAnyEffect;
             default:
@@ -1136,7 +1182,7 @@ public class Enemy : MonoBehaviour
         if (effectMode == EnemyHealthBarEffectMode.None)
             return;
 
-        if (healthBarEffectMode == EnemyHealthBarEffectMode.None)
+        if (effectMode == EnemyHealthBarEffectMode.Darkness || healthBarEffectMode == EnemyHealthBarEffectMode.None)
             healthBarEffectMode = effectMode;
 
         RefreshHealthBar();
@@ -1153,7 +1199,12 @@ public class Enemy : MonoBehaviour
         if (healthBarEffectMode == EnemyHealthBarEffectMode.Bleed && isBleeding)
             return;
 
-        if (isBurning)
+        if (healthBarEffectMode == EnemyHealthBarEffectMode.Darkness && isDarkened)
+            return;
+
+        if (isDarkened)
+            healthBarEffectMode = EnemyHealthBarEffectMode.Darkness;
+        else if (isBurning)
             healthBarEffectMode = EnemyHealthBarEffectMode.Burn;
         else if (isPoisoned)
             healthBarEffectMode = EnemyHealthBarEffectMode.Poison;
@@ -1522,6 +1573,13 @@ public class Enemy : MonoBehaviour
             targetColor = Color.Lerp(targetColor, bleedVisualColor, 0.25f);
         }
 
+        if (isDarkened)
+        {
+            Color darknessVisualColor = Color.black;
+            darknessVisualColor.a = defaultColor.a;
+            targetColor = Color.Lerp(targetColor, darknessVisualColor, 0.85f);
+        }
+
         if (isSlowed)
         {
             Color slowVisualColor = slowColor;
@@ -1600,6 +1658,11 @@ public class Enemy : MonoBehaviour
         return isBleeding;
     }
 
+    public bool HasDarkness()
+    {
+        return isDarkened;
+    }
+
     public bool HasSlow()
     {
         return isSlowed;
@@ -1612,6 +1675,7 @@ public enum EnemyEffectCheck
     Poison,
     Slow,
     Bleed,
+    Darkness,
     Any
 }
 
@@ -1620,12 +1684,14 @@ public enum EnemyHealthBarEffectMode
     None,
     Burn,
     Poison,
-    Bleed
+    Bleed,
+    Darkness
 }
 
 public enum EnemyDamageOverTimeType
 {
     Burn,
     Poison,
-    Bleed
+    Bleed,
+    Darkness
 }

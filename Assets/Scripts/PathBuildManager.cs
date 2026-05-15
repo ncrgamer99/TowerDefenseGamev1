@@ -172,19 +172,55 @@ public class PathBuildManager : MonoBehaviour
         {
             optionButton1.onClick.RemoveAllListeners();
             optionButton1.onClick.AddListener(() => ChooseOption(0));
+            SetupOptionHover(optionButton1, 0);
         }
 
         if (optionButton2 != null)
         {
             optionButton2.onClick.RemoveAllListeners();
             optionButton2.onClick.AddListener(() => ChooseOption(1));
+            SetupOptionHover(optionButton2, 1);
         }
 
         if (optionButton3 != null)
         {
             optionButton3.onClick.RemoveAllListeners();
             optionButton3.onClick.AddListener(() => ChooseOption(2));
+            SetupOptionHover(optionButton3, 2);
         }
+    }
+
+    private void SetupOptionHover(Button button, int optionIndex)
+    {
+        if (button == null)
+            return;
+
+        PathBuildOptionHoverProxy hoverProxy = button.GetComponent<PathBuildOptionHoverProxy>();
+
+        if (hoverProxy == null)
+            hoverProxy = button.gameObject.AddComponent<PathBuildOptionHoverProxy>();
+
+        hoverProxy.Initialize(this, optionIndex);
+    }
+
+    public void ShowOptionDescription(int optionIndex)
+    {
+        if (!choiceOpen || descriptionText == null)
+            return;
+
+        if (optionIndex < 0 || optionIndex >= currentOptions.Length || currentOptions[optionIndex] == null)
+        {
+            ShowDefaultChoiceDescription();
+            return;
+        }
+
+        descriptionText.text = currentOptions[optionIndex].description;
+    }
+
+    public void ShowDefaultChoiceDescription()
+    {
+        if (descriptionText != null)
+            descriptionText.text = "Hover zeigt kurz, was ein Tile macht.";
     }
 
     private void UpdateGhost()
@@ -284,15 +320,16 @@ public class PathBuildManager : MonoBehaviour
         currentOptions[0] = new PathBuildOption
         {
             displayName = "Path Tile",
-            description = "Verlängert den Weg und startet danach die nächste Welle.",
+            description = "Normaler Weg: Base zieht weiter, danach startet die nächste Welle.",
             optionType = PathBuildOptionType.PathTile
         };
 
-        currentOptions[1] = GetRandomOption();
-        currentOptions[2] = GetRandomOption();
+        List<PathBuildOption> optionPool = CreateSpecialOptionPool();
+        currentOptions[1] = DrawRandomOptionFromPool(optionPool);
+        currentOptions[2] = DrawRandomOptionFromPool(optionPool);
     }
 
-    private PathBuildOption GetRandomOption()
+    private List<PathBuildOption> CreateSpecialOptionPool()
     {
         List<PathBuildOption> optionPool = new List<PathBuildOption>();
 
@@ -301,15 +338,99 @@ public class PathBuildManager : MonoBehaviour
             foreach (PathBuildOption option in randomOptions)
             {
                 if (IsSupportedSpecialOption(option))
-                    optionPool.Add(option);
+                    AddOptionIfTypeMissing(optionPool, CreateDisplayOption(option));
             }
         }
+
+        AddMissingDefaultSpecialOptions(optionPool);
 
         if (optionPool.Count == 0)
             optionPool.AddRange(CreateDefaultSpecialOptions());
 
+        return optionPool;
+    }
+
+    private PathBuildOption DrawRandomOptionFromPool(List<PathBuildOption> optionPool)
+    {
+        if (optionPool == null || optionPool.Count == 0)
+            return CreateDefaultSpecialOptions()[0];
+
         int randomIndex = Random.Range(0, optionPool.Count);
-        return optionPool[randomIndex];
+        PathBuildOption option = optionPool[randomIndex];
+        optionPool.RemoveAt(randomIndex);
+        return option;
+    }
+
+    private PathBuildOption CreateDisplayOption(PathBuildOption option)
+    {
+        if (option == null)
+            return null;
+
+        PathBuildOption defaultOption = GetDefaultSpecialOption(option.optionType);
+
+        if (defaultOption == null)
+            return option;
+
+        return new PathBuildOption
+        {
+            displayName = string.IsNullOrWhiteSpace(option.displayName) ? defaultOption.displayName : option.displayName,
+            description = ShouldUseDefaultDescription(option.description) ? defaultOption.description : option.description,
+            optionType = option.optionType
+        };
+    }
+
+    private bool ShouldUseDefaultDescription(string description)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+            return true;
+
+        string lowerDescription = description.ToLowerInvariant();
+        return lowerDescription.Contains("platzhalter") || lowerDescription.Contains("später");
+    }
+
+    private PathBuildOption GetDefaultSpecialOption(PathBuildOptionType optionType)
+    {
+        foreach (PathBuildOption option in CreateDefaultSpecialOptions())
+        {
+            if (option != null && option.optionType == optionType)
+                return option;
+        }
+
+        return null;
+    }
+
+    private void AddMissingDefaultSpecialOptions(List<PathBuildOption> optionPool)
+    {
+        if (optionPool == null)
+            return;
+
+        foreach (PathBuildOption defaultOption in CreateDefaultSpecialOptions())
+        {
+            AddOptionIfTypeMissing(optionPool, defaultOption);
+        }
+    }
+
+    private void AddOptionIfTypeMissing(List<PathBuildOption> optionPool, PathBuildOption option)
+    {
+        if (optionPool == null || option == null)
+            return;
+
+        if (!HasOptionType(optionPool, option.optionType))
+            optionPool.Add(option);
+    }
+
+    private bool HasOptionType(List<PathBuildOption> optionPool, PathBuildOptionType optionType)
+    {
+        if (optionPool == null)
+            return false;
+
+        foreach (PathBuildOption option in optionPool)
+        {
+            if (option != null && option.optionType == optionType)
+                return true;
+        }
+
+        return false;
     }
 
     private bool IsSupportedSpecialOption(PathBuildOption option)
@@ -336,61 +457,61 @@ public class PathBuildManager : MonoBehaviour
             new PathBuildOption
             {
                 displayName = "Gold Tile",
-                description = "Baut ein Goldtile. Die Base bleibt stehen. Während Waves erzeugt es +5 Gold pro Sekunde.",
+                description = "Gold-Tile: blockiert dieses Feld und erzeugt während Waves Gold.",
                 optionType = PathBuildOptionType.GoldTile
             },
             new PathBuildOption
             {
                 displayName = "Trap Tile",
-                description = "Zählt als PathTile. Gegner erhalten Blutung: 5s lang 10 Schaden pro Sekunde.",
+                description = "Trap-Tile: Weg-Tile. Gegner bluten 5s lang: 3 Schaden alle 2,5s.",
                 optionType = PathBuildOptionType.TrapTile
             },
             new PathBuildOption
             {
                 displayName = "Slow Tile",
-                description = "Zählt als PathTile. Gegner werden 2s auf 0,45 Speed verlangsamt.",
+                description = "Slow-Tile: Weg-Tile. Gegner werden kurz stark verlangsamt.",
                 optionType = PathBuildOptionType.SlowTile
             },
             new PathBuildOption
             {
                 displayName = "Knock Tile",
-                description = "Zählt als PathTile. Wirft normale Gegner 3 PathTiles zurück. Boss/MiniBoss immun.",
+                description = "Knock-Tile: Weg-Tile. Wirft normale Gegner zurück; Boss/MiniBoss immun.",
                 optionType = PathBuildOptionType.KnockTile
             },
             new PathBuildOption
             {
                 displayName = "Range Tile",
-                description = "Kein PathTile. Tower im Umkreis erhalten +1 Range.",
+                description = "Range-Tile: kein Weg. Nahe Tower erhalten mehr Reichweite.",
                 optionType = PathBuildOptionType.RangeTile
             },
             new PathBuildOption
             {
                 displayName = "Damage Tile",
-                description = "Kein PathTile. Tower im Umkreis verursachen +20% Schaden.",
+                description = "Damage-Tile: kein Weg. Nahe Tower verursachen mehr Schaden.",
                 optionType = PathBuildOptionType.DamageTile
             },
             new PathBuildOption
             {
                 displayName = "Rate Tile",
-                description = "Kein PathTile. Tower im Umkreis feuern +20% schneller.",
+                description = "Rate-Tile: kein Weg. Nahe Tower feuern schneller.",
                 optionType = PathBuildOptionType.RateTile
             },
             new PathBuildOption
             {
                 displayName = "XP Tile",
-                description = "Kein PathTile. Tower im Umkreis erhalten +25% XP.",
+                description = "XP-Tile: kein Weg. Nahe Tower erhalten mehr XP.",
                 optionType = PathBuildOptionType.XPTile
             },
             new PathBuildOption
             {
                 displayName = "Upgrade Tile",
-                description = "Kein PathTile. Point-Upgrades naher Tower sind stärker.",
+                description = "Upgrade-Tile: kein Weg. Point-Upgrades naher Tower sind stärker.",
                 optionType = PathBuildOptionType.UpgradeTile
             },
             new PathBuildOption
             {
                 displayName = "Combo Tile",
-                description = "Zählt als PathTile. Blutet und verlangsamt Gegner; normale Gegner können zurückgeworfen werden.",
+                description = "Combo-Tile: Darkness, wenn Gegner Burn, Poison und Bleed gleichzeitig haben.",
                 optionType = PathBuildOptionType.ComboTile
             }
         };
@@ -407,10 +528,7 @@ public class PathBuildManager : MonoBehaviour
         if (optionText3 != null)
             optionText3.text = "[3] " + currentOptions[2].displayName;
 
-        if (descriptionText != null)
-        {
-            descriptionText.text = "Wähle ein Tile für diese Position.";
-        }
+        ShowDefaultChoiceDescription();
     }
 
     private void HandleHotkeys()
@@ -547,5 +665,29 @@ public class PathBuildManager : MonoBehaviour
     public bool IsChoiceOpen()
     {
         return choiceOpen;
+    }
+}
+
+public class PathBuildOptionHoverProxy : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+{
+    private PathBuildManager owner;
+    private int optionIndex;
+
+    public void Initialize(PathBuildManager newOwner, int newOptionIndex)
+    {
+        owner = newOwner;
+        optionIndex = newOptionIndex;
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (owner != null)
+            owner.ShowOptionDescription(optionIndex);
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        if (owner != null)
+            owner.ShowDefaultChoiceDescription();
     }
 }
