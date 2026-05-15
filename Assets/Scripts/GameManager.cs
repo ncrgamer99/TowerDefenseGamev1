@@ -1009,6 +1009,15 @@ public class GameManager : MonoBehaviour
         return chaosUnlockUI;
     }
 
+
+    public void RegisterBlockedEventChoice(string eventName, string eventType, int goldGained, int livesGained, float buildPhaseDuration)
+    {
+        RunStatisticsTracker stats = GetRunStatisticsTracker();
+
+        if (stats != null)
+            stats.RecordBlockedEventChoice(eventName, eventType, goldGained, livesGained, buildPhaseDuration);
+    }
+
     public void MarkBlockedEventChosenForCurrentPosition()
     {
         blockedEventChosenForCurrentPosition = true;

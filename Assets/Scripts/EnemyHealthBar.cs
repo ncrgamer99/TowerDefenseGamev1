@@ -249,6 +249,9 @@ public class EnemyHealthBar : MonoBehaviour
             case EnemyHealthBarEffectMode.Poison:
                 return poisonHealthColor;
 
+            case EnemyHealthBarEffectMode.Bleed:
+                return burnHealthColor;
+
             case EnemyHealthBarEffectMode.None:
             default:
                 return normalHealthColor;
