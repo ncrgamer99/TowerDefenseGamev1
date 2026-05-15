@@ -426,6 +426,7 @@ public class EnemySpawner : MonoBehaviour
             return selectedBlocks;
 
         ShuffleChaosWaveBlocks(candidates, rng);
+        PrioritizePreferredChaosWaveBlocks(candidates, waveNumber, scenario);
 
         int desiredCount = GetDesiredChaosWaveBlockCount(chaosLevel, rng);
         desiredCount = Mathf.Clamp(desiredCount, 1, Mathf.Max(1, maxChaosWaveBlocksV1));
@@ -462,6 +463,43 @@ public class EnemySpawner : MonoBehaviour
         }
 
         return selectedBlocks;
+    }
+
+    private void PrioritizePreferredChaosWaveBlocks(List<ChaosWaveBlock> candidates, int waveNumber, WaveScenario scenario)
+    {
+        if (candidates == null || candidates.Count <= 1 || !usePreparedWaveModifiers || activeWaveModifiers == null)
+            return;
+
+        int insertIndex = 0;
+        HashSet<ChaosWaveBlockType> prioritizedTypes = new HashSet<ChaosWaveBlockType>();
+
+        foreach (WaveModifier modifier in activeWaveModifiers)
+        {
+            if (modifier == null || !modifier.IsValid())
+                continue;
+
+            if (!modifier.AffectsWave(waveNumber, scenario))
+                continue;
+
+            if (!(modifier.modifierType == WaveModifierType.ChaosWaveBlockPressure || modifier.strengthensChaosWaveBlocks))
+                continue;
+
+            ChaosWaveBlockType preferredType = modifier.preferredChaosWaveBlockType;
+
+            if (preferredType == ChaosWaveBlockType.None || prioritizedTypes.Contains(preferredType))
+                continue;
+
+            int candidateIndex = candidates.FindIndex(block => block != null && block.blockType == preferredType);
+
+            if (candidateIndex < 0)
+                continue;
+
+            ChaosWaveBlock preferredBlock = candidates[candidateIndex];
+            candidates.RemoveAt(candidateIndex);
+            candidates.Insert(Mathf.Min(insertIndex, candidates.Count), preferredBlock);
+            prioritizedTypes.Add(preferredType);
+            insertIndex++;
+        }
     }
 
     private float GetChaosWaveBlockChanceForWave(int chaosLevel, int waveNumber, WaveScenario scenario)

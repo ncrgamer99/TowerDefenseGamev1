@@ -18432,12 +18432,25 @@ MonoBehaviour:
   useInspectorRiskModifierPool: 0
   riskModifierPool: []
   useUnlockGateForRiskModifierPool: 1
-  useCompletelyRandomRiskSelection: 1
-  allowImmediateRiskRepeats: 1
+  useCompletelyRandomRiskSelection: 0
+  allowImmediateRiskRepeats: 0
   logRandomRiskSelection: 0
   riskOfferCount: 3
   allowDuplicateRiskCardsInSameOffer: 0
   showNoModifierOption: 1
+  allowNoModifierAtMaxChaos: 1
+  useRewardRiskDiminishingReturns: 1
+  rewardRiskDiminishingFactor: 0.65
+  maxChaosRewardBonus: 0.75
+  maxSingleRiskRewardBonus: 0.25
+  maxEnemyCountMultiplierPerRisk: 1.65
+  maxFlatEnemyBonusPerRisk: 12
+  maxExtraRoleAmountPerRisk: 10
+  minSpawnDelayMultiplierPerRisk: 0.55
+  maxChaosVariantChanceBonusPerRisk: 0.3
+  maxChaosVariantFlatBonusPerRisk: 5
+  maxChaosWaveBlockStrengthBonusPerRisk: 3
+  maxChaosWaveBlockChanceBonusPerRisk: 0.2
   useFairRiskRotation: 1
   avoidDuplicateRiskModifiersUntilPoolExhausted: 1
   includeRiskSummaryInChoiceText: 1
