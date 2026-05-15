@@ -67,18 +67,22 @@ public class BuildSelectionUI : MonoBehaviour
     public bool createMissingIconImages = true;
     public bool createSlotNameLabels = true;
     public bool showSlotCostLabels = true;
-    public Vector2 slotSize = new Vector2(92f, 104f);
-    public Vector2 iconSize = new Vector2(52f, 52f);
+    public bool hideSelectionTitleAndCloseButton = true;
+    public bool autoRepairSlotGridLayout = true;
+    public int slotGridColumns = 4;
+    public Vector2 slotGridSpacing = new Vector2(10f, 8f);
+    public Vector2 slotSize = new Vector2(88f, 96f);
+    public Vector2 iconSize = new Vector2(48f, 48f);
     public Vector2 labelSize = new Vector2(82f, 18f);
     public Vector2 costLabelSize = new Vector2(82f, 16f);
-    public float labelYOffset = -24f;
-    public float costLabelYOffset = -43f;
-    public float slotIconYOffset = 13f;
+    public float labelYOffset = -21f;
+    public float costLabelYOffset = -39f;
+    public float slotIconYOffset = 14f;
     public bool preserveIconAspect = true;
 
     [Header("Top Right Layout QoL")]
     public bool autoPlaceSelectedWindowBelowUtilityButtons = true;
-    public Vector2 selectedWindowTopRightPosition = new Vector2(-170f, -122f);
+    public Vector2 selectedWindowTopRightPosition = new Vector2(-170f, -142f);
 
     [Header("Theme Colors")]
     public Color panelColor = new Color32(20, 24, 31, 245);
@@ -109,6 +113,7 @@ public class BuildSelectionUI : MonoBehaviour
         ApplyBuildOptionDefaultsIfEnabled();
         SetupButtons();
         ApplyTheme();
+        ApplyCompactSelectionHeaderIfNeeded();
         RepairAllSlotLayoutsIfNeeded();
         CloseSelectionPanel();
         HideTooltip();
@@ -259,6 +264,9 @@ public class BuildSelectionUI : MonoBehaviour
         {
             closeSelectionButton.onClick.RemoveAllListeners();
             closeSelectionButton.onClick.AddListener(CancelTowerBuildSelection);
+
+            if (hideSelectionTitleAndCloseButton)
+                closeSelectionButton.gameObject.SetActive(false);
         }
 
         EnsureLegacySlotsIfNeeded();
@@ -605,6 +613,66 @@ public class BuildSelectionUI : MonoBehaviour
 
         foreach (TowerSelectionSlot slot in towerSlots)
             SetupSlot(slot);
+
+        RepairSlotGridLayoutIfNeeded();
+    }
+
+    private void RepairSlotGridLayoutIfNeeded()
+    {
+        if (!autoRepairSlotGridLayout || towerSlots == null)
+            return;
+
+        Transform gridParent = ResolveAutoCreatedSlotParent();
+
+        if (gridParent == null)
+            return;
+
+        GridLayoutGroup grid = gridParent.GetComponent<GridLayoutGroup>();
+
+        if (grid == null)
+            return;
+
+        int columns = Mathf.Max(1, slotGridColumns);
+        int visibleSlotCount = 0;
+
+        foreach (TowerSelectionSlot slot in towerSlots)
+        {
+            if (slot != null && slot.button != null)
+                visibleSlotCount++;
+        }
+
+        int rows = Mathf.Max(1, Mathf.CeilToInt(visibleSlotCount / (float)columns));
+        grid.cellSize = slotSize;
+        grid.spacing = slotGridSpacing;
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = columns;
+
+        RectTransform rect = gridParent.GetComponent<RectTransform>();
+
+        if (rect != null)
+        {
+            Vector2 size = rect.sizeDelta;
+            size.x = Mathf.Max(size.x, columns * slotSize.x + (columns - 1) * slotGridSpacing.x);
+            size.y = rows * slotSize.y + (rows - 1) * slotGridSpacing.y;
+            rect.sizeDelta = size;
+        }
+    }
+
+    private void ApplyCompactSelectionHeaderIfNeeded()
+    {
+        if (!hideSelectionTitleAndCloseButton || selectionPanel == null)
+            return;
+
+        Transform title = selectionPanel.transform.Find("Header/TitleText");
+
+        if (title == null)
+            title = selectionPanel.transform.Find("TitleText");
+
+        if (title != null)
+            title.gameObject.SetActive(false);
+
+        if (closeSelectionButton != null)
+            closeSelectionButton.gameObject.SetActive(false);
     }
 
     private void ClearButtonChildTextsExceptProtected(Button button)
@@ -687,6 +755,7 @@ public class BuildSelectionUI : MonoBehaviour
         }
 
         selectionOpen = true;
+        ApplyCompactSelectionHeaderIfNeeded();
         RepairAllSlotLayoutsIfNeeded();
 
         if (selectionPanel != null)

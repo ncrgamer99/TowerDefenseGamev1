@@ -433,61 +433,6 @@ public class PathBuildManager : MonoBehaviour
         return false;
     }
 
-    private PathBuildOption CreateDisplayOption(PathBuildOption option)
-    {
-        if (option == null)
-            return null;
-
-        PathBuildOption defaultOption = GetDefaultSpecialOption(option.optionType);
-
-        if (defaultOption == null)
-            return option;
-
-        return new PathBuildOption
-        {
-            displayName = defaultOption.displayName,
-            description = defaultOption.description,
-            optionType = option.optionType
-        };
-    }
-
-    private PathBuildOption GetDefaultSpecialOption(PathBuildOptionType optionType)
-    {
-        foreach (PathBuildOption option in CreateDefaultSpecialOptions())
-        {
-            if (option != null && option.optionType == optionType)
-                return option;
-        }
-
-        return null;
-    }
-
-    private void AddMissingDefaultSpecialOptions(List<PathBuildOption> optionPool)
-    {
-        if (optionPool == null)
-            return;
-
-        foreach (PathBuildOption defaultOption in CreateDefaultSpecialOptions())
-        {
-            if (!HasOptionType(optionPool, defaultOption.optionType))
-                optionPool.Add(defaultOption);
-        }
-    }
-
-    private bool HasOptionType(List<PathBuildOption> optionPool, PathBuildOptionType optionType)
-    {
-        if (optionPool == null)
-            return false;
-
-        foreach (PathBuildOption option in optionPool)
-        {
-            if (option != null && option.optionType == optionType)
-                return true;
-        }
-
-        return false;
-    }
-
     private bool IsSupportedSpecialOption(PathBuildOption option)
     {
         if (option == null)
@@ -566,7 +511,7 @@ public class PathBuildManager : MonoBehaviour
             new PathBuildOption
             {
                 displayName = "Combo Tile",
-                description = "Combo-Tile: Weg-Tile mit Bleed, Slow und kleinem Knockback.",
+                description = "Combo-Tile: Darkness, wenn Gegner Burn, Poison und Bleed gleichzeitig haben.",
                 optionType = PathBuildOptionType.ComboTile
             }
         };
