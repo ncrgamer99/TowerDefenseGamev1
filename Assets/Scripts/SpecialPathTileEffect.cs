@@ -23,6 +23,15 @@ public class SpecialPathTileEffect : MonoBehaviour
     public float knockBackDuration = 0.35f;
     public float knockCooldown = 5f;
 
+    [Header("Combo Tile")]
+    public float comboBleedDamagePerSecond = 2f;
+    public float comboBleedDuration = 4f;
+    public float comboSlowMultiplier = 0.65f;
+    public float comboSlowDuration = 1.5f;
+    public int comboKnockBackTiles = 1;
+    public float comboKnockBackDuration = 0.20f;
+    public float comboCooldown = 4f;
+
     private float nextKnockTime = 0f;
 
     public void Configure(PathBuildOptionType newTileType, Vector2Int newGridPosition, float newTileSize)
@@ -87,6 +96,31 @@ public class SpecialPathTileEffect : MonoBehaviour
                 break;
 
             case PathBuildOptionType.KnockTile:
+                TryApplyKnock(enemy, knockBackTiles, knockBackDuration, knockCooldown);
+                break;
+
+            case PathBuildOptionType.ComboTile:
+                enemy.ApplyBleed(comboBleedDamagePerSecond, comboBleedDuration);
+                enemy.ApplySlow(comboSlowMultiplier, comboSlowDuration);
+                TryApplyKnock(enemy, comboKnockBackTiles, comboKnockBackDuration, comboCooldown);
+                break;
+        }
+    }
+
+    private void TryApplyKnock(Enemy enemy, int tiles, float duration, float cooldown)
+    {
+        if (enemy == null)
+            return;
+
+        if (enemy.IsBossOrMiniBossTarget())
+            return;
+
+        if (Time.time < nextKnockTime)
+            return;
+
+        if (enemy.KnockBackPathTiles(tiles, duration))
+            nextKnockTime = Time.time + Mathf.Max(0f, cooldown);
+    }
                 if (Time.time < nextKnockTime)
                     return;
 

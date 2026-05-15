@@ -364,6 +364,27 @@ public class Tower : MonoBehaviour
 
                 damageIncreasePerGoldUpgrade = 1;
                 rangeIncreasePerGoldUpgrade = 0.25f;
+                fireRateIncreasePerGoldUpgrade = 0.35f;
+                break;
+
+
+            case TowerRole.Sniper:
+                towerName = "Sniper Tower";
+                damage = 24;
+                range = 6.2f;
+                fireRate = 0.35f;
+                targetMode = TowerTargetMode.Elite;
+
+                damageUpgradeCost = 95;
+                rangeUpgradeCost = 80;
+                fireRateUpgradeCost = 90;
+                effectUpgradeCost = 999;
+                goldUpgradeCostIncrease = 30;
+                goldUpgradeCostMultiplier = 1.35f;
+
+                damageIncreasePerGoldUpgrade = 5;
+                rangeIncreasePerGoldUpgrade = 0.35f;
+                fireRateIncreasePerGoldUpgrade = 0.06f;
                 fireRateIncreasePerGoldUpgrade = 0.25f;
                 break;
 
@@ -381,6 +402,9 @@ public class Tower : MonoBehaviour
                 goldUpgradeCostIncrease = 25;
                 goldUpgradeCostMultiplier = 1.30f;
 
+                damageIncreasePerGoldUpgrade = 3;
+                rangeIncreasePerGoldUpgrade = 0.20f;
+                fireRateIncreasePerGoldUpgrade = 0.10f;
                 damageIncreasePerGoldUpgrade = 2;
                 rangeIncreasePerGoldUpgrade = 0.20f;
                 fireRateIncreasePerGoldUpgrade = 0.08f;
@@ -391,6 +415,7 @@ public class Tower : MonoBehaviour
                 damage = 2;
                 range = 3.5f;
                 fireRate = 1.25f;
+                targetMode = TowerTargetMode.NoBurn;
                 targetMode = TowerTargetMode.First;
 
                 appliesBurn = true;
@@ -406,6 +431,7 @@ public class Tower : MonoBehaviour
 
                 damageIncreasePerGoldUpgrade = 1;
                 rangeIncreasePerGoldUpgrade = 0.25f;
+                fireRateIncreasePerGoldUpgrade = 0.20f;
                 fireRateIncreasePerGoldUpgrade = 0.15f;
                 burnDamageIncreasePerGoldUpgrade = 1;
                 effectDurationIncreasePerGoldUpgrade = 0.25f;

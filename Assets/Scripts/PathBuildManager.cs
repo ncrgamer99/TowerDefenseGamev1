@@ -330,6 +330,13 @@ public class PathBuildManager : MonoBehaviour
         return option.optionType == PathBuildOptionType.TrapTile ||
                option.optionType == PathBuildOptionType.GoldTile ||
                option.optionType == PathBuildOptionType.SlowTile ||
+               option.optionType == PathBuildOptionType.KnockTile ||
+               option.optionType == PathBuildOptionType.RangeTile ||
+               option.optionType == PathBuildOptionType.DamageTile ||
+               option.optionType == PathBuildOptionType.RateTile ||
+               option.optionType == PathBuildOptionType.XPTile ||
+               option.optionType == PathBuildOptionType.UpgradeTile ||
+               option.optionType == PathBuildOptionType.ComboTile;
                option.optionType == PathBuildOptionType.KnockTile;
     }
 
@@ -358,6 +365,44 @@ public class PathBuildManager : MonoBehaviour
             new PathBuildOption
             {
                 displayName = "Knock Tile",
+                description = "Zählt als PathTile. Wirft normale Gegner 3 PathTiles zurück. Boss/MiniBoss immun.",
+                optionType = PathBuildOptionType.KnockTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Range Tile",
+                description = "Kein PathTile. Tower im Umkreis erhalten +1 Range.",
+                optionType = PathBuildOptionType.RangeTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Damage Tile",
+                description = "Kein PathTile. Tower im Umkreis verursachen +20% Schaden.",
+                optionType = PathBuildOptionType.DamageTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Rate Tile",
+                description = "Kein PathTile. Tower im Umkreis feuern +20% schneller.",
+                optionType = PathBuildOptionType.RateTile
+            },
+            new PathBuildOption
+            {
+                displayName = "XP Tile",
+                description = "Kein PathTile. Tower im Umkreis erhalten +25% XP.",
+                optionType = PathBuildOptionType.XPTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Upgrade Tile",
+                description = "Kein PathTile. Point-Upgrades naher Tower sind stärker.",
+                optionType = PathBuildOptionType.UpgradeTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Combo Tile",
+                description = "Zählt als PathTile. Blutet und verlangsamt Gegner; normale Gegner können zurückgeworfen werden.",
+                optionType = PathBuildOptionType.ComboTile
                 description = "Zählt als PathTile. Wirft Gegner 3 PathTiles zurück. 2s Cooldown pro Tile.",
                 optionType = PathBuildOptionType.KnockTile
             }
@@ -431,6 +476,17 @@ public class PathBuildManager : MonoBehaviour
             success = tileManager.TryExtendPathTo(hoveredGridPosition);
         else if (option.optionType == PathBuildOptionType.TrapTile ||
                  option.optionType == PathBuildOptionType.SlowTile ||
+                 option.optionType == PathBuildOptionType.KnockTile ||
+                 option.optionType == PathBuildOptionType.ComboTile)
+            success = tileManager.TryExtendSpecialPathTo(hoveredGridPosition, option.optionType);
+        else if (option.optionType == PathBuildOptionType.GoldTile)
+            success = tileManager.TryBuildGoldTileAt(hoveredGridPosition);
+        else if (option.optionType == PathBuildOptionType.RangeTile ||
+                 option.optionType == PathBuildOptionType.DamageTile ||
+                 option.optionType == PathBuildOptionType.RateTile ||
+                 option.optionType == PathBuildOptionType.XPTile ||
+                 option.optionType == PathBuildOptionType.UpgradeTile)
+            success = tileManager.TryBuildSupportTileAt(hoveredGridPosition, option.optionType);
                  option.optionType == PathBuildOptionType.KnockTile)
             success = tileManager.TryExtendSpecialPathTo(hoveredGridPosition, option.optionType);
         else if (option.optionType == PathBuildOptionType.GoldTile)

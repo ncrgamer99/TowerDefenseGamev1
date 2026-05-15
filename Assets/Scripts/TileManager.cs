@@ -35,6 +35,13 @@ public class TileManager : MonoBehaviour
     public Color trapTileColor = new Color32(150, 25, 25, 255);
     public Color slowTileColor = new Color32(70, 180, 255, 255);
     public Color knockTileColor = new Color32(255, 170, 45, 255);
+    public Color comboTileColor = new Color32(210, 80, 230, 255);
+    public Color goldTileColor = new Color32(255, 210, 45, 255);
+    public Color rangeTileColor = new Color32(65, 155, 255, 255);
+    public Color damageTileColor = new Color32(235, 70, 70, 255);
+    public Color rateTileColor = new Color32(75, 235, 130, 255);
+    public Color xpTileColor = new Color32(155, 105, 255, 255);
+    public Color upgradeTileColor = new Color32(255, 245, 120, 255);
     public Color goldTileColor = new Color32(255, 210, 45, 255);
 
     private bool canBuild = true;
@@ -174,6 +181,8 @@ public class TileManager : MonoBehaviour
     {
         if (specialTileType != PathBuildOptionType.TrapTile &&
             specialTileType != PathBuildOptionType.SlowTile &&
+            specialTileType != PathBuildOptionType.KnockTile &&
+            specialTileType != PathBuildOptionType.ComboTile)
             specialTileType != PathBuildOptionType.KnockTile)
         {
             Debug.LogWarning("Ungültiger Spezial-PathTile-Typ: " + specialTileType);
@@ -194,6 +203,12 @@ public class TileManager : MonoBehaviour
         if (specialBlockedPositions.Contains(goldTilePosition))
             return false;
 
+        if (!HasAlternativeValidExtension(goldTilePosition))
+        {
+            ShowBuildWarning("Diese Spezial-Kachel würde die letzte Weg-Erweiterung blockieren.");
+            return false;
+        }
+
         specialBlockedPositions.Add(goldTilePosition);
         CreateGoldTile(goldTilePosition);
         RefreshBuildTiles();
@@ -202,6 +217,49 @@ public class TileManager : MonoBehaviour
             gameManager.OnPathExtended();
 
         return true;
+    }
+
+
+    public bool TryBuildSupportTileAt(Vector2Int supportTilePosition, PathBuildOptionType supportTileType)
+    {
+        if (!IsTowerSupportTileType(supportTileType))
+        {
+            Debug.LogWarning("Ungültiger Support-Tile-Typ: " + supportTileType);
+            return false;
+        }
+
+        if (!CanExtendTo(supportTilePosition))
+        {
+            Debug.Log("Ungültige SupportTile-Position!");
+            return false;
+        }
+
+        if (specialBlockedPositions.Contains(supportTilePosition))
+            return false;
+
+        if (!HasAlternativeValidExtension(supportTilePosition))
+        {
+            ShowBuildWarning("Diese Support-Kachel würde die letzte Weg-Erweiterung blockieren.");
+            return false;
+        }
+
+        specialBlockedPositions.Add(supportTilePosition);
+        CreateSupportTile(supportTilePosition, supportTileType);
+        RefreshBuildTiles();
+
+        if (gameManager != null)
+            gameManager.OnPathExtended();
+
+        return true;
+    }
+
+    private bool IsTowerSupportTileType(PathBuildOptionType tileType)
+    {
+        return tileType == PathBuildOptionType.RangeTile ||
+               tileType == PathBuildOptionType.DamageTile ||
+               tileType == PathBuildOptionType.RateTile ||
+               tileType == PathBuildOptionType.XPTile ||
+               tileType == PathBuildOptionType.UpgradeTile;
     }
 
     private bool TryExtendPathTo(Vector2Int newBasePosition, PathBuildOptionType pathTileType)
@@ -419,6 +477,8 @@ public class TileManager : MonoBehaviour
             ColorTile(pathTileObject, slowTileColor);
         else if (pathTileType == PathBuildOptionType.KnockTile)
             ColorTile(pathTileObject, knockTileColor);
+        else if (pathTileType == PathBuildOptionType.ComboTile)
+            ColorTile(pathTileObject, comboTileColor);
         else
             return;
 
@@ -460,6 +520,58 @@ public class TileManager : MonoBehaviour
         generator.gameManager = gameManager;
 
         specialTileObjects.Add(tileObject);
+    }
+
+
+    private void CreateSupportTile(Vector2Int gridPosition, PathBuildOptionType supportTileType)
+    {
+        Vector3 worldPosition = GridToWorld(gridPosition);
+        Color tileColor = GetSupportTileColor(supportTileType);
+        GameObject tileObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        tileObject.name = supportTileType.ToString();
+        tileObject.transform.position = worldPosition;
+        tileObject.transform.localScale = new Vector3(tileSize, 0.1f, tileSize);
+        ColorTile(tileObject, tileColor);
+
+        GameObject markerObject = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        markerObject.name = supportTileType + " Marker";
+        markerObject.transform.SetParent(tileObject.transform, false);
+        markerObject.transform.localPosition = new Vector3(0f, 0.45f, 0f);
+        markerObject.transform.localScale = new Vector3(0.28f, 0.55f, 0.28f);
+        ColorTile(markerObject, tileColor);
+
+        GameObject auraObject = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        auraObject.name = supportTileType + " Aura";
+        auraObject.transform.SetParent(tileObject.transform, false);
+        auraObject.transform.localPosition = new Vector3(0f, 0.08f, 0f);
+        auraObject.transform.localScale = new Vector3(2.25f, 0.02f, 2.25f);
+        Color auraColor = tileColor;
+        auraColor.a = 0.35f;
+        ColorTile(auraObject, auraColor);
+
+        TowerSupportTileEffect effect = tileObject.AddComponent<TowerSupportTileEffect>();
+        effect.Configure(supportTileType, gridPosition, tileSize);
+
+        specialTileObjects.Add(tileObject);
+    }
+
+    private Color GetSupportTileColor(PathBuildOptionType supportTileType)
+    {
+        switch (supportTileType)
+        {
+            case PathBuildOptionType.RangeTile:
+                return rangeTileColor;
+            case PathBuildOptionType.DamageTile:
+                return damageTileColor;
+            case PathBuildOptionType.RateTile:
+                return rateTileColor;
+            case PathBuildOptionType.XPTile:
+                return xpTileColor;
+            case PathBuildOptionType.UpgradeTile:
+                return upgradeTileColor;
+            default:
+                return Color.white;
+        }
     }
 
     private void PlaceBaseTile()
