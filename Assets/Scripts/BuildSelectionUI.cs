@@ -66,12 +66,19 @@ public class BuildSelectionUI : MonoBehaviour
     public bool forceIconInsideButton = true;
     public bool createMissingIconImages = true;
     public bool createSlotNameLabels = true;
-    public Vector2 slotSize = new Vector2(92f, 92f);
+    public bool showSlotCostLabels = true;
+    public Vector2 slotSize = new Vector2(92f, 104f);
     public Vector2 iconSize = new Vector2(52f, 52f);
     public Vector2 labelSize = new Vector2(82f, 18f);
-    public float labelYOffset = -31f;
-    public float slotIconYOffset = 6f;
+    public Vector2 costLabelSize = new Vector2(82f, 16f);
+    public float labelYOffset = -24f;
+    public float costLabelYOffset = -43f;
+    public float slotIconYOffset = 13f;
     public bool preserveIconAspect = true;
+
+    [Header("Top Right Layout QoL")]
+    public bool autoPlaceSelectedWindowBelowUtilityButtons = true;
+    public Vector2 selectedWindowTopRightPosition = new Vector2(-170f, -122f);
 
     [Header("Theme Colors")]
     public Color panelColor = new Color32(20, 24, 31, 245);
@@ -373,6 +380,7 @@ public class BuildSelectionUI : MonoBehaviour
         SetupSlotButtonVisual(slot);
         SetupSlotIcon(slot);
         SetupSlotLabel(slot);
+        SetupSlotCostLabel(slot);
 
         BuildOption capturedOption = slot.option;
         slot.button.onClick.RemoveAllListeners();
@@ -538,6 +546,49 @@ public class BuildSelectionUI : MonoBehaviour
         label.text = GetShortTowerName(slot.option);
     }
 
+    private void SetupSlotCostLabel(TowerSelectionSlot slot)
+    {
+        if (!showSlotCostLabels || slot == null || slot.button == null)
+            return;
+
+        TextMeshProUGUI costLabel = null;
+        Transform existing = slot.button.transform.Find("CostLabel");
+
+        if (existing != null)
+            costLabel = existing.GetComponent<TextMeshProUGUI>();
+
+        if (costLabel == null)
+        {
+            GameObject labelObject = new GameObject("CostLabel", typeof(RectTransform), typeof(TextMeshProUGUI));
+            labelObject.transform.SetParent(slot.button.transform, false);
+            costLabel = labelObject.GetComponent<TextMeshProUGUI>();
+        }
+
+        RectTransform rect = costLabel.rectTransform;
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(0f, costLabelYOffset);
+        rect.sizeDelta = costLabelSize;
+
+        costLabel.richText = true;
+        costLabel.enableWordWrapping = false;
+        costLabel.overflowMode = TextOverflowModes.Ellipsis;
+        costLabel.alignment = TextAlignmentOptions.Center;
+        costLabel.fontSize = 9f;
+        costLabel.color = accentColor;
+        costLabel.raycastTarget = false;
+        costLabel.text = GetCostLabelText(slot.option);
+    }
+
+    private string GetCostLabelText(BuildOption option)
+    {
+        if (option == null)
+            return "? Gold";
+
+        return Mathf.Max(0, option.cost) + " Gold";
+    }
+
     private string GetShortTowerName(BuildOption option)
     {
         if (option == null || string.IsNullOrEmpty(option.displayName))
@@ -568,7 +619,7 @@ public class BuildSelectionUI : MonoBehaviour
             if (text == null)
                 continue;
 
-            if (text.gameObject.name == "Label")
+            if (text.gameObject.name == "Label" || text.gameObject.name == "CostLabel")
                 continue;
 
             text.text = "";
@@ -707,10 +758,29 @@ public class BuildSelectionUI : MonoBehaviour
     private void UpdateSelectedWindow(BuildOption option)
     {
         if (selectedWindow != null)
+        {
+            ApplySelectedWindowTopRightLayout();
             selectedWindow.SetActive(true);
+        }
 
         if (selectedText != null)
             selectedText.text = option.displayName + " ausgewählt";
+    }
+
+    private void ApplySelectedWindowTopRightLayout()
+    {
+        if (!autoPlaceSelectedWindowBelowUtilityButtons || selectedWindow == null)
+            return;
+
+        RectTransform rect = selectedWindow.GetComponent<RectTransform>();
+
+        if (rect == null)
+            return;
+
+        rect.anchorMin = new Vector2(1f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = selectedWindowTopRightPosition;
     }
 
     public void ClearSelectionText()

@@ -11,7 +11,9 @@ public class SpecialPathTileEffect : MonoBehaviour
     public float tileSize = 1f;
 
     [Header("Trap Tile")]
-    public float bleedDamagePerSecond = 3f;
+    [HideInInspector] public float bleedDamagePerSecond = 3f;
+    public float bleedDamagePerTick = 3f;
+    public float bleedTickInterval = 2.5f;
     public float bleedDuration = 5f;
 
     [Header("Slow Tile")]
@@ -21,7 +23,7 @@ public class SpecialPathTileEffect : MonoBehaviour
     [Header("Knock Tile")]
     public int knockBackTiles = 3;
     public float knockBackDuration = 0.35f;
-    public float knockCooldown = 5f;
+    public float knockCooldown = 3f;
 
     [Header("Combo Tile")]
     public float comboBleedDamagePerSecond = 2f;
@@ -87,7 +89,7 @@ public class SpecialPathTileEffect : MonoBehaviour
 
         if (tileType == PathBuildOptionType.TrapTile)
         {
-            enemy.ApplyBleed(bleedDamagePerSecond, bleedDuration);
+            enemy.ApplyBleed(bleedDamagePerTick, bleedDuration, bleedTickInterval);
         }
         else if (tileType == PathBuildOptionType.SlowTile)
         {
