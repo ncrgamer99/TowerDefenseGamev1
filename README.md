@@ -30,3 +30,4 @@ m_EditorVersion: 6000.4.4f1
 - Builds
 - Logs
 - UserSettings
+Auto-merge test.
