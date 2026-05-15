@@ -324,11 +324,12 @@ public class PathBuildManager : MonoBehaviour
             optionType = PathBuildOptionType.PathTile
         };
 
-        currentOptions[1] = GetRandomOption();
-        currentOptions[2] = GetRandomOption();
+        List<PathBuildOption> optionPool = CreateSpecialOptionPool();
+        currentOptions[1] = DrawRandomOptionFromPool(optionPool);
+        currentOptions[2] = DrawRandomOptionFromPool(optionPool);
     }
 
-    private PathBuildOption GetRandomOption()
+    private List<PathBuildOption> CreateSpecialOptionPool()
     {
         List<PathBuildOption> optionPool = new List<PathBuildOption>();
 
@@ -337,7 +338,7 @@ public class PathBuildManager : MonoBehaviour
             foreach (PathBuildOption option in randomOptions)
             {
                 if (IsSupportedSpecialOption(option))
-                    optionPool.Add(CreateDisplayOption(option));
+                    AddOptionIfTypeMissing(optionPool, CreateDisplayOption(option));
             }
         }
 
@@ -346,8 +347,90 @@ public class PathBuildManager : MonoBehaviour
         if (optionPool.Count == 0)
             optionPool.AddRange(CreateDefaultSpecialOptions());
 
+        return optionPool;
+    }
+
+    private PathBuildOption DrawRandomOptionFromPool(List<PathBuildOption> optionPool)
+    {
+        if (optionPool == null || optionPool.Count == 0)
+            return CreateDefaultSpecialOptions()[0];
+
         int randomIndex = Random.Range(0, optionPool.Count);
-        return optionPool[randomIndex];
+        PathBuildOption option = optionPool[randomIndex];
+        optionPool.RemoveAt(randomIndex);
+        return option;
+    }
+
+    private PathBuildOption CreateDisplayOption(PathBuildOption option)
+    {
+        if (option == null)
+            return null;
+
+        PathBuildOption defaultOption = GetDefaultSpecialOption(option.optionType);
+
+        if (defaultOption == null)
+            return option;
+
+        return new PathBuildOption
+        {
+            displayName = string.IsNullOrWhiteSpace(option.displayName) ? defaultOption.displayName : option.displayName,
+            description = ShouldUseDefaultDescription(option.description) ? defaultOption.description : option.description,
+            optionType = option.optionType
+        };
+    }
+
+    private bool ShouldUseDefaultDescription(string description)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+            return true;
+
+        string lowerDescription = description.ToLowerInvariant();
+        return lowerDescription.Contains("platzhalter") || lowerDescription.Contains("später");
+    }
+
+    private PathBuildOption GetDefaultSpecialOption(PathBuildOptionType optionType)
+    {
+        foreach (PathBuildOption option in CreateDefaultSpecialOptions())
+        {
+            if (option != null && option.optionType == optionType)
+                return option;
+        }
+
+        return null;
+    }
+
+    private void AddMissingDefaultSpecialOptions(List<PathBuildOption> optionPool)
+    {
+        if (optionPool == null)
+            return;
+
+        foreach (PathBuildOption defaultOption in CreateDefaultSpecialOptions())
+        {
+            AddOptionIfTypeMissing(optionPool, defaultOption);
+        }
+    }
+
+    private void AddOptionIfTypeMissing(List<PathBuildOption> optionPool, PathBuildOption option)
+    {
+        if (optionPool == null || option == null)
+            return;
+
+        if (!HasOptionType(optionPool, option.optionType))
+            optionPool.Add(option);
+    }
+
+    private bool HasOptionType(List<PathBuildOption> optionPool, PathBuildOptionType optionType)
+    {
+        if (optionPool == null)
+            return false;
+
+        foreach (PathBuildOption option in optionPool)
+        {
+            if (option != null && option.optionType == optionType)
+                return true;
+        }
+
+        return false;
     }
 
     private PathBuildOption CreateDisplayOption(PathBuildOption option)
