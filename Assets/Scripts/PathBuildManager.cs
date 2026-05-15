@@ -463,7 +463,7 @@ public class PathBuildManager : MonoBehaviour
             new PathBuildOption
             {
                 displayName = "Trap Tile",
-                description = "Trap-Tile: Weg-Tile. Gegner bluten 5s lang: 3 Schaden alle 2,5s.",
+                description = "Trap-Tile: Weg-Tile. Gegner bluten 20s lang: 2 Schaden alle 3s.",
                 optionType = PathBuildOptionType.TrapTile
             },
             new PathBuildOption

@@ -69,20 +69,20 @@ public class BuildSelectionUI : MonoBehaviour
     public bool showSlotCostLabels = true;
     public bool hideSelectionTitleAndCloseButton = true;
     public bool autoRepairSlotGridLayout = true;
-    public int slotGridColumns = 4;
-    public Vector2 slotGridSpacing = new Vector2(10f, 8f);
-    public Vector2 slotSize = new Vector2(88f, 96f);
-    public Vector2 iconSize = new Vector2(48f, 48f);
+    public int slotGridColumns = 6;
+    public Vector2 slotGridSpacing = new Vector2(8f, 6f);
+    public Vector2 slotSize = new Vector2(76f, 86f);
+    public Vector2 iconSize = new Vector2(40f, 40f);
     public Vector2 labelSize = new Vector2(82f, 18f);
     public Vector2 costLabelSize = new Vector2(82f, 16f);
-    public float labelYOffset = -21f;
-    public float costLabelYOffset = -39f;
-    public float slotIconYOffset = 14f;
+    public float labelYOffset = -18f;
+    public float costLabelYOffset = -33f;
+    public float slotIconYOffset = 13f;
     public bool preserveIconAspect = true;
 
     [Header("Top Right Layout QoL")]
     public bool autoPlaceSelectedWindowBelowUtilityButtons = true;
-    public Vector2 selectedWindowTopRightPosition = new Vector2(-170f, -142f);
+    public Vector2 selectedWindowTopRightPosition = new Vector2(-170f, -172f);
 
     [Header("Theme Colors")]
     public Color panelColor = new Color32(20, 24, 31, 245);
@@ -196,6 +196,12 @@ public class BuildSelectionUI : MonoBehaviour
             ApplyDefaultBuildOption(option, "Heavy Tower", 95, "Langsamer Einzelschaden gegen Armor, Tanks und Bosse.");
         else if (lowerName.Contains("alchemist"))
             ApplyDefaultBuildOption(option, "Alchemist Tower", 90, "Hybrid-Tower: vergiftet Gegner und verlangsamt sie kurz.");
+        else if (lowerName.Contains("lightning"))
+            ApplyDefaultBuildOption(option, "Lightning Tower", 110, "Kettenblitz-Tower: Treffer und Chains verlangsamen Gegner kurz.");
+        else if (lowerName.Contains("mortar"))
+            ApplyDefaultBuildOption(option, "Mortar Tower", 130, "Langsamer Mörser: Projektil schlägt an Zielposition ein und verursacht AOE-Schaden.");
+        else if (lowerName.Contains("spike"))
+            ApplyDefaultBuildOption(option, "Spike Tower", 85, "Kurze Reichweite: Treffer bluten und hinterlassen einmalige Stacheln auf dem Weg.");
         else if (lowerName.Contains("fire"))
             ApplyDefaultBuildOption(option, "Fire Tower", 80, "Burn-Tower gegen Gruppen und Standard-Gegner.");
     }
@@ -242,6 +248,9 @@ public class BuildSelectionUI : MonoBehaviour
 
         if (lower.Contains("basic")) return "BasicTower";
         if (lower.Contains("rapid")) return "RapidTower";
+        if (lower.Contains("lightning")) return "RapidTower";
+        if (lower.Contains("mortar")) return "HeavyTower";
+        if (lower.Contains("spike")) return "PoisonTower";
         if (lower.Contains("sniper")) return "HeavyTower";
         if (lower.Contains("heavy")) return "HeavyTower";
         if (lower.Contains("alchemist")) return "PoisonTower";
@@ -315,6 +324,9 @@ public class BuildSelectionUI : MonoBehaviour
 
         EnsureDefaultNewTowerSlot("Sniper Tower", 120, "Sehr hohe Reichweite und Einzelschaden gegen Elite, MiniBoss und Boss.", "Sniper_Tower");
         EnsureDefaultNewTowerSlot("Alchemist Tower", 90, "Hybrid-Tower: vergiftet Gegner und verlangsamt sie kurz.", "Alchemist_Tower");
+        EnsureDefaultNewTowerSlot("Lightning Tower", 110, "Kettenblitz-Tower: Treffer und Chains verlangsamen Gegner kurz.", "Lightning_Tower");
+        EnsureDefaultNewTowerSlot("Mortar Tower", 130, "Langsamer Mörser: Projektil schlägt an Zielposition ein und verursacht AOE-Schaden.", "Mortar_Tower");
+        EnsureDefaultNewTowerSlot("Spike Tower", 85, "Kurze Reichweite: Treffer bluten und hinterlassen einmalige Stacheln auf dem Weg.", "Spike_Tower");
     }
 
     private void EnsureDefaultNewTowerSlot(string displayName, int cost, string description, string prefabResourceName)
@@ -904,6 +916,9 @@ public class BuildSelectionUI : MonoBehaviour
 
         if (lowerName.Contains("basic")) return "Günstiger Allrounder für den Spielstart.";
         if (lowerName.Contains("rapid")) return "Schneller Tower für Runner und Cleanup.";
+        if (lowerName.Contains("lightning")) return "Kettenblitz-Tower: Treffer und Chains verlangsamen Gegner kurz.";
+        if (lowerName.Contains("mortar")) return "Langsamer Mörser: Einschlag verursacht AOE-Schaden.";
+        if (lowerName.Contains("spike")) return "Kurze Reichweite: Bleed-Treffer plus einmalige Weg-Stacheln.";
         if (lowerName.Contains("sniper")) return "Sehr hohe Reichweite und Einzelschaden gegen Elite, MiniBoss und Boss.";
         if (lowerName.Contains("heavy")) return "Langsamer Einzelschaden gegen Tanks, Knights und Bosse.";
         if (lowerName.Contains("alchemist")) return "Hybrid-Tower: vergiftet Gegner und verlangsamt sie kurz.";

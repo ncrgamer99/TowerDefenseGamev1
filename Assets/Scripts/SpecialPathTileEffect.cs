@@ -12,9 +12,9 @@ public class SpecialPathTileEffect : MonoBehaviour
 
     [Header("Trap Tile")]
     [HideInInspector] public float bleedDamagePerSecond = 3f;
-    public float bleedDamagePerTick = 3f;
-    public float bleedTickInterval = 2.5f;
-    public float bleedDuration = 5f;
+    public float bleedDamagePerTick = 2f;
+    public float bleedTickInterval = 3f;
+    public float bleedDuration = 20f;
 
     [Header("Slow Tile")]
     public float slowMultiplier = 0.45f;
@@ -23,7 +23,7 @@ public class SpecialPathTileEffect : MonoBehaviour
     [Header("Knock Tile")]
     public int knockBackTiles = 3;
     public float knockBackDuration = 0.35f;
-    public float knockCooldown = 3f;
+    public float knockCooldown = 8f;
 
     [Header("Combo Tile")]
     public float darknessDamagePerTick = 4f;

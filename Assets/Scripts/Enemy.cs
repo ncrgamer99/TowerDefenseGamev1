@@ -568,6 +568,7 @@ public class Enemy : MonoBehaviour
 
         transform.position = Vector3.MoveTowards(transform.position, targetPosition, finalSpeed * Time.deltaTime);
         distanceTravelled += Vector3.Distance(oldPosition, transform.position);
+        SpikeTrapEffect.TryApplyAtWorldPosition(transform.position, this);
 
         if (Vector3.Distance(transform.position, targetPosition) <= 0.02f)
         {
