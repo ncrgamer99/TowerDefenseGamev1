@@ -49,7 +49,8 @@ public class TowerUI : MonoBehaviour
     public Button sellButton;
     public TextMeshProUGUI sellButtonText;
     public bool autoCreateSellButton = true;
-    public int towerPanelSiblingIndexWhenOpen = 0;
+    public bool hideCloseButtonBecauseRightClickCloses = true;
+    public int towerPanelSiblingIndexWhenOpen = 2;
 
     [Header("Menu Tabs")]
     public Button goldUpgradeTabButton;
@@ -132,6 +133,9 @@ public class TowerUI : MonoBehaviour
         {
             closeButton.onClick.RemoveAllListeners();
             closeButton.onClick.AddListener(Close);
+
+            if (hideCloseButtonBecauseRightClickCloses)
+                closeButton.gameObject.SetActive(false);
         }
 
         if (targetModeButton != null)
@@ -142,6 +146,7 @@ public class TowerUI : MonoBehaviour
 
         if (sellButton != null)
         {
+            ApplySellButtonBottomBarLayout();
             sellButton.onClick.RemoveAllListeners();
             sellButton.onClick.AddListener(SellSelectedTower);
         }
@@ -570,7 +575,7 @@ public class TowerUI : MonoBehaviour
 
     private void SetCloseButtonStyle()
     {
-        if (closeButton == null)
+        if (closeButton == null || hideCloseButtonBecauseRightClickCloses)
             return;
 
         Image img = closeButton.GetComponent<Image>();
@@ -604,11 +609,7 @@ public class TowerUI : MonoBehaviour
         buttonObject.transform.SetParent(panel.transform, false);
 
         RectTransform rectTransform = buttonObject.GetComponent<RectTransform>();
-        rectTransform.anchorMin = new Vector2(1f, 0f);
-        rectTransform.anchorMax = new Vector2(1f, 0f);
-        rectTransform.pivot = new Vector2(1f, 0f);
-        rectTransform.anchoredPosition = new Vector2(-16f, 16f);
-        rectTransform.sizeDelta = new Vector2(170f, 44f);
+        ApplySellButtonBottomBarLayout(rectTransform);
 
         Image image = buttonObject.GetComponent<Image>();
         image.color = closeButtonColor;
@@ -631,6 +632,26 @@ public class TowerUI : MonoBehaviour
         sellButtonText.fontSizeMin = 10f;
         sellButtonText.fontSizeMax = 16f;
         sellButtonText.color = Color.white;
+    }
+
+    private void ApplySellButtonBottomBarLayout()
+    {
+        if (sellButton == null)
+            return;
+
+        ApplySellButtonBottomBarLayout(sellButton.GetComponent<RectTransform>());
+    }
+
+    private void ApplySellButtonBottomBarLayout(RectTransform rectTransform)
+    {
+        if (rectTransform == null)
+            return;
+
+        rectTransform.anchorMin = new Vector2(0f, 0f);
+        rectTransform.anchorMax = new Vector2(1f, 0f);
+        rectTransform.pivot = new Vector2(0.5f, 0f);
+        rectTransform.anchoredPosition = new Vector2(0f, 10f);
+        rectTransform.sizeDelta = new Vector2(-24f, 46f);
     }
 
     private void SetImageColor(Image img, Color color)

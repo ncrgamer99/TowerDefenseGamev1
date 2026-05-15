@@ -720,12 +720,22 @@ public class Enemy : MonoBehaviour
         ApplyBleedFromSource(damagePerSecond, duration, null);
     }
 
+    public void ApplyBleed(float damagePerTick, float duration, float tickInterval)
+    {
+        ApplyBleedFromSource(damagePerTick, duration, null, tickInterval, true);
+    }
+
     private void ApplyBleedFromSource(float damagePerSecond, float duration, Tower sourceTower)
+    {
+        ApplyBleedFromSource(damagePerSecond, duration, sourceTower, 0f, false);
+    }
+
+    private void ApplyBleedFromSource(float damageValue, float duration, Tower sourceTower, float tickInterval, bool damageValueIsPerTick)
     {
         if (isDead || reachedBase || immuneToEffects)
             return;
 
-        damagePerSecond = Mathf.Max(0.1f, damagePerSecond);
+        damageValue = Mathf.Max(0.1f, damageValue);
         duration = Mathf.Max(0.1f, duration);
         RegisterContributor(sourceTower, 0.1f);
         RegisterHealthBarDamageEffect(EnemyHealthBarEffectMode.Bleed);
@@ -733,7 +743,10 @@ public class Enemy : MonoBehaviour
         if (bleedRoutine != null)
             StopCoroutine(bleedRoutine);
 
-        bleedRoutine = StartCoroutine(DamageOverTimeRoutine(damagePerSecond, duration, sourceTower, false, EnemyDamageOverTimeType.Bleed));
+        if (damageValueIsPerTick)
+            bleedRoutine = StartCoroutine(DamageOverTimeRoutine(damageValue, duration, sourceTower, false, EnemyDamageOverTimeType.Bleed, tickInterval, true));
+        else
+            bleedRoutine = StartCoroutine(DamageOverTimeRoutine(damageValue, duration, sourceTower, false, EnemyDamageOverTimeType.Bleed));
     }
 
 
@@ -777,6 +790,11 @@ public class Enemy : MonoBehaviour
 
     private IEnumerator DamageOverTimeRoutine(float damagePerSecond, float duration, Tower sourceTower, bool ignoreArmor, EnemyDamageOverTimeType dotType)
     {
+        return DamageOverTimeRoutine(damagePerSecond, duration, sourceTower, ignoreArmor, dotType, 0f, false);
+    }
+
+    private IEnumerator DamageOverTimeRoutine(float damageValue, float duration, Tower sourceTower, bool ignoreArmor, EnemyDamageOverTimeType dotType, float tickRateOverride, bool damageValueIsPerTick)
+    {
         if (dotType == EnemyDamageOverTimeType.Poison)
             isPoisoned = true;
 
@@ -785,11 +803,11 @@ public class Enemy : MonoBehaviour
 
         UpdateVisualColor();
         float elapsed = 0f;
-        float tickRate = Mathf.Max(0.1f, defaultEffectTickRate);
+        float tickRate = tickRateOverride > 0f ? Mathf.Max(0.1f, tickRateOverride) : Mathf.Max(0.1f, defaultEffectTickRate);
 
         while (elapsed < duration && !isDead && !reachedBase)
         {
-            float tickDamage = damagePerSecond * tickRate * effectDamageMultiplier;
+            float tickDamage = damageValueIsPerTick ? damageValue * effectDamageMultiplier : damageValue * tickRate * effectDamageMultiplier;
 
             if (tickDamage > 0f)
             {
