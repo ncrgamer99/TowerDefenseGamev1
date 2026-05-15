@@ -1,0 +1,34 @@
+name: PR Safety Check
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for unresolved merge conflict markers
+        run: |
+          if grep -R -n -E '^(<<<<<<<|>>>>>>>)' . --exclude-dir=.git; then
+            echo "Unresolved merge conflict markers found."
+            exit 1
+          fi
+
+      - name: Check Unity generated folders are not committed
+        run: |
+          if [ -d "Library" ] || [ -d "Temp" ] || [ -d "Obj" ] || [ -d "Logs" ] || [ -d "UserSettings" ]; then
+            echo "Unity generated folders should not be committed."
+            exit 1
+          fi
+
+      - name: Check important Unity folders exist
+        run: |
+          test -d "Assets"
+          test -d "Packages"
+          test -d "ProjectSettings"
