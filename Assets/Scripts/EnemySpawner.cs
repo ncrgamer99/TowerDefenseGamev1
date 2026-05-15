@@ -1005,7 +1005,13 @@ public class EnemySpawner : MonoBehaviour
             return;
 
         System.Random rng = CreateChaosVariantRandom(waveNumber, scenario, chaosLevel);
-        int remainingCap = maxVariants;
+
+        if (rng.NextDouble() >= Mathf.Clamp01(chance))
+            return;
+
+        int selectableAmount = CountEligibleChaosVariantAmount(entries, eligibleIndices);
+        int targetVariantAmount = rng.Next(1, Mathf.Min(maxVariants, selectableAmount) + 1);
+        int[] selectedVariantCounts = RollChaosVariantCounts(entries, eligibleIndices, targetVariantAmount, rng);
         int totalSelected = 0;
         List<EnemySpawnEntry> rebuiltEntries = new List<EnemySpawnEntry>();
 
@@ -1016,13 +1022,7 @@ public class EnemySpawner : MonoBehaviour
             if (original == null || original.amount <= 0)
                 continue;
 
-            if (!CanRoleBecomeChaosVariant(original.enemyRole) || original.variantType == EnemyVariantType.Chaos || remainingCap <= 0)
-            {
-                rebuiltEntries.Add(original.CreateCopy());
-                continue;
-            }
-
-            int variantAmount = RollChaosVariantAmount(original.amount, chance, remainingCap, rng);
+            int variantAmount = i < selectedVariantCounts.Length ? selectedVariantCounts[i] : 0;
 
             if (variantAmount <= 0)
             {
@@ -1036,16 +1036,11 @@ public class EnemySpawner : MonoBehaviour
                 rebuiltEntries.Add(original.CreateCopyWithVariantAndAmount(EnemyVariantType.Normal, normalAmount));
 
             rebuiltEntries.Add(original.CreateCopyWithVariantAndAmount(EnemyVariantType.Chaos, variantAmount));
-
-            remainingCap -= variantAmount;
             totalSelected += variantAmount;
         }
 
-        if (totalSelected <= 0 && maxVariants > 0 && rng.NextDouble() < Mathf.Clamp01(chance * eligibleIndices.Count))
-        {
-            ForceOneChaosVariant(rebuiltEntries, rng);
+        if (totalSelected <= 0 && targetVariantAmount > 0 && ForceOneChaosVariant(rebuiltEntries, rng))
             totalSelected = 1;
-        }
 
         entries.Clear();
         entries.AddRange(rebuiltEntries);
@@ -1091,30 +1086,76 @@ public class EnemySpawner : MonoBehaviour
         return HasEnemyPrefabForRole(role);
     }
 
-    private int RollChaosVariantAmount(int amount, float chance, int remainingCap, System.Random rng)
+    private int CountEligibleChaosVariantAmount(List<EnemySpawnEntry> entries, List<int> eligibleIndices)
     {
-        int safeAmount = Mathf.Max(0, amount);
-        int safeCap = Mathf.Max(0, remainingCap);
-        float safeChance = Mathf.Clamp01(chance);
-
-        if (safeAmount <= 0 || safeCap <= 0 || safeChance <= 0f)
+        if (entries == null || eligibleIndices == null)
             return 0;
 
-        int selected = 0;
+        int totalAmount = 0;
 
-        for (int i = 0; i < safeAmount && selected < safeCap; i++)
+        foreach (int index in eligibleIndices)
         {
-            if (rng.NextDouble() < safeChance)
-                selected++;
+            if (index < 0 || index >= entries.Count)
+                continue;
+
+            EnemySpawnEntry entry = entries[index];
+
+            if (entry != null)
+                totalAmount += Mathf.Max(0, entry.amount);
         }
 
-        return Mathf.Clamp(selected, 0, safeCap);
+        return totalAmount;
     }
 
-    private void ForceOneChaosVariant(List<EnemySpawnEntry> entries, System.Random rng)
+    private int[] RollChaosVariantCounts(List<EnemySpawnEntry> entries, List<int> eligibleIndices, int targetVariantAmount, System.Random rng)
+    {
+        int[] selectedCounts = new int[entries != null ? entries.Count : 0];
+
+        if (entries == null || eligibleIndices == null || rng == null)
+            return selectedCounts;
+
+        int remainingToSelect = Mathf.Max(0, targetVariantAmount);
+        int remainingEligibleAmount = CountEligibleChaosVariantAmount(entries, eligibleIndices);
+
+        while (remainingToSelect > 0 && remainingEligibleAmount > 0)
+        {
+            int roll = rng.Next(remainingEligibleAmount);
+            int cumulative = 0;
+
+            foreach (int index in eligibleIndices)
+            {
+                if (index < 0 || index >= entries.Count)
+                    continue;
+
+                EnemySpawnEntry entry = entries[index];
+
+                if (entry == null)
+                    continue;
+
+                int available = Mathf.Max(0, entry.amount - selectedCounts[index]);
+
+                if (available <= 0)
+                    continue;
+
+                if (roll < cumulative + available)
+                {
+                    selectedCounts[index]++;
+                    remainingToSelect--;
+                    remainingEligibleAmount--;
+                    break;
+                }
+
+                cumulative += available;
+            }
+        }
+
+        return selectedCounts;
+    }
+
+    private bool ForceOneChaosVariant(List<EnemySpawnEntry> entries, System.Random rng)
     {
         if (entries == null || entries.Count == 0)
-            return;
+            return false;
 
         List<int> candidates = new List<int>();
 
@@ -1135,7 +1176,7 @@ public class EnemySpawner : MonoBehaviour
         }
 
         if (candidates.Count == 0)
-            return;
+            return false;
 
         int selectedIndex = candidates[rng.Next(candidates.Count)];
         EnemySpawnEntry selected = entries[selectedIndex];
@@ -1143,11 +1184,12 @@ public class EnemySpawner : MonoBehaviour
         if (selected.amount <= 1)
         {
             selected.variantType = EnemyVariantType.Chaos;
-            return;
+            return true;
         }
 
         selected.amount -= 1;
         entries.Insert(selectedIndex + 1, selected.CreateCopyWithVariantAndAmount(EnemyVariantType.Chaos, 1));
+        return true;
     }
 
     private float GetChaosVariantChanceForWave(int chaosLevel, int waveNumber, WaveScenario scenario, List<ChaosWaveBlock> chaosWaveBlocks)

@@ -72,6 +72,10 @@ public class BuildTile : MonoBehaviour
 
         GameObject towerObject = Instantiate(towerPrefab, towerPosition, Quaternion.identity);
         Tower builtTower = towerObject != null ? towerObject.GetComponent<Tower>() : null;
+
+        if (builtTower != null)
+            builtTower.InitializeBuildData(cost, gridPosition);
+
         gameManager.RegisterTowerBuilt(builtTower, cost, gridPosition, towerPosition);
 
         tileManager.RegisterTowerPosition(transform.position);
