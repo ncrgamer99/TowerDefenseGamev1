@@ -70,14 +70,14 @@ public class BuildSelectionUI : MonoBehaviour
     public bool hideSelectionTitleAndCloseButton = true;
     public bool autoRepairSlotGridLayout = true;
     public int slotGridColumns = 6;
-    public Vector2 slotGridSpacing = new Vector2(6f, 5f);
-    public Vector2 slotSize = new Vector2(68f, 78f);
-    public Vector2 iconSize = new Vector2(36f, 36f);
-    public Vector2 labelSize = new Vector2(72f, 16f);
-    public Vector2 costLabelSize = new Vector2(72f, 14f);
-    public float labelYOffset = -16f;
-    public float costLabelYOffset = -29f;
-    public float slotIconYOffset = 12f;
+    public Vector2 slotGridSpacing = new Vector2(5f, 4f);
+    public Vector2 slotSize = new Vector2(60f, 68f);
+    public Vector2 iconSize = new Vector2(30f, 30f);
+    public Vector2 labelSize = new Vector2(64f, 14f);
+    public Vector2 costLabelSize = new Vector2(64f, 13f);
+    public float labelYOffset = -14f;
+    public float costLabelYOffset = -27f;
+    public float slotIconYOffset = 11f;
     public bool preserveIconAspect = true;
 
     [Header("Top Right Layout QoL")]
@@ -560,7 +560,7 @@ public class BuildSelectionUI : MonoBehaviour
         label.enableWordWrapping = false;
         label.overflowMode = TextOverflowModes.Ellipsis;
         label.alignment = TextAlignmentOptions.Center;
-        label.fontSize = 10f;
+        label.fontSize = 9f;
         label.color = textSecondaryColor;
         label.raycastTarget = false;
         label.text = GetShortTowerName(slot.option);
@@ -595,7 +595,7 @@ public class BuildSelectionUI : MonoBehaviour
         costLabel.enableWordWrapping = false;
         costLabel.overflowMode = TextOverflowModes.Ellipsis;
         costLabel.alignment = TextAlignmentOptions.Center;
-        costLabel.fontSize = 9f;
+        costLabel.fontSize = 8f;
         costLabel.color = accentColor;
         costLabel.raycastTarget = false;
         costLabel.text = GetCostLabelText(slot.option);
@@ -654,6 +654,9 @@ public class BuildSelectionUI : MonoBehaviour
         }
 
         int rows = Mathf.Max(1, Mathf.CeilToInt(visibleSlotCount / (float)columns));
+        float requiredGridWidth = columns * slotSize.x + (columns - 1) * slotGridSpacing.x;
+        float requiredGridHeight = rows * slotSize.y + (rows - 1) * slotGridSpacing.y;
+
         grid.cellSize = slotSize;
         grid.spacing = slotGridSpacing;
         grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
@@ -662,11 +665,14 @@ public class BuildSelectionUI : MonoBehaviour
         RectTransform rect = gridParent.GetComponent<RectTransform>();
 
         if (rect != null)
+            rect.sizeDelta = new Vector2(requiredGridWidth, requiredGridHeight);
+
+        RectTransform panelRect = selectionPanel != null ? selectionPanel.GetComponent<RectTransform>() : null;
+
+        if (panelRect != null)
         {
-            Vector2 size = rect.sizeDelta;
-            size.x = Mathf.Max(size.x, columns * slotSize.x + (columns - 1) * slotGridSpacing.x);
-            size.y = rows * slotSize.y + (rows - 1) * slotGridSpacing.y;
-            rect.sizeDelta = size;
+            float verticalPadding = hideSelectionTitleAndCloseButton ? 45f : 90f;
+            panelRect.sizeDelta = new Vector2(requiredGridWidth + 60f, requiredGridHeight + verticalPadding);
         }
     }
 
