@@ -42,7 +42,6 @@ public class TileManager : MonoBehaviour
     public Color rateTileColor = new Color32(75, 235, 130, 255);
     public Color xpTileColor = new Color32(155, 105, 255, 255);
     public Color upgradeTileColor = new Color32(255, 245, 120, 255);
-    public Color goldTileColor = new Color32(255, 210, 45, 255);
 
     private bool canBuild = true;
     private bool buildTilesVisible = false;
@@ -180,11 +179,6 @@ public class TileManager : MonoBehaviour
     public bool TryExtendSpecialPathTo(Vector2Int newBasePosition, PathBuildOptionType specialTileType)
     {
         if (!IsSpecialPathTileType(specialTileType))
-        if (specialTileType != PathBuildOptionType.TrapTile &&
-            specialTileType != PathBuildOptionType.SlowTile &&
-            specialTileType != PathBuildOptionType.KnockTile &&
-            specialTileType != PathBuildOptionType.ComboTile)
-            specialTileType != PathBuildOptionType.KnockTile)
         {
             Debug.LogWarning("Ungültiger Spezial-PathTile-Typ: " + specialTileType);
             return false;
