@@ -33,6 +33,8 @@ public enum WaveModifierType
 public class WaveModifier
 {
     [Header("Info")]
+    [Tooltip("Stabile technische ID für Risiko-Logik. Leer lassen nutzt einen sicheren Fallback aus Typ/Name.")]
+    public string modifierId = "";
     public string displayName = "Modifier";
     public string description = "";
 
@@ -40,7 +42,7 @@ public class WaveModifier
     public WaveModifierType modifierType = WaveModifierType.None;
 
     [Header("Risk Level / Duration")]
-    [Tooltip("Dauerhafte Risiko-Modifikatoren starten bei Stufe 0. Erneute Auswahl erhöht diese Stufe um +1.")]
+    [Tooltip("Intern starten dauerhafte Risiko-Modifikatoren bei 0; die UI zeigt diese erste aktive Stufe als Stufe 1.")]
     public bool isPermanentRiskModifier = true;
     public bool isTemporaryRiskModifier = false;
     public int riskLevel = 0;
@@ -134,6 +136,7 @@ public class WaveModifier
     {
         return new WaveModifier
         {
+            modifierId = modifierId,
             displayName = displayName,
             description = description,
             modifierType = modifierType,
@@ -196,12 +199,65 @@ public class WaveModifier
     }
 
 
+
+    public string GetStableId()
+    {
+        if (!string.IsNullOrEmpty(modifierId))
+            return modifierId;
+
+        if (!string.IsNullOrEmpty(displayName))
+            return modifierType + ":" + displayName;
+
+        return modifierType.ToString();
+    }
+
+    public int GetPressureCostEstimate()
+    {
+        if (!IsValid())
+            return 0;
+
+        int cost = 1 + Mathf.Max(0, riskLevel);
+
+        if (enemyCountMultiplier > 1f)
+            cost += Mathf.RoundToInt((enemyCountMultiplier - 1f) * 18f);
+
+        if (flatEnemyCountBonus > 0)
+            cost += flatEnemyCountBonus;
+
+        cost += Mathf.Max(0, extraRoleAmount);
+
+        if (HasSecondaryRoleAdd())
+            cost += Mathf.Max(0, secondaryExtraRoleAmount);
+
+        if (HasTertiaryRoleAdd())
+            cost += Mathf.Max(0, tertiaryExtraRoleAmount);
+
+        if (spawnDelayMultiplier > 0f && spawnDelayMultiplier < 1f)
+            cost += Mathf.RoundToInt((1f - spawnDelayMultiplier) * 14f);
+
+        if (modifierType == WaveModifierType.ChaosVariantPressure || increasesChaosVariantChance)
+            cost += 2 + Mathf.RoundToInt(Mathf.Max(0f, chaosVariantChanceBonus) * 20f) + Mathf.Max(0, flatChaosVariantBonus);
+
+        if (modifierType == WaveModifierType.ChaosWaveBlockPressure || strengthensChaosWaveBlocks)
+            cost += 2 + Mathf.Max(0, chaosWaveBlockStrengthBonus) + Mathf.RoundToInt(Mathf.Max(0f, chaosWaveBlockChanceBonus) * 12f);
+
+        if (modifierType == WaveModifierType.MiniBossPressure || modifierType == WaveModifierType.PreBossPressure)
+            cost += 3;
+
+        return Mathf.Max(1, cost);
+    }
+
+    public int GetDisplayRiskLevel()
+    {
+        return Mathf.Max(0, riskLevel) + 1;
+    }
+
     public string GetDisplayNameWithLevel()
     {
         string safeName = string.IsNullOrEmpty(displayName) ? modifierType.ToString() : displayName;
 
         if (isPermanentRiskModifier)
-            return safeName + " (Stufe " + Mathf.Max(0, riskLevel) + ")";
+            return safeName + " (Stufe " + GetDisplayRiskLevel() + ")";
 
         return safeName;
     }

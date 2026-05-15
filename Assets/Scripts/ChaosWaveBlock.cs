@@ -84,7 +84,7 @@ public class ChaosWaveBlock
 
     public string GetShortSummary()
     {
-        string text = GetDisplayNameWithStrength();
+        string text = "Wave-Effekt: " + GetDisplayNameWithStrength();
 
         switch (blockType)
         {
@@ -112,7 +112,7 @@ public class ChaosWaveBlock
                 text += " | Effektresistenz";
                 break;
             case ChaosWaveBlockType.PreviewHidden:
-                text += " | Preview verborgen";
+                text += " | Preview verborgen (nicht für V1)";
                 break;
         }
 
