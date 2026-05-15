@@ -4,15 +4,6 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-public enum PathBuildOptionType
-{
-    PathTile,
-    TrapTile,
-    SpecialTile,
-    BridgeTile,
-    GoldTile
-}
-
 [System.Serializable]
 public class PathBuildOption
 {
@@ -42,6 +33,9 @@ public class PathBuildManager : MonoBehaviour
 
     [Header("Available Random Options")]
     public List<PathBuildOption> randomOptions = new List<PathBuildOption>();
+
+    [Header("Special Tile Selection Timing")]
+    public int specialTileSelectionWaveInterval = 5;
 
     private GameObject currentGhost;
     private Vector2Int hoveredGridPosition;
@@ -234,6 +228,12 @@ public class PathBuildManager : MonoBehaviour
         if (!tileManager.CanExtendTo(hoveredGridPosition))
             return;
 
+        if (!ShouldOpenSpecialTileSelection())
+        {
+            BuildNormalPathTileAtHoveredPosition();
+            return;
+        }
+
         choiceOpen = true;
 
         if (!optionsGeneratedForCurrentBuildPhase)
@@ -251,6 +251,34 @@ public class PathBuildManager : MonoBehaviour
             currentGhost.SetActive(true);
     }
 
+    private bool ShouldOpenSpecialTileSelection()
+    {
+        int interval = Mathf.Max(1, specialTileSelectionWaveInterval);
+
+        if (gameManager == null)
+            return false;
+
+        return gameManager.waveNumber > 0 && gameManager.waveNumber % interval == 0;
+    }
+
+    private void BuildNormalPathTileAtHoveredPosition()
+    {
+        if (!tileManager.CanExtendTo(hoveredGridPosition))
+        {
+            Debug.Log("Gewählte Position ist nicht mehr gültig.");
+            CancelChoice();
+            return;
+        }
+
+        bool success = tileManager.TryExtendPathTo(hoveredGridPosition);
+
+        if (success)
+        {
+            optionsGeneratedForCurrentBuildPhase = false;
+            CloseChoiceUI();
+        }
+    }
+
     private void GenerateCurrentOptions()
     {
         currentOptions[0] = new PathBuildOption
@@ -266,18 +294,106 @@ public class PathBuildManager : MonoBehaviour
 
     private PathBuildOption GetRandomOption()
     {
-        if (randomOptions == null || randomOptions.Count == 0)
+        List<PathBuildOption> optionPool = new List<PathBuildOption>();
+
+        if (randomOptions != null)
         {
-            return new PathBuildOption
+            foreach (PathBuildOption option in randomOptions)
             {
-                displayName = "Coming Soon",
-                description = "Diese Tile-Art kommt später.",
-                optionType = PathBuildOptionType.SpecialTile
-            };
+                if (IsSupportedSpecialOption(option))
+                    optionPool.Add(option);
+            }
         }
 
-        int randomIndex = Random.Range(0, randomOptions.Count);
-        return randomOptions[randomIndex];
+        if (optionPool.Count == 0)
+            optionPool.AddRange(CreateDefaultSpecialOptions());
+
+        int randomIndex = Random.Range(0, optionPool.Count);
+        return optionPool[randomIndex];
+    }
+
+    private bool IsSupportedSpecialOption(PathBuildOption option)
+    {
+        if (option == null)
+            return false;
+
+        return option.optionType == PathBuildOptionType.TrapTile ||
+               option.optionType == PathBuildOptionType.GoldTile ||
+               option.optionType == PathBuildOptionType.SlowTile ||
+               option.optionType == PathBuildOptionType.KnockTile ||
+               option.optionType == PathBuildOptionType.RangeTile ||
+               option.optionType == PathBuildOptionType.DamageTile ||
+               option.optionType == PathBuildOptionType.RateTile ||
+               option.optionType == PathBuildOptionType.XPTile ||
+               option.optionType == PathBuildOptionType.UpgradeTile ||
+               option.optionType == PathBuildOptionType.ComboTile;
+    }
+
+    private List<PathBuildOption> CreateDefaultSpecialOptions()
+    {
+        return new List<PathBuildOption>
+        {
+            new PathBuildOption
+            {
+                displayName = "Gold Tile",
+                description = "Baut ein Goldtile. Die Base bleibt stehen. Während Waves erzeugt es +5 Gold pro Sekunde.",
+                optionType = PathBuildOptionType.GoldTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Trap Tile",
+                description = "Zählt als PathTile. Gegner erhalten Blutung: 5s lang 10 Schaden pro Sekunde.",
+                optionType = PathBuildOptionType.TrapTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Slow Tile",
+                description = "Zählt als PathTile. Gegner werden 2s auf 0,45 Speed verlangsamt.",
+                optionType = PathBuildOptionType.SlowTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Knock Tile",
+                description = "Zählt als PathTile. Wirft normale Gegner 3 PathTiles zurück. Boss/MiniBoss immun.",
+                optionType = PathBuildOptionType.KnockTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Range Tile",
+                description = "Kein PathTile. Tower im Umkreis erhalten +1 Range.",
+                optionType = PathBuildOptionType.RangeTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Damage Tile",
+                description = "Kein PathTile. Tower im Umkreis verursachen +20% Schaden.",
+                optionType = PathBuildOptionType.DamageTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Rate Tile",
+                description = "Kein PathTile. Tower im Umkreis feuern +20% schneller.",
+                optionType = PathBuildOptionType.RateTile
+            },
+            new PathBuildOption
+            {
+                displayName = "XP Tile",
+                description = "Kein PathTile. Tower im Umkreis erhalten +25% XP.",
+                optionType = PathBuildOptionType.XPTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Upgrade Tile",
+                description = "Kein PathTile. Point-Upgrades naher Tower sind stärker.",
+                optionType = PathBuildOptionType.UpgradeTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Combo Tile",
+                description = "Zählt als PathTile. Blutet und verlangsamt Gegner; normale Gegner können zurückgeworfen werden.",
+                optionType = PathBuildOptionType.ComboTile
+            }
+        };
     }
 
     private void UpdateOptionUI()
@@ -341,24 +457,36 @@ public class PathBuildManager : MonoBehaviour
             return;
         }
 
+        bool success = false;
+
         if (option.optionType == PathBuildOptionType.PathTile)
+            success = tileManager.TryExtendPathTo(hoveredGridPosition);
+        else if (option.optionType == PathBuildOptionType.TrapTile ||
+                 option.optionType == PathBuildOptionType.SlowTile ||
+                 option.optionType == PathBuildOptionType.KnockTile ||
+                 option.optionType == PathBuildOptionType.ComboTile)
+            success = tileManager.TryExtendSpecialPathTo(hoveredGridPosition, option.optionType);
+        else if (option.optionType == PathBuildOptionType.GoldTile)
+            success = tileManager.TryBuildGoldTileAt(hoveredGridPosition);
+        else if (option.optionType == PathBuildOptionType.RangeTile ||
+                 option.optionType == PathBuildOptionType.DamageTile ||
+                 option.optionType == PathBuildOptionType.RateTile ||
+                 option.optionType == PathBuildOptionType.XPTile ||
+                 option.optionType == PathBuildOptionType.UpgradeTile)
+            success = tileManager.TryBuildSupportTileAt(hoveredGridPosition, option.optionType);
+        else
+            Debug.Log(option.displayName + " gewählt. Funktion kommt später.");
+
+        if (success)
         {
-            bool success = tileManager.TryExtendPathTo(hoveredGridPosition);
-
-            if (success)
-            {
-                optionsGeneratedForCurrentBuildPhase = false;
-                CloseChoiceUI();
-            }
-
+            optionsGeneratedForCurrentBuildPhase = false;
+            CloseChoiceUI();
             return;
         }
 
-        Debug.Log(option.displayName + " gewählt. Funktion kommt später.");
-
         if (descriptionText != null)
         {
-            descriptionText.text = option.displayName + " kommt später. Wähle aktuell [1] Path Tile oder brich mit Rechtsklick/Escape ab.";
+            descriptionText.text = option.displayName + " konnte hier nicht gebaut werden.";
         }
     }
 
