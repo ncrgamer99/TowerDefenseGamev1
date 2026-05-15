@@ -412,7 +412,6 @@ public class Tower : MonoBehaviour
                 range = 3.5f;
                 fireRate = 1.25f;
                 targetMode = TowerTargetMode.NoBurn;
-                targetMode = TowerTargetMode.First;
 
                 appliesBurn = true;
                 burnDamage = 1;
