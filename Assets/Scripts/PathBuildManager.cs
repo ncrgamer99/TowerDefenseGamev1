@@ -4,7 +4,6 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-
 [System.Serializable]
 public class PathBuildOption
 {
@@ -319,15 +318,15 @@ public class PathBuildManager : MonoBehaviour
             return false;
 
         return option.optionType == PathBuildOptionType.TrapTile ||
-            option.optionType == PathBuildOptionType.GoldTile ||
-            option.optionType == PathBuildOptionType.SlowTile ||
-            option.optionType == PathBuildOptionType.KnockTile ||
-            option.optionType == PathBuildOptionType.RangeTile ||
-            option.optionType == PathBuildOptionType.DamageTile ||
-            option.optionType == PathBuildOptionType.RateTile ||
-            option.optionType == PathBuildOptionType.XPTile ||
-            option.optionType == PathBuildOptionType.UpgradeTile ||
-            option.optionType == PathBuildOptionType.ComboTile;
+               option.optionType == PathBuildOptionType.GoldTile ||
+               option.optionType == PathBuildOptionType.SlowTile ||
+               option.optionType == PathBuildOptionType.KnockTile ||
+               option.optionType == PathBuildOptionType.RangeTile ||
+               option.optionType == PathBuildOptionType.DamageTile ||
+               option.optionType == PathBuildOptionType.RateTile ||
+               option.optionType == PathBuildOptionType.XPTile ||
+               option.optionType == PathBuildOptionType.UpgradeTile ||
+               option.optionType == PathBuildOptionType.ComboTile;
     }
 
     private List<PathBuildOption> CreateDefaultSpecialOptions()

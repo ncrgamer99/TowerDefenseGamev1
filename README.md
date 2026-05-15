@@ -39,13 +39,11 @@ Chaos/Gerechtigkeit V1 playable baseline.
 Unity 6000.4.4f1
 
 ## Nicht ins Repository
-
-Diese Ordner sollen nicht ins Repository:
-
-- `Library`
-- `Temp`
-- `Obj`
-- `Build`
-- `Builds`
-- `Logs`
-- `UserSettings`
+- Library
+- Temp
+- Obj
+- Build
+- Builds
+- Logs
+- UserSettings
+Auto-merge test.
