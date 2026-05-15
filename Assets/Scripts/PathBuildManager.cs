@@ -511,7 +511,7 @@ public class PathBuildManager : MonoBehaviour
             new PathBuildOption
             {
                 displayName = "Combo Tile",
-                description = "Combo-Tile: Weg-Tile mit Bleed, Slow und kleinem Knockback.",
+                description = "Combo-Tile: Darkness, wenn Gegner Burn, Poison und Bleed gleichzeitig haben.",
                 optionType = PathBuildOptionType.ComboTile
             }
         };
