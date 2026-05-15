@@ -40,7 +40,7 @@ public class WaveModifier
     public WaveModifierType modifierType = WaveModifierType.None;
 
     [Header("Risk Level / Duration")]
-    [Tooltip("Dauerhafte Risiko-Modifikatoren starten bei Stufe 0. Erneute Auswahl erhöht diese Stufe um +1.")]
+    [Tooltip("Intern starten dauerhafte Risiko-Modifikatoren bei 0; die UI zeigt diese erste aktive Stufe als Stufe 1.")]
     public bool isPermanentRiskModifier = true;
     public bool isTemporaryRiskModifier = false;
     public int riskLevel = 0;
@@ -201,7 +201,7 @@ public class WaveModifier
         string safeName = string.IsNullOrEmpty(displayName) ? modifierType.ToString() : displayName;
 
         if (isPermanentRiskModifier)
-            return safeName + " (Stufe " + Mathf.Max(0, riskLevel) + ")";
+            return safeName + " (Stufe " + (Mathf.Max(0, riskLevel) + 1) + ")";
 
         return safeName;
     }
