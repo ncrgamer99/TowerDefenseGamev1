@@ -25,6 +25,12 @@ public class ChaosJusticeChoiceUI : MonoBehaviour
 
     [Header("Dynamic Layout")]
     public bool hideUnusedOptionButtons = true;
+    public bool applyModalLayoutDefaults = true;
+    public Vector2 choiceTitlePosition = new Vector2(0f, -58f);
+    public Vector2 choiceDescriptionPosition = new Vector2(0f, -108f);
+    public Vector2 choiceButtonSize = new Vector2(270f, 250f);
+    public float choiceButtonY = -98f;
+    public float choiceButtonSpacing = 24f;
 
     [Header("Theme")]
     public bool applyThemeOnStart = true;
@@ -42,10 +48,10 @@ public class ChaosJusticeChoiceUI : MonoBehaviour
     public Color optionDescriptionColor = new Color32(228, 235, 245, 255);
 
     [Header("Text Sizes")]
-    public float titleFontSize = 34f;
-    public float descriptionFontSize = 18f;
-    public float optionFontSize = 17f;
-    public float optionTitleFontSize = 20f;
+    public float titleFontSize = 30f;
+    public float descriptionFontSize = 16f;
+    public float optionFontSize = 15f;
+    public float optionTitleFontSize = 18f;
 
     private readonly List<ChaosJusticeChoiceOption> currentOptions = new List<ChaosJusticeChoiceOption>();
 
@@ -102,6 +108,9 @@ public class ChaosJusticeChoiceUI : MonoBehaviour
 
         if (applyThemeOnStart)
             ApplyStaticTheme();
+
+        if (applyModalLayoutDefaults)
+            ApplyModalLayoutDefaults();
 
         UpdateUI();
 
@@ -238,6 +247,54 @@ public class ChaosJusticeChoiceUI : MonoBehaviour
         ApplyButtonStyle(optionButton2, xpButtonColor, true);
         ApplyButtonStyle(optionButton3, chaosButtonColor, true);
         ApplyButtonStyle(optionButton4, noModifierButtonColor, true);
+
+        if (applyModalLayoutDefaults)
+            ApplyModalLayoutDefaults();
+    }
+
+    private void ApplyModalLayoutDefaults()
+    {
+        ApplyHeaderRect(titleText, choiceTitlePosition, new Vector2(1040f, 48f));
+        ApplyHeaderRect(descriptionText, choiceDescriptionPosition, new Vector2(1040f, 42f));
+
+        int visibleCount = Mathf.Max(1, currentOptions.Count > 0 ? currentOptions.Count : 4);
+        float totalWidth = visibleCount * choiceButtonSize.x + (visibleCount - 1) * choiceButtonSpacing;
+        ApplyOptionButtonRect(optionButton1, 0, visibleCount, totalWidth);
+        ApplyOptionButtonRect(optionButton2, 1, visibleCount, totalWidth);
+        ApplyOptionButtonRect(optionButton3, 2, visibleCount, totalWidth);
+        ApplyOptionButtonRect(optionButton4, 3, visibleCount, totalWidth);
+    }
+
+    private void ApplyHeaderRect(TextMeshProUGUI textField, Vector2 anchoredPosition, Vector2 size)
+    {
+        if (textField == null)
+            return;
+
+        RectTransform rect = textField.GetComponent<RectTransform>();
+        if (rect == null)
+            return;
+
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 1f);
+        rect.anchoredPosition = anchoredPosition;
+        rect.sizeDelta = size;
+    }
+
+    private void ApplyOptionButtonRect(Button button, int index, int visibleCount, float totalWidth)
+    {
+        if (button == null)
+            return;
+
+        RectTransform rect = button.GetComponent<RectTransform>();
+        if (rect == null)
+            return;
+
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = choiceButtonSize;
+        rect.anchoredPosition = new Vector2(-totalWidth * 0.5f + choiceButtonSize.x * 0.5f + index * (choiceButtonSize.x + choiceButtonSpacing), choiceButtonY);
     }
 
     private void ApplyPanelImageColor(GameObject targetObject, Color color)
