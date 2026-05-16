@@ -53,11 +53,11 @@ public class EnemySpawner : MonoBehaviour
     [Header("Chaos Variants V1")]
     public bool enableChaosVariantsV1 = true;
     public int chaosVariantsStartLevel = 3;
-    public float chaosVariantChanceAtStartLevel = 0.10f;
-    public float chaosVariantChancePerAdditionalLevel = 0.05f;
-    public float maxChaosVariantChance = 0.30f;
-    public int maxChaosVariantsAtStartLevel = 2;
-    public int maxChaosVariantsPerAdditionalLevel = 1;
+    public float chaosVariantChanceAtStartLevel = 0.55f;
+    public float chaosVariantChancePerAdditionalLevel = 0.25f;
+    public float maxChaosVariantChance = 1.00f;
+    public int maxChaosVariantsAtStartLevel = 3;
+    public int maxChaosVariantsPerAdditionalLevel = 2;
     public int chaosVariantSeedSalt = 9137;
     public bool allowChaosVariantBossesInV1 = false;
     public bool allowChaosVariantMiniBossesInV1 = false;
@@ -68,8 +68,8 @@ public class EnemySpawner : MonoBehaviour
     public int chaosWaveBlocksStartLevel = 2;
     public int forceChaosWaveBlockAtLevel = 4;
     public int maxChaosWaveBlocksV1 = 3;
-    public float chaosWaveBlockChanceAtStartLevel = 0.35f;
-    public float chaosWaveBlockChancePerAdditionalLevel = 0.10f;
+    public float chaosWaveBlockChanceAtStartLevel = 0.50f;
+    public float chaosWaveBlockChancePerAdditionalLevel = 0.15f;
     public int chaosWaveBlockSeedSalt = 44117;
     public bool allowRolePressureBlock = true;
     public bool allowDensityBlock = true;
@@ -1454,6 +1454,9 @@ public class EnemySpawner : MonoBehaviour
             }
         }
 
+        if (chaosLevel >= 5)
+            chance = 1f;
+
         return Mathf.Clamp(chance, 0f, Mathf.Clamp01(maxChaosVariantChance));
     }
 
@@ -1788,46 +1791,56 @@ public class EnemySpawner : MonoBehaviour
 
     private void AddRunnerScenario(List<EnemySpawnEntry> entries, int enemyCount)
     {
-        int runners = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.5f));
-        int standards = Mathf.Max(0, enemyCount - runners);
+        int runners = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.45f));
+        int mages = HasEnemyPrefabForRole(EnemyRole.Mage) ? Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.15f)) : 0;
+        int standards = Mathf.Max(0, enemyCount - runners - mages);
         AddEntry(entries, EnemyRole.Standard, standards, 0.35f);
         AddEntry(entries, EnemyRole.Runner, runners, 0.2f);
+        AddEntry(entries, EnemyRole.Mage, mages, 0.58f);
     }
 
     private void AddTankScenario(List<EnemySpawnEntry> entries, int enemyCount)
     {
-        int tanks = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.4f));
-        int knights = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.2f));
-        int standards = Mathf.Max(0, enemyCount - tanks - knights);
+        int tanks = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.35f));
+        int knights = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.25f));
+        int allRounders = HasEnemyPrefabForRole(EnemyRole.AllRounder) && enemyCount >= 8 ? Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.10f)) : 0;
+        int standards = Mathf.Max(0, enemyCount - tanks - knights - allRounders);
         AddEntry(entries, EnemyRole.Standard, standards, 0.38f);
         AddEntry(entries, EnemyRole.Tank, tanks, 0.75f);
         AddEntry(entries, EnemyRole.Knight, knights, 0.65f);
+        AddEntry(entries, EnemyRole.AllRounder, allRounders, 0.78f);
     }
 
     private void AddEffectCheckScenario(List<EnemySpawnEntry> entries, int enemyCount)
     {
-        int mages = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.25f));
-        int learners = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.2f));
-        int runners = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.15f));
-        int standards = Mathf.Max(0, enemyCount - mages - learners - runners);
+        int mages = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.28f));
+        int learners = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.25f));
+        int runners = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.18f));
+        int allRounders = HasEnemyPrefabForRole(EnemyRole.AllRounder) && enemyCount >= 10 ? Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.08f)) : 0;
+        int standards = Mathf.Max(0, enemyCount - mages - learners - runners - allRounders);
         AddEntry(entries, EnemyRole.Standard, standards, 0.36f);
         AddEntry(entries, EnemyRole.Runner, runners, 0.24f);
         AddEntry(entries, EnemyRole.Mage, mages, 0.6f);
         AddEntry(entries, EnemyRole.Learner, learners, 0.55f);
+        AddEntry(entries, EnemyRole.AllRounder, allRounders, 0.78f);
     }
 
     private void AddMixedScenario(List<EnemySpawnEntry> entries, int enemyCount)
     {
-        int runners = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.2f));
-        int tanks = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.2f));
-        int knights = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.15f));
-        int mages = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.15f));
-        int standards = Mathf.Max(0, enemyCount - runners - tanks - knights - mages);
+        int runners = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.18f));
+        int tanks = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.18f));
+        int knights = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.18f));
+        int mages = Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.16f));
+        int learners = HasEnemyPrefabForRole(EnemyRole.Learner) && enemyCount >= 8 ? Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.12f)) : 0;
+        int allRounders = HasEnemyPrefabForRole(EnemyRole.AllRounder) && enemyCount >= 6 ? Mathf.Max(1, Mathf.RoundToInt(enemyCount * 0.12f)) : 0;
+        int standards = Mathf.Max(0, enemyCount - runners - tanks - knights - mages - learners - allRounders);
         AddEntry(entries, EnemyRole.Standard, standards, 0.35f);
         AddEntry(entries, EnemyRole.Runner, runners, 0.24f);
         AddEntry(entries, EnemyRole.Tank, tanks, 0.7f);
         AddEntry(entries, EnemyRole.Knight, knights, 0.6f);
         AddEntry(entries, EnemyRole.Mage, mages, 0.6f);
+        AddEntry(entries, EnemyRole.Learner, learners, 0.55f);
+        AddEntry(entries, EnemyRole.AllRounder, allRounders, 0.78f);
     }
 
     private void AddEntry(List<EnemySpawnEntry> entries, EnemyRole role, int amount, float delay)

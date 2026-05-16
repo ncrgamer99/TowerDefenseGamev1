@@ -478,6 +478,9 @@ public class TowerUI : MonoBehaviour
         if (selectedTower.appliesPoison)
             return "+" + selectedTower.poisonDamageIncreasePerGoldUpgrade + " Poison / +" + selectedTower.effectDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
 
+        if (selectedTower.towerRole == TowerRole.Lightning)
+            return "+1 Chain / +0.04 Chain-Dmg";
+
         if (selectedTower.appliesSlow)
             return "-" + selectedTower.slowAmountIncreasePerGoldUpgrade.ToString("0.00") + " Slow / +" + selectedTower.slowDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
 
@@ -497,6 +500,9 @@ public class TowerUI : MonoBehaviour
 
         if (selectedTower.appliesPoison)
             return "+" + selectedTower.GetPointPoisonDamageIncreasePreview() + " Poison / +" + selectedTower.GetPointEffectDurationIncreasePreview().ToString("0.00") + "s";
+
+        if (selectedTower.towerRole == TowerRole.Lightning)
+            return "+" + selectedTower.GetPointLightningChainTargetIncreasePreview() + " Chain / +" + selectedTower.GetPointLightningChainDamageIncreasePreview().ToString("0.00") + " Chain-Dmg";
 
         if (selectedTower.appliesSlow)
             return "-" + selectedTower.GetPointSlowAmountIncreasePreview().ToString("0.00") + " Slow / +" + selectedTower.GetPointSlowDurationIncreasePreview().ToString("0.00") + "s";

@@ -173,7 +173,7 @@ public class BuildSelectionUI : MonoBehaviour
         ApplyDefaultBuildOption(basicTower, "Basic Tower", 50, "Günstiger Allrounder für den Spielstart.");
         ApplyDefaultBuildOption(slowTower, "Slow Tower", 65, "Kontrolltower, der Gegner verlangsamt und andere Tower stärker macht.");
         ApplyDefaultBuildOption(poisonTower, "Poison Tower", 80, "DoT-Tower gegen Tanks, MiniBoss und Boss.");
-        ApplyDefaultBuildOption(rapidTower, "Rapid Tower", 70, "Schneller Tower gegen Runner und zum Aufräumen angeschlagener Gegner.");
+        ApplyDefaultBuildOption(rapidTower, "Rapid Tower", 75, "Schneller Tower gegen Runner und zum Aufräumen angeschlagener Gegner.");
         ApplyDefaultBuildOption(heavyTower, "Heavy Tower", 100, "Langsamer Einzelschaden gegen Armor, Tanks und Bosse.");
         ApplyDefaultBuildOption(fireTower, "Fire Tower", 80, "Burn-Tower gegen Gruppen und Standard-Gegner.");
         ApplyDefaultBuildOption(sniperTower, "Sniper Tower", 125, "Sehr hohe Reichweite und Einzelschaden gegen Elite, MiniBoss und Boss.");
@@ -207,7 +207,7 @@ public class BuildSelectionUI : MonoBehaviour
         else if (lowerName.Contains("poison"))
             ApplyDefaultBuildOption(option, "Poison Tower", 80, "DoT-Tower gegen Tanks, MiniBoss und Boss.");
         else if (lowerName.Contains("rapid"))
-            ApplyDefaultBuildOption(option, "Rapid Tower", 70, "Schneller Tower gegen Runner und zum Aufräumen angeschlagener Gegner.");
+            ApplyDefaultBuildOption(option, "Rapid Tower", 75, "Schneller Tower gegen Runner und zum Aufräumen angeschlagener Gegner.");
         else if (lowerName.Contains("sniper"))
             ApplyDefaultBuildOption(option, "Sniper Tower", 125, "Sehr hohe Reichweite und Einzelschaden gegen Elite, MiniBoss und Boss.");
         else if (lowerName.Contains("heavy"))

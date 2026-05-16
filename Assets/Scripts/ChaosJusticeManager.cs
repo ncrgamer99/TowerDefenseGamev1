@@ -153,7 +153,7 @@ public class ChaosJusticeManager : MonoBehaviour
     public bool useCompletelyRandomRiskSelection = false;
     public bool allowImmediateRiskRepeats = false;
     public bool logRandomRiskSelection = false;
-    public int riskOfferCount = 3;
+    public int riskOfferCount = 4;
     public bool allowDuplicateRiskCardsInSameOffer = false;
     public bool showNoModifierOption = true;
     public bool allowNoModifierAtMaxChaos = true;
@@ -162,9 +162,9 @@ public class ChaosJusticeManager : MonoBehaviour
 
     [Header("Risk Reward Safety V1")]
     public bool useRewardRiskDiminishingReturns = true;
-    public float rewardRiskDiminishingFactor = 0.60f;
-    public float maxChaosRewardBonus = 0.60f;
-    public float maxSingleRiskRewardBonus = 0.20f;
+    public float rewardRiskDiminishingFactor = 0.80f;
+    public float maxChaosRewardBonus = 1.50f;
+    public float maxSingleRiskRewardBonus = 0.45f;
 
     [Header("Risk Budget V1")]
     public bool enforceTotalRiskPressureBudget = true;
@@ -1699,10 +1699,10 @@ public class ChaosJusticeManager : MonoBehaviour
         float enemyMultiplier = 1f + 0.10f + levelForScaling * 0.02f;
         float greedyEnemyMultiplier = 1f + 0.08f + levelForScaling * 0.015f;
         float fasterSpawnMultiplier = Mathf.Clamp(0.92f - levelForScaling * 0.025f, 0.78f, 0.90f);
-        float greedyGoldBonus = 0.08f + levelForScaling * 0.02f;
-        float greedyXpBonus = 0.04f + levelForScaling * 0.01f;
-        float goldRushBonus = 0.10f + levelForScaling * 0.025f;
-        float xpTrialBonus = 0.08f + levelForScaling * 0.02f;
+        float greedyGoldBonus = 0.16f + levelForScaling * 0.04f;
+        float greedyXpBonus = 0.10f + levelForScaling * 0.025f;
+        float goldRushBonus = 0.18f + levelForScaling * 0.045f;
+        float xpTrialBonus = 0.18f + levelForScaling * 0.04f;
         float rewardSpawnMultiplier = Mathf.Clamp(0.94f - levelForScaling * 0.02f, 0.82f, 0.92f);
 
         List<WaveModifier> pool = new List<WaveModifier>();
@@ -1715,7 +1715,10 @@ public class ChaosJusticeManager : MonoBehaviour
             modifierType = WaveModifierType.ExtraEnemies,
             enemyCountMultiplier = enemyMultiplier,
             flatEnemyCountBonus = levelForScaling,
-            isChaosModifier = true
+            isChaosModifier = true,
+            goldRewardMultiplierBonus = 0.04f + levelForScaling * 0.01f,
+            xpRewardMultiplierBonus = 0.03f + levelForScaling * 0.008f,
+            isRewardModifier = true,
         });
 
         pool.Add(new WaveModifier
@@ -1726,7 +1729,9 @@ public class ChaosJusticeManager : MonoBehaviour
             modifierType = WaveModifierType.MoreRunners,
             extraRoleAmount = lightExtra,
             extraRoleSpawnDelay = 0.18f,
-            isChaosModifier = true
+            isChaosModifier = true,
+            goldRewardMultiplierBonus = 0.03f + levelForScaling * 0.008f,
+            isRewardModifier = true,
         });
 
         pool.Add(new WaveModifier
@@ -1737,7 +1742,10 @@ public class ChaosJusticeManager : MonoBehaviour
             modifierType = WaveModifierType.MoreTanks,
             extraRoleAmount = heavyExtra,
             extraRoleSpawnDelay = 0.72f,
-            isChaosModifier = true
+            isChaosModifier = true,
+            goldRewardMultiplierBonus = 0.04f + levelForScaling * 0.01f,
+            xpRewardMultiplierBonus = 0.03f + levelForScaling * 0.008f,
+            isRewardModifier = true,
         });
 
         pool.Add(new WaveModifier
@@ -1748,7 +1756,10 @@ public class ChaosJusticeManager : MonoBehaviour
             modifierType = WaveModifierType.MoreKnights,
             extraRoleAmount = heavyExtra,
             extraRoleSpawnDelay = 0.64f,
-            isChaosModifier = true
+            isChaosModifier = true,
+            goldRewardMultiplierBonus = 0.04f + levelForScaling * 0.01f,
+            xpRewardMultiplierBonus = 0.02f + levelForScaling * 0.006f,
+            isRewardModifier = true,
         });
 
         if (includeMageAndLearnerRiskModifiers)
@@ -1789,7 +1800,9 @@ public class ChaosJusticeManager : MonoBehaviour
             description = "Zukünftige Waves spawnen dichter. Der Effekt startet moderat und wird mit höherem Chaos spürbarer.",
             modifierType = WaveModifierType.FasterSpawns,
             spawnDelayMultiplier = fasterSpawnMultiplier,
-            isChaosModifier = true
+            isChaosModifier = true,
+            goldRewardMultiplierBonus = 0.05f + levelForScaling * 0.012f,
+            isRewardModifier = true,
         });
 
         if (includeMixedRoleRiskModifiers && levelForScaling >= 2 && EnemySpawnerHasPrefab(EnemyRole.Runner))
@@ -2022,11 +2035,48 @@ public class ChaosJusticeManager : MonoBehaviour
                 description = "Zukünftige Waves spawnen dichter. Dafür steigen Gold-Rewards leicht.",
                 modifierType = WaveModifierType.FasterSpawns,
                 spawnDelayMultiplier = rewardSpawnMultiplier,
-                goldRewardMultiplierBonus = 0.06f + levelForScaling * 0.015f,
+                goldRewardMultiplierBonus = 0.14f + levelForScaling * 0.03f,
                 isChaosModifier = true,
                 isRewardModifier = true
             });
         }
+
+
+            pool.Add(new WaveModifier
+            {
+                modifierId = "risk_bounty_hunters",
+                displayName = "Kopfgeld-Jagd",
+                description = "Zukünftige Waves erhalten gemischten Rollendruck. Dafür steigen Gold und XP spürbar.",
+                modifierType = WaveModifierType.MixedRolePressure,
+                roleToAdd = EnemyRole.Runner,
+                extraRoleAmount = Mathf.Max(1, mixedLightExtra),
+                extraRoleSpawnDelay = 0.24f,
+                useSecondaryRoleToAdd = EnemySpawnerHasPrefab(EnemyRole.Tank),
+                secondaryRoleToAdd = EnemyRole.Tank,
+                secondaryExtraRoleAmount = Mathf.Max(1, heavyExtra),
+                secondaryExtraRoleSpawnDelay = 0.72f,
+                goldRewardMultiplierBonus = 0.12f + levelForScaling * 0.035f,
+                xpRewardMultiplierBonus = 0.10f + levelForScaling * 0.03f,
+                isChaosModifier = true,
+                isRewardModifier = true
+            });
+
+            if (EnemySpawnerHasPrefab(EnemyRole.AllRounder))
+            {
+                pool.Add(new WaveModifier
+                {
+                    modifierId = "risk_allrounder_bounty",
+                    displayName = "AllRounder-Kopfgeld",
+                    description = "Zukünftige Waves erhalten zusätzliche AllRounder. Dafür steigen Gold und XP deutlich.",
+                    modifierType = WaveModifierType.MoreAllRounders,
+                    extraRoleAmount = Mathf.Max(1, allRounderExtra),
+                    extraRoleSpawnDelay = 0.78f,
+                    goldRewardMultiplierBonus = 0.14f + levelForScaling * 0.035f,
+                    xpRewardMultiplierBonus = 0.12f + levelForScaling * 0.03f,
+                    isChaosModifier = true,
+                    isRewardModifier = true
+                });
+            }
 
         return FilterRiskPoolByAvailablePrefabs(pool);
     }

@@ -10,7 +10,8 @@ public enum TowerTargetMode
     Elite,
     NoBurn,
     NoPoison,
-    NoSlow
+    NoSlow,
+    NoBleed
 }
 
 public enum TowerRole
@@ -364,7 +365,7 @@ public class Tower : MonoBehaviour
                 towerName = "Rapid Tower";
                 damage = 2;
                 range = 2.3f;
-                fireRate = 3.1f;
+                fireRate = 2.8f;
                 targetMode = TowerTargetMode.First;
 
                 damageUpgradeCost = 55;
@@ -376,13 +377,13 @@ public class Tower : MonoBehaviour
 
                 damageIncreasePerGoldUpgrade = 1;
                 rangeIncreasePerGoldUpgrade = 0.25f;
-                fireRateIncreasePerGoldUpgrade = 0.30f;
+                fireRateIncreasePerGoldUpgrade = 0.25f;
                 break;
 
 
             case TowerRole.Sniper:
                 towerName = "Sniper Tower";
-                damage = 32;
+                damage = 42;
                 range = 5.2f;
                 fireRate = 0.30f;
                 targetMode = TowerTargetMode.Elite;
@@ -394,16 +395,16 @@ public class Tower : MonoBehaviour
                 goldUpgradeCostIncrease = 30;
                 goldUpgradeCostMultiplier = 1.35f;
 
-                damageIncreasePerGoldUpgrade = 6;
+                damageIncreasePerGoldUpgrade = 8;
                 rangeIncreasePerGoldUpgrade = 0.35f;
                 fireRateIncreasePerGoldUpgrade = 0.05f;
                 break;
 
             case TowerRole.Heavy:
                 towerName = "Heavy Tower";
-                damage = 18;
+                damage = 16;
                 range = 2.8f;
-                fireRate = 0.45f;
+                fireRate = 0.42f;
                 targetMode = TowerTargetMode.Strongest;
 
                 damageUpgradeCost = 80;
@@ -413,7 +414,7 @@ public class Tower : MonoBehaviour
                 goldUpgradeCostIncrease = 25;
                 goldUpgradeCostMultiplier = 1.30f;
 
-                damageIncreasePerGoldUpgrade = 3;
+                damageIncreasePerGoldUpgrade = 2;
                 rangeIncreasePerGoldUpgrade = 0.20f;
                 fireRateIncreasePerGoldUpgrade = 0.10f;
                 break;
@@ -427,7 +428,7 @@ public class Tower : MonoBehaviour
 
                 appliesBurn = true;
                 burnDamage = 2;
-                burnDuration = 3.0f;
+                burnDuration = 4.0f;
 
                 damageUpgradeCost = 65;
                 rangeUpgradeCost = 60;
@@ -473,16 +474,16 @@ public class Tower : MonoBehaviour
                 towerName = "Alchemist Tower";
                 damage = 1;
                 range = 2.6f;
-                fireRate = 0.85f;
+                fireRate = 0.75f;
                 targetMode = TowerTargetMode.NoPoison;
 
                 appliesPoison = true;
-                poisonDamage = 2;
-                poisonDuration = 5.0f;
+                poisonDamage = 1;
+                poisonDuration = 4.5f;
 
                 appliesSlow = true;
-                slowAmount = 0.70f;
-                slowDuration = 1.6f;
+                slowAmount = 0.78f;
+                slowDuration = 1.3f;
 
                 damageUpgradeCost = 60;
                 rangeUpgradeCost = 60;
@@ -497,13 +498,13 @@ public class Tower : MonoBehaviour
                 poisonDamageIncreasePerGoldUpgrade = 1;
                 slowAmountIncreasePerGoldUpgrade = 0.015f;
                 slowDurationIncreasePerGoldUpgrade = 0.15f;
-                effectDurationIncreasePerGoldUpgrade = 0.35f;
+                effectDurationIncreasePerGoldUpgrade = 0.25f;
                 break;
 
 
             case TowerRole.Lightning:
                 towerName = "Lightning Tower";
-                damage = 5;
+                damage = 7;
                 range = 3.0f;
                 fireRate = 0.85f;
                 targetMode = TowerTargetMode.First;
@@ -528,9 +529,9 @@ public class Tower : MonoBehaviour
 
             case TowerRole.Mortar:
                 towerName = "Mortar Tower";
-                damage = 12;
+                damage = 10;
                 range = 4.0f;
-                fireRate = 0.40f;
+                fireRate = 0.30f;
                 targetMode = TowerTargetMode.Strongest;
 
                 damageUpgradeCost = 85;
@@ -540,7 +541,7 @@ public class Tower : MonoBehaviour
                 goldUpgradeCostIncrease = 30;
                 goldUpgradeCostMultiplier = 1.35f;
 
-                damageIncreasePerGoldUpgrade = 3;
+                damageIncreasePerGoldUpgrade = 2;
                 rangeIncreasePerGoldUpgrade = 0.25f;
                 fireRateIncreasePerGoldUpgrade = 0.06f;
                 break;
@@ -550,7 +551,7 @@ public class Tower : MonoBehaviour
                 damage = 2;
                 range = 1.5f;
                 fireRate = 1.1f;
-                targetMode = TowerTargetMode.First;
+                targetMode = TowerTargetMode.NoBleed;
 
                 damageUpgradeCost = 55;
                 rangeUpgradeCost = 60;
@@ -573,8 +574,8 @@ public class Tower : MonoBehaviour
                 targetMode = TowerTargetMode.NoPoison;
 
                 appliesPoison = true;
-                poisonDamage = 3;
-                poisonDuration = 6.0f;
+                poisonDamage = 4;
+                poisonDuration = 6.5f;
 
                 damageUpgradeCost = 60;
                 rangeUpgradeCost = 60;
@@ -586,8 +587,8 @@ public class Tower : MonoBehaviour
                 damageIncreasePerGoldUpgrade = 1;
                 rangeIncreasePerGoldUpgrade = 0.25f;
                 fireRateIncreasePerGoldUpgrade = 0.25f;
-                poisonDamageIncreasePerGoldUpgrade = 1;
-                effectDurationIncreasePerGoldUpgrade = 0.40f;
+                poisonDamageIncreasePerGoldUpgrade = 2;
+                effectDurationIncreasePerGoldUpgrade = 0.45f;
                 break;
         }
     }
@@ -693,6 +694,8 @@ public class Tower : MonoBehaviour
                 return FindNoPoisonEnemy(enemies);
             case TowerTargetMode.NoSlow:
                 return FindNoSlowEnemy(enemies);
+            case TowerTargetMode.NoBleed:
+                return FindNoBleedEnemy(enemies);
             default:
                 return FindFirstEnemy(enemies);
         }
@@ -829,6 +832,11 @@ public class Tower : MonoBehaviour
         return FindFirstEnemyMissingEffect(enemies, TowerTargetMode.NoSlow);
     }
 
+    private Enemy FindNoBleedEnemy(Enemy[] enemies)
+    {
+        return FindFirstEnemyMissingEffect(enemies, TowerTargetMode.NoBleed);
+    }
+
     private Enemy FindFirstEnemyMissingEffect(Enemy[] enemies, TowerTargetMode effectTargetMode)
     {
         Enemy bestTarget = null;
@@ -870,6 +878,8 @@ public class Tower : MonoBehaviour
                 return !enemy.HasPoison();
             case TowerTargetMode.NoSlow:
                 return !enemy.HasSlow();
+            case TowerTargetMode.NoBleed:
+                return !enemy.HasBleed();
             default:
                 return false;
         }
@@ -955,13 +965,13 @@ public class Tower : MonoBehaviour
 
         if (towerRole == TowerRole.Lightning)
         {
-            projectile.lightningChainTargets = 3;
+            projectile.lightningChainTargets = GetLightningChainTargets();
             projectile.lightningChainRange = 2.5f;
-            projectile.lightningChainDamageMultiplier = 0.45f;
+            projectile.lightningChainDamageMultiplier = GetLightningChainDamageMultiplier();
         }
         else if (towerRole == TowerRole.Mortar)
         {
-            projectile.mortarRadius = 1.35f;
+            projectile.mortarRadius = 0.85f;
 
             if (target != null)
                 projectile.SetMortarImpactPosition(target.transform.position);
@@ -1030,6 +1040,9 @@ public class Tower : MonoBehaviour
         if (appliesSlow)
             modes.Add(TowerTargetMode.NoSlow);
 
+        if (towerRole == TowerRole.Spike)
+            modes.Add(TowerTargetMode.NoBleed);
+
         return modes;
     }
 
@@ -1053,6 +1066,8 @@ public class Tower : MonoBehaviour
                 return "No Poison";
             case TowerTargetMode.NoSlow:
                 return "No Slow";
+            case TowerTargetMode.NoBleed:
+                return "No Bleed";
             default:
                 return targetMode.ToString();
         }
@@ -1356,6 +1371,9 @@ public class Tower : MonoBehaviour
     {
         int safeMultiplier = Mathf.Max(1, multiplier);
 
+        if (towerRole == TowerRole.Lightning)
+            return;
+
         if (appliesBurn)
         {
             burnDamage += burnDamageIncreasePerGoldUpgrade * safeMultiplier;
@@ -1378,12 +1396,12 @@ public class Tower : MonoBehaviour
 
     public float GetSpikeBleedDamagePerTick()
     {
-        return Mathf.Max(0.1f, 2f + effectGoldUpgradeLevel + effectPointUpgradeLevel * GetPointSpikeBleedDamageIncreasePreview());
+        return Mathf.Max(0.1f, 3f + effectGoldUpgradeLevel + effectPointUpgradeLevel * GetPointSpikeBleedDamageIncreasePreview());
     }
 
     public float GetSpikeBleedDuration()
     {
-        return Mathf.Max(0.1f, 12f + effectGoldUpgradeLevel * effectDurationIncreasePerGoldUpgrade + effectPointUpgradeLevel * GetPointSpikeBleedDurationIncreasePreview());
+        return Mathf.Max(0.1f, 14f + effectGoldUpgradeLevel * effectDurationIncreasePerGoldUpgrade + effectPointUpgradeLevel * GetPointSpikeBleedDurationIncreasePreview());
     }
 
     public int GetPointSpikeBleedDamageIncreasePreview()
@@ -1394,6 +1412,27 @@ public class Tower : MonoBehaviour
     public float GetPointSpikeBleedDurationIncreasePreview()
     {
         return effectDurationIncreasePerGoldUpgrade * GetEffectivePointUpgradePowerMultiplier();
+    }
+
+    public int GetLightningChainTargets()
+    {
+        return Mathf.Clamp(3 + effectGoldUpgradeLevel + effectPointUpgradeLevel * GetEffectivePointUpgradePowerMultiplier(), 1, 12);
+    }
+
+    public float GetLightningChainDamageMultiplier()
+    {
+        float bonus = effectGoldUpgradeLevel * 0.04f + effectPointUpgradeLevel * 0.04f * GetEffectivePointUpgradePowerMultiplier();
+        return Mathf.Clamp(0.55f + bonus, 0.1f, 0.95f);
+    }
+
+    public int GetPointLightningChainTargetIncreasePreview()
+    {
+        return GetEffectivePointUpgradePowerMultiplier();
+    }
+
+    public float GetPointLightningChainDamageIncreasePreview()
+    {
+        return 0.04f * GetEffectivePointUpgradePowerMultiplier();
     }
 
 
@@ -1529,10 +1568,19 @@ public class Tower : MonoBehaviour
         {
             float baseSlowStrength = 1f - Mathf.Clamp01(baseSlowAmountBeforeVisualTier);
             float upgradedSlowStrength = baseSlowStrength * (1f + bonusMultiplier);
-            upgradedSlowStrength += effectGoldUpgradeLevel * slowAmountIncreasePerGoldUpgrade;
-            upgradedSlowStrength += effectPointUpgradeLevel * GetPointSlowAmountIncreasePreview();
+
+            if (towerRole != TowerRole.Lightning)
+            {
+                upgradedSlowStrength += effectGoldUpgradeLevel * slowAmountIncreasePerGoldUpgrade;
+                upgradedSlowStrength += effectPointUpgradeLevel * GetPointSlowAmountIncreasePreview();
+            }
+
             slowAmount = Mathf.Clamp(1f - upgradedSlowStrength, 0.1f, 1f);
-            slowDuration = Mathf.Max(0f, baseSlowDurationBeforeVisualTier + effectGoldUpgradeLevel * slowDurationIncreasePerGoldUpgrade + effectPointUpgradeLevel * GetPointSlowDurationIncreasePreview() + baseSlowDurationBeforeVisualTier * bonusMultiplier);
+
+            if (towerRole == TowerRole.Lightning)
+                slowDuration = Mathf.Max(0f, baseSlowDurationBeforeVisualTier + baseSlowDurationBeforeVisualTier * bonusMultiplier);
+            else
+                slowDuration = Mathf.Max(0f, baseSlowDurationBeforeVisualTier + effectGoldUpgradeLevel * slowDurationIncreasePerGoldUpgrade + effectPointUpgradeLevel * GetPointSlowDurationIncreasePreview() + baseSlowDurationBeforeVisualTier * bonusMultiplier);
         }
     }
 

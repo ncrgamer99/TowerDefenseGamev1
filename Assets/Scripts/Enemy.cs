@@ -35,8 +35,8 @@ public class Enemy : MonoBehaviour
 
     [Header("Chaos Level Scaling V1")]
     public bool useChaosLevelScaling = true;
-    public float chaosHealthBonusPerLevel = 0.05f;
-    public float chaosBossHealthBonusPerLevel = 0.03f;
+    public float chaosHealthBonusPerLevel = 0.09f;
+    public float chaosBossHealthBonusPerLevel = 0.05f;
 
     [Header("Chaos Variant Stats V1")]
     public float chaosStandardEffectDamageMultiplier = 0.90f;
@@ -83,12 +83,12 @@ public class Enemy : MonoBehaviour
     [Header("Wave Scaling")]
     public bool useWaveScaling = true;
     public int scalingStartWave = 11;
-    public float healthScalingPerWave = 0.10f;
-    public float rewardScalingPerWave = 0.025f;
-    public float xpScalingPerWave = 0.025f;
-    public float speedScalingPerWave = 0.008f;
+    public float healthScalingPerWave = 0.16f;
+    public float rewardScalingPerWave = 0f;
+    public float xpScalingPerWave = 0f;
+    public float speedScalingPerWave = 0.012f;
     public float maxNormalSpeedBonus = 0.35f;
-    public int armorBonusEveryWaves = 12;
+    public int armorBonusEveryWaves = 9;
     public int maxArmorBonus = 12;
     public int baseDamageBonusEveryWaves = 18;
     public int maxBaseDamageBonus = 6;
@@ -739,6 +739,11 @@ public class Enemy : MonoBehaviour
         ApplyBleedFromSource(damagePerTick, duration, null, tickInterval, true);
     }
 
+    public void ApplyBleed(float damagePerTick, float duration, float tickInterval, Tower sourceTower)
+    {
+        ApplyBleedFromSource(damagePerTick, duration, sourceTower, tickInterval, true);
+    }
+
     public void ApplyDarkness(float damagePerTick, float duration, float tickInterval)
     {
         if (isDead || reachedBase || immuneToEffects)
@@ -799,12 +804,12 @@ public class Enemy : MonoBehaviour
                 if (IsChaosVariantRole(EnemyRole.Learner))
                 {
                     float reducedDamage = tickDamage * Mathf.Clamp01(chaosLearnerDotDamageMultiplier);
-                    TakeDamageInternal(reducedDamage, sourceTower, false, false, false);
+                    TakeDamageInternal(reducedDamage, sourceTower, true, false);
                     HealChaosVariant(tickDamage * Mathf.Max(0f, chaosLearnerDotHealMultiplier));
                 }
                 else
                 {
-                    TakeDamageInternal(tickDamage, sourceTower, false, false, false);
+                    TakeDamageInternal(tickDamage, sourceTower, true, false);
                 }
             }
 
@@ -1657,6 +1662,11 @@ public class Enemy : MonoBehaviour
     public bool CanReceiveBurnStack()
     {
         return !isDead && !reachedBase && !immuneToEffects && activeBurnStacks < Mathf.Max(1, maxBurnStacks);
+    }
+
+    public bool HasBleed()
+    {
+        return isBleeding;
     }
 
     public bool HasPoison()
