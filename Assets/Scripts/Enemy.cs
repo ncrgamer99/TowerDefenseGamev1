@@ -1664,6 +1664,11 @@ public class Enemy : MonoBehaviour
         return !isDead && !reachedBase && !immuneToEffects && activeBurnStacks < Mathf.Max(1, maxBurnStacks);
     }
 
+    public bool HasBleed()
+    {
+        return isBleeding;
+    }
+
     public bool HasPoison()
     {
         return isPoisoned;
