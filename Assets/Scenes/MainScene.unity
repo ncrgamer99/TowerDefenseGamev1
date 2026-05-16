@@ -3732,7 +3732,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Gold: 100
+  m_text: 'Gold: 120
 
     Lives: 10
 
@@ -7631,7 +7631,7 @@ MonoBehaviour:
   isBaseBlocked: 0
   isTimedBlockedBuildPhase: 0
   blockedBuildTimeRemaining: 0
-  gold: 100
+  gold: 120
   giveWaveCompletionGold: 1
   baseWaveCompletionGold: 6
   waveCompletionGoldPerWave: 1
