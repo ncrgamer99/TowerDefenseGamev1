@@ -363,8 +363,8 @@ public class Tower : MonoBehaviour
             case TowerRole.Rapid:
                 towerName = "Rapid Tower";
                 damage = 3;
-                range = 3.3f;
-                fireRate = 2.6f;
+                range = 3.4f;
+                fireRate = 2.8f;
                 targetMode = TowerTargetMode.First;
 
                 damageUpgradeCost = 55;
@@ -403,7 +403,7 @@ public class Tower : MonoBehaviour
                 towerName = "Heavy Tower";
                 damage = 16;
                 range = 3.8f;
-                fireRate = 0.50f;
+                fireRate = 0.55f;
                 targetMode = TowerTargetMode.Strongest;
 
                 damageUpgradeCost = 80;
@@ -472,8 +472,8 @@ public class Tower : MonoBehaviour
             case TowerRole.Alchemist:
                 towerName = "Alchemist Tower";
                 damage = 1;
-                range = 3.6f;
-                fireRate = 0.75f;
+                range = 3.7f;
+                fireRate = 0.80f;
                 targetMode = TowerTargetMode.NoPoison;
 
                 appliesPoison = true;
@@ -484,10 +484,10 @@ public class Tower : MonoBehaviour
                 slowAmount = 0.75f;
                 slowDuration = 2.0f;
 
-                damageUpgradeCost = 65;
-                rangeUpgradeCost = 65;
-                fireRateUpgradeCost = 85;
-                effectUpgradeCost = 95;
+                damageUpgradeCost = 60;
+                rangeUpgradeCost = 60;
+                fireRateUpgradeCost = 80;
+                effectUpgradeCost = 90;
                 goldUpgradeCostIncrease = 30;
                 goldUpgradeCostMultiplier = 1.30f;
 
@@ -504,17 +504,17 @@ public class Tower : MonoBehaviour
             case TowerRole.Lightning:
                 towerName = "Lightning Tower";
                 damage = 4;
-                range = 4.0f;
-                fireRate = 0.90f;
+                range = 4.1f;
+                fireRate = 0.95f;
                 targetMode = TowerTargetMode.First;
 
                 appliesSlow = true;
                 slowAmount = 0.75f;
                 slowDuration = 1.25f;
 
-                damageUpgradeCost = 70;
+                damageUpgradeCost = 65;
                 rangeUpgradeCost = 65;
-                fireRateUpgradeCost = 85;
+                fireRateUpgradeCost = 80;
                 effectUpgradeCost = 80;
                 goldUpgradeCostIncrease = 25;
                 goldUpgradeCostMultiplier = 1.30f;
@@ -528,7 +528,7 @@ public class Tower : MonoBehaviour
 
             case TowerRole.Mortar:
                 towerName = "Mortar Tower";
-                damage = 10;
+                damage = 11;
                 range = 5.0f;
                 fireRate = 0.45f;
                 targetMode = TowerTargetMode.Strongest;

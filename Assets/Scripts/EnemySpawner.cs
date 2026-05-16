@@ -48,7 +48,7 @@ public class EnemySpawner : MonoBehaviour
     public bool usePreparedWaveModifiers = false;
     public List<WaveModifier> activeWaveModifiers = new List<WaveModifier>();
     public bool useWaveRiskPressureBudget = true;
-    public int maxWaveRiskPressureBudget = 28;
+    public int maxWaveRiskPressureBudget = 24;
 
     [Header("Chaos Variants V1")]
     public bool enableChaosVariantsV1 = true;

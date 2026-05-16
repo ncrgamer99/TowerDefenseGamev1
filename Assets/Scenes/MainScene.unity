@@ -7633,10 +7633,10 @@ MonoBehaviour:
   blockedBuildTimeRemaining: 0
   gold: 100
   giveWaveCompletionGold: 1
-  baseWaveCompletionGold: 5
-  waveCompletionGoldPerWave: 0
-  miniBossWaveCompletionGoldBonus: 8
-  bossWaveCompletionGoldBonus: 20
+  baseWaveCompletionGold: 6
+  waveCompletionGoldPerWave: 1
+  miniBossWaveCompletionGoldBonus: 10
+  bossWaveCompletionGoldBonus: 24
   lives: 999999
   isGameOver: 0
 --- !u!4 &652380031
@@ -18427,8 +18427,8 @@ MonoBehaviour:
   towerUI: {fileID: 900815697}
   openChoiceAfterBossWaves: 1
   maxChaosLevel: 5
-  goldJusticeBonusPerLevel: 0.02
-  xpJusticeBonusPerLevel: 0.02
+  goldJusticeBonusPerLevel: 0.03
+  xpJusticeBonusPerLevel: 0.03
   useInspectorRiskModifierPool: 0
   riskModifierPool: []
   useUnlockGateForRiskModifierPool: 1
@@ -18440,9 +18440,9 @@ MonoBehaviour:
   showNoModifierOption: 1
   allowNoModifierAtMaxChaos: 1
   useRewardRiskDiminishingReturns: 1
-  rewardRiskDiminishingFactor: 0.65
-  maxChaosRewardBonus: 0.75
-  maxSingleRiskRewardBonus: 0.25
+  rewardRiskDiminishingFactor: 0.6
+  maxChaosRewardBonus: 0.6
+  maxSingleRiskRewardBonus: 0.2
   maxEnemyCountMultiplierPerRisk: 1.65
   maxFlatEnemyBonusPerRisk: 12
   maxExtraRoleAmountPerRisk: 10
