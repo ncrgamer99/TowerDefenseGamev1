@@ -34,6 +34,8 @@ public class ChaosLexiconUI : MonoBehaviour
     public Color lockedEntryButtonColor = new Color32(55, 64, 80, 255);
     public Color closeButtonColor = new Color32(200, 75, 75, 255);
     public Color refreshButtonColor = new Color32(65, 125, 245, 255);
+    public bool hideRefreshButton = true;
+    public Vector2 closeButtonReadableSize = new Vector2(132f, 48f);
     public Color textPrimaryColor = new Color32(240, 244, 250, 255);
     public Color textSecondaryColor = new Color32(185, 194, 208, 255);
 
@@ -124,6 +126,7 @@ public class ChaosLexiconUI : MonoBehaviour
             });
 
             ApplyButtonLabel(closeButton, "Schließen");
+            ApplyTopButtonReadableLayout(closeButton, closeButtonReadableSize, new Vector2(-18f, -12f));
         }
 
         if (refreshButton != null)
@@ -138,6 +141,23 @@ public class ChaosLexiconUI : MonoBehaviour
             });
 
             ApplyButtonLabel(refreshButton, "Aktualisieren");
+            refreshButton.gameObject.SetActive(!hideRefreshButton);
+        }
+    }
+
+    private void ApplyTopButtonReadableLayout(Button button, Vector2 size, Vector2 anchoredPosition)
+    {
+        if (button == null)
+            return;
+
+        RectTransform rect = button.GetComponent<RectTransform>();
+        if (rect != null)
+        {
+            rect.anchorMin = new Vector2(1f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(1f, 1f);
+            rect.anchoredPosition = anchoredPosition;
+            rect.sizeDelta = size;
         }
     }
 
@@ -228,7 +248,7 @@ public class ChaosLexiconUI : MonoBehaviour
         }
 
         text.text = label;
-        text.fontSize = 16f;
+        text.fontSize = label == "Schließen" ? 18f : 16f;
         text.alignment = TextAlignmentOptions.Center;
         text.enableWordWrapping = false;
         text.overflowMode = TextOverflowModes.Ellipsis;
@@ -273,8 +293,8 @@ public class ChaosLexiconUI : MonoBehaviour
         titleText.fontStyle = FontStyles.Bold;
         Stretch(titleText.rectTransform);
 
-        closeButton = CreateTopButton(header.transform, "CloseButton", "X", closeButtonColor, new Vector2(-18f, -14f), new Vector2(48f, 44f));
-        refreshButton = CreateTopButton(header.transform, "RefreshButton", "↻", refreshButtonColor, new Vector2(-72f, -14f), new Vector2(48f, 44f));
+        closeButton = CreateTopButton(header.transform, "CloseButton", "Schließen", closeButtonColor, new Vector2(-18f, -12f), closeButtonReadableSize);
+        refreshButton = CreateTopButton(header.transform, "RefreshButton", "Aktualisieren", refreshButtonColor, new Vector2(-162f, -12f), new Vector2(132f, 48f));
 
         GameObject listPanel = CreatePanel(window.transform, "EntryListPanel", listPanelColor, true);
         RectTransform listRect = listPanel.GetComponent<RectTransform>();

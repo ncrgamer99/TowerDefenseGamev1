@@ -114,7 +114,11 @@ public class ChaosJusticeResultDebugUI : MonoBehaviour
     {
         if (allowDebugToggleHotkey && Input.GetKeyDown(debugToggleKey))
         {
-            ToggleResult();
+            ResolveReferences();
+
+            if (gameManager == null || gameManager.CanOpenAuxiliaryModalUI() || resultOpen || gameManager.isGameOver)
+                ToggleResult();
+
             return;
         }
 
