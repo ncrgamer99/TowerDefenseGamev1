@@ -35,8 +35,8 @@ public class Enemy : MonoBehaviour
 
     [Header("Chaos Level Scaling V1")]
     public bool useChaosLevelScaling = true;
-    public float chaosHealthBonusPerLevel = 0.06f;
-    public float chaosBossHealthBonusPerLevel = 0.03f;
+    public float chaosHealthBonusPerLevel = 0.12f;
+    public float chaosBossHealthBonusPerLevel = 0.07f;
 
     [Header("Chaos Variant Stats V1")]
     public float chaosStandardEffectDamageMultiplier = 0.90f;
@@ -83,21 +83,21 @@ public class Enemy : MonoBehaviour
     [Header("Wave Scaling")]
     public bool useWaveScaling = true;
     public int scalingStartWave = 11;
-    public float healthScalingPerWave = 0.16f;
+    public float healthScalingPerWave = 0.18f;
     public float rewardScalingPerWave = 0f;
     public float xpScalingPerWave = 0f;
-    public float speedScalingPerWave = 0.012f;
-    public float maxNormalSpeedBonus = 0.50f;
-    public int armorBonusEveryWaves = 9;
+    public float speedScalingPerWave = 0.014f;
+    public float maxNormalSpeedBonus = 0.35f;
+    public int armorBonusEveryWaves = 8;
     public int maxArmorBonus = 12;
     public int baseDamageBonusEveryWaves = 18;
     public int maxBaseDamageBonus = 6;
-    public float tankHealthScalingBonus = 1.55f;
-    public float knightHealthScalingBonus = 1.30f;
-    public float learnerHealthScalingBonus = 1.35f;
-    public float allRounderHealthScalingBonus = 1.40f;
-    public float miniBossHealthScalingBonus = 2.00f;
-    public float bossHealthScalingBonus = 2.50f;
+    public float tankHealthScalingBonus = 1.65f;
+    public float knightHealthScalingBonus = 1.38f;
+    public float learnerHealthScalingBonus = 1.42f;
+    public float allRounderHealthScalingBonus = 1.48f;
+    public float miniBossHealthScalingBonus = 2.15f;
+    public float bossHealthScalingBonus = 2.70f;
 
     private int waveScalingAppliedForWave = -1;
     private int chaosScalingAppliedForWave = -1;
@@ -332,31 +332,31 @@ public class Enemy : MonoBehaviour
                 break;
 
             case EnemyRole.Runner:
-                maxHealth = 6f;
-                speed = 3.25f;
+                maxHealth = 7f;
+                speed = 3.20f;
                 armor = 0;
                 baseDamage = 1;
-                goldReward = 3;
+                goldReward = 4;
                 killXPReward = 3;
                 assistXPReward = 1;
                 slowResistance = 0.15f;
                 break;
 
             case EnemyRole.Tank:
-                maxHealth = 26f;
-                speed = 1.10f;
+                maxHealth = 30f;
+                speed = 1.00f;
                 armor = 0;
                 baseDamage = 1;
-                goldReward = 8;
-                killXPReward = 8;
+                goldReward = 9;
+                killXPReward = 9;
                 assistXPReward = 2;
                 effectDamageMultiplier = 1.2f;
                 break;
 
             case EnemyRole.Knight:
-                maxHealth = 16f;
+                maxHealth = 18f;
                 speed = 1.75f;
-                armor = 3;
+                armor = 2;
                 baseDamage = 1;
                 goldReward = 8;
                 killXPReward = 7;
@@ -364,63 +364,63 @@ public class Enemy : MonoBehaviour
                 break;
 
             case EnemyRole.Mage:
-                maxHealth = 6f;
+                maxHealth = 8f;
                 speed = 1.8f;
                 armor = 0;
                 baseDamage = 1;
-                goldReward = 5;
-                killXPReward = 5;
+                goldReward = 6;
+                killXPReward = 6;
                 assistXPReward = 2;
                 canTeleportOnHit = true;
                 teleportTilesForward = 1;
-                teleportCooldown = 3.0f;
+                teleportCooldown = 3.5f;
                 teleportExhaustSlowMultiplier = 0.55f;
                 teleportExhaustDuration = 0.6f;
                 break;
 
             case EnemyRole.Learner:
-                maxHealth = 11f;
-                speed = 1.85f;
+                maxHealth = 12f;
+                speed = 1.80f;
                 armor = 0;
                 baseDamage = 1;
-                goldReward = 6;
-                killXPReward = 7;
+                goldReward = 7;
+                killXPReward = 8;
                 assistXPReward = 2;
                 immuneToEffects = true;
                 break;
 
             case EnemyRole.AllRounder:
-                maxHealth = 24f;
-                speed = 2.2f;
-                armor = 2;
+                maxHealth = 28f;
+                speed = 1.95f;
+                armor = 1;
                 baseDamage = 2;
                 goldReward = 12;
-                killXPReward = 10;
+                killXPReward = 11;
                 assistXPReward = 3;
                 slowResistance = 0.2f;
                 break;
 
             case EnemyRole.MiniBoss:
-                maxHealth = 50f;
-                speed = 0.95f;
+                maxHealth = 70f;
+                speed = 0.90f;
                 armor = 0;
                 baseDamage = 2;
-                goldReward = 18;
-                killXPReward = 15;
+                goldReward = 25;
+                killXPReward = 20;
                 assistXPReward = 4;
-                globalXPReward = 2;
+                globalXPReward = 3;
                 isMiniBoss = true;
                 break;
 
             case EnemyRole.Boss:
-                maxHealth = 220f;
-                speed = 0.95f;
-                armor = 4;
+                maxHealth = 260f;
+                speed = 0.90f;
+                armor = 3;
                 baseDamage = 5;
-                goldReward = 75;
-                killXPReward = 40;
+                goldReward = 90;
+                killXPReward = 50;
                 assistXPReward = 8;
-                globalXPReward = 5;
+                globalXPReward = 8;
                 isBoss = true;
                 break;
         }
@@ -597,6 +597,11 @@ public class Enemy : MonoBehaviour
 
     private void TakeDamageInternal(float damage, Tower sourceTower, bool ignoreArmor, bool canTriggerOnHitEffects)
     {
+        TakeDamageInternal(damage, sourceTower, ignoreArmor, canTriggerOnHitEffects, true);
+    }
+
+    private void TakeDamageInternal(float damage, Tower sourceTower, bool ignoreArmor, bool canTriggerOnHitEffects, bool useArmorMinimumDamage)
+    {
         if (isDead || reachedBase)
             return;
 
@@ -604,7 +609,7 @@ public class Enemy : MonoBehaviour
             return;
 
         RegisterContributor(sourceTower, damage);
-        float finalDamage = CalculateFinalDamage(damage, ignoreArmor);
+        float finalDamage = CalculateFinalDamage(damage, ignoreArmor, useArmorMinimumDamage);
         float previousHealth = currentHealth;
         currentHealth -= finalDamage;
         currentHealth = Mathf.Max(0f, currentHealth);
@@ -622,12 +627,17 @@ public class Enemy : MonoBehaviour
             Die(sourceTower);
     }
 
-    private float CalculateFinalDamage(float damage, bool ignoreArmor)
+    private float CalculateFinalDamage(float damage, bool ignoreArmor, bool useArmorMinimumDamage)
     {
         if (ignoreArmor || armor <= 0)
             return damage;
 
-        return Mathf.Max(1f, damage - armor);
+        float armoredDamage = damage - armor;
+
+        if (!useArmorMinimumDamage)
+            return Mathf.Max(0f, armoredDamage);
+
+        return Mathf.Max(1f, armoredDamage);
     }
 
     public void ApplyBurn(float duration)
@@ -729,6 +739,11 @@ public class Enemy : MonoBehaviour
         ApplyBleedFromSource(damagePerTick, duration, null, tickInterval, true);
     }
 
+    public void ApplyBleed(float damagePerTick, float duration, float tickInterval, Tower sourceTower)
+    {
+        ApplyBleedFromSource(damagePerTick, duration, sourceTower, tickInterval, true);
+    }
+
     public void ApplyDarkness(float damagePerTick, float duration, float tickInterval)
     {
         if (isDead || reachedBase || immuneToEffects)
@@ -789,12 +804,12 @@ public class Enemy : MonoBehaviour
                 if (IsChaosVariantRole(EnemyRole.Learner))
                 {
                     float reducedDamage = tickDamage * Mathf.Clamp01(chaosLearnerDotDamageMultiplier);
-                    TakeDamageInternal(reducedDamage, sourceTower, false, false);
+                    TakeDamageInternal(reducedDamage, sourceTower, true, false);
                     HealChaosVariant(tickDamage * Mathf.Max(0f, chaosLearnerDotHealMultiplier));
                 }
                 else
                 {
-                    TakeDamageInternal(tickDamage, sourceTower, false, false);
+                    TakeDamageInternal(tickDamage, sourceTower, true, false);
                 }
             }
 
@@ -1647,6 +1662,11 @@ public class Enemy : MonoBehaviour
     public bool CanReceiveBurnStack()
     {
         return !isDead && !reachedBase && !immuneToEffects && activeBurnStacks < Mathf.Max(1, maxBurnStacks);
+    }
+
+    public bool HasBleed()
+    {
+        return isBleeding;
     }
 
     public bool HasPoison()
