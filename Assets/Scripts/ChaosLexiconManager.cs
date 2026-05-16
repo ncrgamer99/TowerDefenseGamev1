@@ -103,6 +103,9 @@ public class ChaosLexiconManager : MonoBehaviour
 
         ResolveReferences();
 
+        if (gameManager != null && !gameManager.CanOpenAuxiliaryModalUI())
+            return;
+
         if (!allowOpeningDuringWave && gameManager != null && gameManager.currentPhase == GamePhase.Wave)
             return;
 

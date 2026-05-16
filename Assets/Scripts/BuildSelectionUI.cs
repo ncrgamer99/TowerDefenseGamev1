@@ -66,12 +66,23 @@ public class BuildSelectionUI : MonoBehaviour
     public bool forceIconInsideButton = true;
     public bool createMissingIconImages = true;
     public bool createSlotNameLabels = true;
-    public Vector2 slotSize = new Vector2(92f, 92f);
-    public Vector2 iconSize = new Vector2(52f, 52f);
-    public Vector2 labelSize = new Vector2(82f, 18f);
-    public float labelYOffset = -31f;
-    public float slotIconYOffset = 6f;
+    public bool showSlotCostLabels = true;
+    public bool hideSelectionTitleAndCloseButton = true;
+    public bool autoRepairSlotGridLayout = true;
+    public int slotGridColumns = 6;
+    public Vector2 slotGridSpacing = new Vector2(5f, 4f);
+    public Vector2 slotSize = new Vector2(60f, 68f);
+    public Vector2 iconSize = new Vector2(30f, 30f);
+    public Vector2 labelSize = new Vector2(64f, 14f);
+    public Vector2 costLabelSize = new Vector2(64f, 13f);
+    public float labelYOffset = -14f;
+    public float costLabelYOffset = -27f;
+    public float slotIconYOffset = 11f;
     public bool preserveIconAspect = true;
+
+    [Header("Top Right Layout QoL")]
+    public bool autoPlaceSelectedWindowBelowUtilityButtons = true;
+    public Vector2 selectedWindowTopRightPosition = new Vector2(-170f, -215f);
 
     [Header("Theme Colors")]
     public Color panelColor = new Color32(20, 24, 31, 245);
@@ -102,6 +113,7 @@ public class BuildSelectionUI : MonoBehaviour
         ApplyBuildOptionDefaultsIfEnabled();
         SetupButtons();
         ApplyTheme();
+        ApplyCompactSelectionHeaderIfNeeded();
         RepairAllSlotLayoutsIfNeeded();
         CloseSelectionPanel();
         HideTooltip();
@@ -184,6 +196,12 @@ public class BuildSelectionUI : MonoBehaviour
             ApplyDefaultBuildOption(option, "Heavy Tower", 95, "Langsamer Einzelschaden gegen Armor, Tanks und Bosse.");
         else if (lowerName.Contains("alchemist"))
             ApplyDefaultBuildOption(option, "Alchemist Tower", 90, "Hybrid-Tower: vergiftet Gegner und verlangsamt sie kurz.");
+        else if (lowerName.Contains("lightning"))
+            ApplyDefaultBuildOption(option, "Lightning Tower", 110, "Kettenblitz-Tower: Treffer und Chains verlangsamen Gegner kurz.");
+        else if (lowerName.Contains("mortar"))
+            ApplyDefaultBuildOption(option, "Mortar Tower", 130, "Langsamer Mörser: Projektil schlägt an Zielposition ein und verursacht AOE-Schaden.");
+        else if (lowerName.Contains("spike"))
+            ApplyDefaultBuildOption(option, "Spike Tower", 85, "Kurze Reichweite: Treffer bluten und hinterlassen einmalige Stacheln auf dem Weg.");
         else if (lowerName.Contains("fire"))
             ApplyDefaultBuildOption(option, "Fire Tower", 80, "Burn-Tower gegen Gruppen und Standard-Gegner.");
     }
@@ -230,6 +248,9 @@ public class BuildSelectionUI : MonoBehaviour
 
         if (lower.Contains("basic")) return "BasicTower";
         if (lower.Contains("rapid")) return "RapidTower";
+        if (lower.Contains("lightning")) return "RapidTower";
+        if (lower.Contains("mortar")) return "HeavyTower";
+        if (lower.Contains("spike")) return "PoisonTower";
         if (lower.Contains("sniper")) return "HeavyTower";
         if (lower.Contains("heavy")) return "HeavyTower";
         if (lower.Contains("alchemist")) return "PoisonTower";
@@ -252,6 +273,9 @@ public class BuildSelectionUI : MonoBehaviour
         {
             closeSelectionButton.onClick.RemoveAllListeners();
             closeSelectionButton.onClick.AddListener(CancelTowerBuildSelection);
+
+            if (hideSelectionTitleAndCloseButton)
+                closeSelectionButton.gameObject.SetActive(false);
         }
 
         EnsureLegacySlotsIfNeeded();
@@ -300,6 +324,9 @@ public class BuildSelectionUI : MonoBehaviour
 
         EnsureDefaultNewTowerSlot("Sniper Tower", 120, "Sehr hohe Reichweite und Einzelschaden gegen Elite, MiniBoss und Boss.", "Sniper_Tower");
         EnsureDefaultNewTowerSlot("Alchemist Tower", 90, "Hybrid-Tower: vergiftet Gegner und verlangsamt sie kurz.", "Alchemist_Tower");
+        EnsureDefaultNewTowerSlot("Lightning Tower", 110, "Kettenblitz-Tower: Treffer und Chains verlangsamen Gegner kurz.", "Lightning_Tower");
+        EnsureDefaultNewTowerSlot("Mortar Tower", 130, "Langsamer Mörser: Projektil schlägt an Zielposition ein und verursacht AOE-Schaden.", "Mortar_Tower");
+        EnsureDefaultNewTowerSlot("Spike Tower", 85, "Kurze Reichweite: Treffer bluten und hinterlassen einmalige Stacheln auf dem Weg.", "Spike_Tower");
     }
 
     private void EnsureDefaultNewTowerSlot(string displayName, int cost, string description, string prefabResourceName)
@@ -373,6 +400,7 @@ public class BuildSelectionUI : MonoBehaviour
         SetupSlotButtonVisual(slot);
         SetupSlotIcon(slot);
         SetupSlotLabel(slot);
+        SetupSlotCostLabel(slot);
 
         BuildOption capturedOption = slot.option;
         slot.button.onClick.RemoveAllListeners();
@@ -532,10 +560,53 @@ public class BuildSelectionUI : MonoBehaviour
         label.enableWordWrapping = false;
         label.overflowMode = TextOverflowModes.Ellipsis;
         label.alignment = TextAlignmentOptions.Center;
-        label.fontSize = 10f;
+        label.fontSize = 9f;
         label.color = textSecondaryColor;
         label.raycastTarget = false;
         label.text = GetShortTowerName(slot.option);
+    }
+
+    private void SetupSlotCostLabel(TowerSelectionSlot slot)
+    {
+        if (!showSlotCostLabels || slot == null || slot.button == null)
+            return;
+
+        TextMeshProUGUI costLabel = null;
+        Transform existing = slot.button.transform.Find("CostLabel");
+
+        if (existing != null)
+            costLabel = existing.GetComponent<TextMeshProUGUI>();
+
+        if (costLabel == null)
+        {
+            GameObject labelObject = new GameObject("CostLabel", typeof(RectTransform), typeof(TextMeshProUGUI));
+            labelObject.transform.SetParent(slot.button.transform, false);
+            costLabel = labelObject.GetComponent<TextMeshProUGUI>();
+        }
+
+        RectTransform rect = costLabel.rectTransform;
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = new Vector2(0f, costLabelYOffset);
+        rect.sizeDelta = costLabelSize;
+
+        costLabel.richText = true;
+        costLabel.enableWordWrapping = false;
+        costLabel.overflowMode = TextOverflowModes.Ellipsis;
+        costLabel.alignment = TextAlignmentOptions.Center;
+        costLabel.fontSize = 8f;
+        costLabel.color = accentColor;
+        costLabel.raycastTarget = false;
+        costLabel.text = GetCostLabelText(slot.option);
+    }
+
+    private string GetCostLabelText(BuildOption option)
+    {
+        if (option == null)
+            return "? Gold";
+
+        return Mathf.Max(0, option.cost) + " Gold";
     }
 
     private string GetShortTowerName(BuildOption option)
@@ -554,6 +625,72 @@ public class BuildSelectionUI : MonoBehaviour
 
         foreach (TowerSelectionSlot slot in towerSlots)
             SetupSlot(slot);
+
+        RepairSlotGridLayoutIfNeeded();
+    }
+
+    private void RepairSlotGridLayoutIfNeeded()
+    {
+        if (!autoRepairSlotGridLayout || towerSlots == null)
+            return;
+
+        Transform gridParent = ResolveAutoCreatedSlotParent();
+
+        if (gridParent == null)
+            return;
+
+        GridLayoutGroup grid = gridParent.GetComponent<GridLayoutGroup>();
+
+        if (grid == null)
+            return;
+
+        int columns = Mathf.Max(1, slotGridColumns);
+        int visibleSlotCount = 0;
+
+        foreach (TowerSelectionSlot slot in towerSlots)
+        {
+            if (slot != null && slot.button != null)
+                visibleSlotCount++;
+        }
+
+        int rows = Mathf.Max(1, Mathf.CeilToInt(visibleSlotCount / (float)columns));
+        float requiredGridWidth = columns * slotSize.x + (columns - 1) * slotGridSpacing.x;
+        float requiredGridHeight = rows * slotSize.y + (rows - 1) * slotGridSpacing.y;
+
+        grid.cellSize = slotSize;
+        grid.spacing = slotGridSpacing;
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = columns;
+
+        RectTransform rect = gridParent.GetComponent<RectTransform>();
+
+        if (rect != null)
+            rect.sizeDelta = new Vector2(requiredGridWidth, requiredGridHeight);
+
+        RectTransform panelRect = selectionPanel != null ? selectionPanel.GetComponent<RectTransform>() : null;
+
+        if (panelRect != null)
+        {
+            float verticalPadding = hideSelectionTitleAndCloseButton ? 45f : 90f;
+            panelRect.sizeDelta = new Vector2(requiredGridWidth + 60f, requiredGridHeight + verticalPadding);
+        }
+    }
+
+    private void ApplyCompactSelectionHeaderIfNeeded()
+    {
+        if (!hideSelectionTitleAndCloseButton || selectionPanel == null)
+            return;
+
+        Transform title = selectionPanel.transform.Find("Header/TitleText");
+
+        if (title == null)
+            title = selectionPanel.transform.Find("TitleText");
+
+        if (title != null)
+            title.gameObject.SetActive(false);
+
+        if (closeSelectionButton != null)
+            closeSelectionButton.gameObject.SetActive(false);
     }
 
     private void ClearButtonChildTextsExceptProtected(Button button)
@@ -568,7 +705,7 @@ public class BuildSelectionUI : MonoBehaviour
             if (text == null)
                 continue;
 
-            if (text.gameObject.name == "Label")
+            if (text.gameObject.name == "Label" || text.gameObject.name == "CostLabel")
                 continue;
 
             text.text = "";
@@ -636,6 +773,7 @@ public class BuildSelectionUI : MonoBehaviour
         }
 
         selectionOpen = true;
+        ApplyCompactSelectionHeaderIfNeeded();
         RepairAllSlotLayoutsIfNeeded();
 
         if (selectionPanel != null)
@@ -707,10 +845,29 @@ public class BuildSelectionUI : MonoBehaviour
     private void UpdateSelectedWindow(BuildOption option)
     {
         if (selectedWindow != null)
+        {
+            ApplySelectedWindowTopRightLayout();
             selectedWindow.SetActive(true);
+        }
 
         if (selectedText != null)
             selectedText.text = option.displayName + " ausgewählt";
+    }
+
+    private void ApplySelectedWindowTopRightLayout()
+    {
+        if (!autoPlaceSelectedWindowBelowUtilityButtons || selectedWindow == null)
+            return;
+
+        RectTransform rect = selectedWindow.GetComponent<RectTransform>();
+
+        if (rect == null)
+            return;
+
+        rect.anchorMin = new Vector2(1f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = selectedWindowTopRightPosition;
     }
 
     public void ClearSelectionText()
@@ -765,6 +922,9 @@ public class BuildSelectionUI : MonoBehaviour
 
         if (lowerName.Contains("basic")) return "Günstiger Allrounder für den Spielstart.";
         if (lowerName.Contains("rapid")) return "Schneller Tower für Runner und Cleanup.";
+        if (lowerName.Contains("lightning")) return "Kettenblitz-Tower: Treffer und Chains verlangsamen Gegner kurz.";
+        if (lowerName.Contains("mortar")) return "Langsamer Mörser: Einschlag verursacht AOE-Schaden.";
+        if (lowerName.Contains("spike")) return "Kurze Reichweite: Bleed-Treffer plus einmalige Weg-Stacheln.";
         if (lowerName.Contains("sniper")) return "Sehr hohe Reichweite und Einzelschaden gegen Elite, MiniBoss und Boss.";
         if (lowerName.Contains("heavy")) return "Langsamer Einzelschaden gegen Tanks, Knights und Bosse.";
         if (lowerName.Contains("alchemist")) return "Hybrid-Tower: vergiftet Gegner und verlangsamt sie kurz.";
