@@ -83,13 +83,15 @@ public class BuildSelectionUI : MonoBehaviour
     public float slotIconYOffset = 11f;
     public bool preserveIconAspect = true;
     public bool enforceReadableSlotLayout = true;
-    public int readableSlotGridColumns = 5;
-    public Vector2 readableSlotSize = new Vector2(74f, 82f);
-    public Vector2 readableIconSize = new Vector2(38f, 38f);
-    public Vector2 readableLabelSize = new Vector2(76f, 16f);
-    public Vector2 readableCostLabelSize = new Vector2(76f, 15f);
+    public int readableSlotGridColumns = 2;
+    public int readableSlotGridColumnsWhenTall = 3;
+    public int maxSlotsBeforeThirdColumn = 10;
+    public Vector2 readableSlotSize = new Vector2(66f, 64f);
+    public Vector2 readableIconSize = new Vector2(27f, 27f);
+    public Vector2 readableLabelSize = new Vector2(70f, 16f);
+    public Vector2 readableCostLabelSize = new Vector2(70f, 15f);
     public bool liftSelectionPanelFromBottom = true;
-    public float selectionPanelBottomSafeOffset = 34f;
+    public float selectionPanelBottomSafeOffset = 86f;
 
     [Header("Top Right Layout QoL")]
     public bool autoPlaceSelectedWindowBelowUtilityButtons = true;
@@ -326,10 +328,10 @@ public class BuildSelectionUI : MonoBehaviour
         iconSize = readableIconSize;
         labelSize = readableLabelSize;
         costLabelSize = readableCostLabelSize;
-        labelYOffset = -17f;
-        costLabelYOffset = -33f;
-        slotIconYOffset = 14f;
-        slotGridSpacing = new Vector2(Mathf.Max(slotGridSpacing.x, 7f), Mathf.Max(slotGridSpacing.y, 7f));
+        labelYOffset = -13f;
+        costLabelYOffset = -27f;
+        slotIconYOffset = 12f;
+        slotGridSpacing = new Vector2(Mathf.Max(slotGridSpacing.x, 6f), Mathf.Max(slotGridSpacing.y, 6f));
     }
 
     private void SetupButtons()
@@ -724,6 +726,9 @@ public class BuildSelectionUI : MonoBehaviour
                 visibleSlotCount++;
         }
 
+        if (enforceReadableSlotLayout && visibleSlotCount > maxSlotsBeforeThirdColumn)
+            columns = Mathf.Max(columns, readableSlotGridColumnsWhenTall);
+
         int rows = Mathf.Max(1, Mathf.CeilToInt(visibleSlotCount / (float)columns));
         float requiredGridWidth = columns * slotSize.x + (columns - 1) * slotGridSpacing.x;
         float requiredGridHeight = rows * slotSize.y + (rows - 1) * slotGridSpacing.y;
@@ -742,7 +747,7 @@ public class BuildSelectionUI : MonoBehaviour
 
         if (panelRect != null)
         {
-            float verticalPadding = hideSelectionTitleAndCloseButton ? 70f : 108f;
+            float verticalPadding = hideSelectionTitleAndCloseButton ? 52f : 92f;
             panelRect.sizeDelta = new Vector2(requiredGridWidth + 68f, requiredGridHeight + verticalPadding);
             ApplySelectionPanelSafePosition(panelRect);
         }
@@ -755,6 +760,9 @@ public class BuildSelectionUI : MonoBehaviour
 
         if (panelRect.anchorMin.y <= 0.5f && panelRect.anchorMax.y <= 0.5f)
             panelRect.anchoredPosition = new Vector2(panelRect.anchoredPosition.x, Mathf.Max(panelRect.anchoredPosition.y, selectionPanelBottomSafeOffset));
+
+        if (panelRect.anchorMin.x <= 0.5f && panelRect.anchorMax.x <= 0.5f)
+            panelRect.anchoredPosition = new Vector2(Mathf.Max(panelRect.anchoredPosition.x, 18f), panelRect.anchoredPosition.y);
     }
 
     private void ApplyCompactSelectionHeaderIfNeeded()
@@ -1046,6 +1054,9 @@ public class BuildSelectionUI : MonoBehaviour
         if (slot == null || slot.button == null)
             return;
 
+        if (hovered)
+            ApplyTooltipRightOfSlotLayout(slot);
+
         Image image = slot.button.GetComponent<Image>();
         if (image == null)
             return;
@@ -1054,6 +1065,27 @@ public class BuildSelectionUI : MonoBehaviour
             image.color = cardSelectedColor;
         else
             image.color = hovered ? cardHoverColor : cardAltColor;
+    }
+
+    private void ApplyTooltipRightOfSlotLayout(TowerSelectionSlot slot)
+    {
+        if (!autoPlaceTooltipRightOfSelectionPanel || tooltipPanel == null || slot == null || slot.button == null)
+            return;
+
+        RectTransform tooltipRect = tooltipPanel.GetComponent<RectTransform>();
+        RectTransform slotRect = slot.button.GetComponent<RectTransform>();
+
+        if (tooltipRect == null || slotRect == null)
+            return;
+
+        tooltipRect.SetParent(slotRect.parent, false);
+        tooltipRect.anchorMin = slotRect.anchorMin;
+        tooltipRect.anchorMax = slotRect.anchorMin;
+        tooltipRect.pivot = new Vector2(0f, 0.5f);
+        float slotWidth = slotRect.rect.width > 0f ? slotRect.rect.width : slotRect.sizeDelta.x;
+        tooltipRect.sizeDelta = tooltipSize;
+        tooltipRect.anchoredPosition = slotRect.anchoredPosition + new Vector2(slotWidth * 0.5f + tooltipRightOffset.x, tooltipRightOffset.y);
+        tooltipPanel.transform.SetAsLastSibling();
     }
 }
 

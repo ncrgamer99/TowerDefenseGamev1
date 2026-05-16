@@ -59,7 +59,11 @@ public class GameUI : MonoBehaviour
     public float nextWavePreviewFontSize = 15f;
     public Vector2 nextWavePreviewPanelSize = new Vector2(390f, 250f);
     public bool autoCompactNextWavePreviewPanel = true;
+    public bool autoResizeNextWavePreviewHeight = true;
     public Vector2 compactNextWavePreviewPanelSize = new Vector2(320f, 140f);
+    public float nextWavePreviewMinHeight = 120f;
+    public float nextWavePreviewMaxHeight = 420f;
+    public float nextWavePreviewHeightPadding = 28f;
 
     [Header("Wave Messages")]
     public float waveMessageDuration = 3f;
@@ -528,7 +532,23 @@ public class GameUI : MonoBehaviour
         if (nextWavePreviewText != null)
             nextWavePreviewText.text = shouldShow ? BuildNextWavePreviewHudText() : "";
 
+        ApplyNextWavePreviewDynamicHeight(shouldShow);
         SetOptionalPanelVisible(nextWavePreviewPanel, nextWavePreviewText, shouldShow && nextWavePreviewText != null);
+    }
+
+    private void ApplyNextWavePreviewDynamicHeight(bool shouldShow)
+    {
+        if (!autoResizeNextWavePreviewHeight || !shouldShow || nextWavePreviewPanel == null || nextWavePreviewText == null)
+            return;
+
+        RectTransform rect = nextWavePreviewPanel.GetComponent<RectTransform>();
+        if (rect == null)
+            return;
+
+        Vector2 baseSize = autoCompactNextWavePreviewPanel ? compactNextWavePreviewPanelSize : nextWavePreviewPanelSize;
+        Vector2 preferred = nextWavePreviewText.GetPreferredValues(nextWavePreviewText.text, baseSize.x - 20f, 0f);
+        float height = Mathf.Clamp(preferred.y + nextWavePreviewHeightPadding, nextWavePreviewMinHeight, nextWavePreviewMaxHeight);
+        rect.sizeDelta = new Vector2(baseSize.x, height);
     }
 
     private bool ShouldShowNextWavePreview(bool chaosChoiceOpen)

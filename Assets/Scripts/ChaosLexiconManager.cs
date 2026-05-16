@@ -20,6 +20,7 @@ public class ChaosLexiconManager : MonoBehaviour
 
     [Header("Open Button")]
     public bool autoCreateOpenButton = true;
+    public bool showGameplayOpenButton = false;
     public Button openButton;
     public TextMeshProUGUI openButtonText;
     public string openButtonLabel = "Lexikon (F1)";
@@ -371,10 +372,14 @@ public class ChaosLexiconManager : MonoBehaviour
 
     private void SetupOpenButton()
     {
-        if (openButton == null && autoCreateOpenButton)
+        if (openButton == null && autoCreateOpenButton && showGameplayOpenButton)
             CreateOpenButton();
 
         if (openButton == null)
+            return;
+
+        openButton.gameObject.SetActive(showGameplayOpenButton);
+        if (!showGameplayOpenButton)
             return;
 
         openButton.onClick.RemoveAllListeners();

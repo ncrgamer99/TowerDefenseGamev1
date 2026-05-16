@@ -603,14 +603,17 @@ public class ChaosJusticeManager : MonoBehaviour
 
     private ChaosJusticeChoiceOption CreateGoldJusticeOption()
     {
-        int nextLevel = runData.goldJusticeLevel + 1;
+        int currentLevel = runData.goldJusticeLevel;
+        int nextLevel = currentLevel + 1;
+        int currentBonusPercent = Mathf.RoundToInt(currentLevel * goldJusticeBonusPerLevel * 100f);
+        int gainPercent = Mathf.RoundToInt(goldJusticeBonusPerLevel * 100f);
         int nextBonusPercent = Mathf.RoundToInt(nextLevel * goldJusticeBonusPerLevel * 100f);
 
         return new ChaosJusticeChoiceOption
         {
             choiceType = ChaosJusticeChoiceType.GoldJustice,
             displayName = "Gold-Gerechtigkeit",
-            description = "Sicherer Weg. Erhöht zukünftige Gold-Belohnungen auf Stufe " + nextLevel + " (gesamt ca. +" + nextBonusPercent + "%).",
+            description = "Erhöht zukünftige Gold-Erträge um " + gainPercent + "% (Gesamt: +" + nextBonusPercent + "%). Aktuell: +" + currentBonusPercent + "%.",
             isEnabled = true,
             modifier = null,
             closesChoice = true
@@ -619,14 +622,17 @@ public class ChaosJusticeManager : MonoBehaviour
 
     private ChaosJusticeChoiceOption CreateXpJusticeOption()
     {
-        int nextLevel = runData.xpJusticeLevel + 1;
+        int currentLevel = runData.xpJusticeLevel;
+        int nextLevel = currentLevel + 1;
+        int currentBonusPercent = Mathf.RoundToInt(currentLevel * xpJusticeBonusPerLevel * 100f);
+        int gainPercent = Mathf.RoundToInt(xpJusticeBonusPerLevel * 100f);
         int nextBonusPercent = Mathf.RoundToInt(nextLevel * xpJusticeBonusPerLevel * 100f);
 
         return new ChaosJusticeChoiceOption
         {
             choiceType = ChaosJusticeChoiceType.XpJustice,
             displayName = "XP-Gerechtigkeit",
-            description = "Sicherer Weg. Erhöht zukünftige Tower-XP-Belohnungen auf Stufe " + nextLevel + " (gesamt ca. +" + nextBonusPercent + "%).",
+            description = "Erhöht zukünftige XP-Erträge um " + gainPercent + "% (Gesamt: +" + nextBonusPercent + "%). Aktuell: +" + currentBonusPercent + "%.",
             isEnabled = true,
             modifier = null,
             closesChoice = true
@@ -1473,26 +1479,12 @@ public class ChaosJusticeManager : MonoBehaviour
         if (modifier == null)
             return "Chaos ist aktuell nicht verfügbar.";
 
-        bool chaosCanRise = runData.chaosLevel < runData.maxChaosLevel;
-        string chaosLine = chaosCanRise
-            ? "Chaos: Level " + runData.chaosLevel + " -> " + nextChaosLevel
-            : "Chaos: Maximum halten (Level " + runData.maxChaosLevel + ")";
-
-        string costLine = GetCompactJusticeLossPreviewText();
         string rewardLine = GetModifierRewardPreviewText(modifier);
 
-        string text =
+        return
             "Stufe: " + modifier.GetDisplayRiskLevel() +
-            "\n" + chaosLine +
-            "\nKategorie: " + GetRiskCategorySummary(modifier) +
             "\nEffekt: " + GetModifierImpactPreviewText(modifier) +
-            "\nKosten: " + costLine +
             "\nReward: " + rewardLine;
-
-        if (includeFairnessNotesInChoiceText)
-            text += "\nFairness: sichtbar, keine Tower-Zerstörung.";
-
-        return text;
     }
 
     private string GetCompactJusticeLossPreviewText()

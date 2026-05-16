@@ -51,6 +51,11 @@ public class GameManager : MonoBehaviour
     public Button startGameButton;
     public Button startBalancingGameButton;
     public Button quitGameButton;
+    public Button startUnlocksButton;
+    public Button startLexiconButton;
+    public Button startStatsButton;
+    public Button startOptionsButton;
+    public Button startResetButton;
 
     [Header("Wave Settings")]
     public int waveNumber = 0;
@@ -357,14 +362,6 @@ public class GameManager : MonoBehaviour
 
     private void EnsureStartMenuUI()
     {
-        if (startMenuRoot != null && startGameButton != null && startBalancingGameButton != null && quitGameButton != null)
-        {
-            ApplyStartMenuOverlayLayout();
-            SetupStartMenuButtons();
-            RefreshStartMenuTexts();
-            return;
-        }
-
         if (startMenuCanvas == null)
             startMenuCanvas = FindObjectOfType<Canvas>();
 
@@ -380,51 +377,140 @@ public class GameManager : MonoBehaviour
             scaler.referenceResolution = new Vector2(1920f, 1080f);
         }
 
-        startMenuRoot = new GameObject("StartMenuRoot", typeof(RectTransform), typeof(Image));
-        startMenuRoot.transform.SetParent(startMenuCanvas.transform, false);
-
-        RectTransform rootRect = startMenuRoot.GetComponent<RectTransform>();
-        rootRect.anchorMin = Vector2.zero;
-        rootRect.anchorMax = Vector2.one;
-        rootRect.offsetMin = Vector2.zero;
-        rootRect.offsetMax = Vector2.zero;
-
-        Image rootImage = startMenuRoot.GetComponent<Image>();
-        rootImage.color = new Color32(5, 8, 14, 255);
-        rootImage.raycastTarget = true;
-
-        GameObject window = new GameObject("StartMenuWindow", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
-        window.transform.SetParent(startMenuRoot.transform, false);
-
-        RectTransform windowRect = window.GetComponent<RectTransform>();
-        windowRect.anchorMin = new Vector2(0.5f, 0.5f);
-        windowRect.anchorMax = new Vector2(0.5f, 0.5f);
-        windowRect.pivot = new Vector2(0.5f, 0.5f);
-        windowRect.anchoredPosition = Vector2.zero;
-        windowRect.sizeDelta = new Vector2(620f, 540f);
-
-        Image windowImage = window.GetComponent<Image>();
-        windowImage.color = new Color32(20, 24, 31, 250);
-
-        VerticalLayoutGroup layout = window.GetComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(42, 42, 38, 48);
-        layout.spacing = 16f;
-        layout.childAlignment = TextAnchor.UpperCenter;
-        layout.childControlWidth = false;
-        layout.childControlHeight = false;
-        layout.childForceExpandWidth = false;
-        layout.childForceExpandHeight = false;
-
-        startMenuTitleText = CreateStartMenuText(window.transform, "StartMenuTitle", "TOWER DEFENSE", 34f, FontStyles.Bold, 60f);
-        startMenuDescriptionText = CreateStartMenuText(window.transform, "StartMenuDescription", "Wähle einen Modus. Balancing Game nutzt feste Enemy-Typ-Waves zum Testen.", 17f, FontStyles.Normal, 130f);
-
-        startGameButton = CreateStartMenuButton(window.transform, "StartGameButton", "Spiel starten");
-        startBalancingGameButton = CreateStartMenuButton(window.transform, "BalancingGameButton", "Balancing Game");
-        quitGameButton = CreateStartMenuButton(window.transform, "QuitGameButton", "Spiel schließen");
+        if (startMenuRoot == null)
+        {
+            startMenuRoot = new GameObject("StartMenuRoot", typeof(RectTransform), typeof(Image));
+            startMenuRoot.transform.SetParent(startMenuCanvas.transform, false);
+        }
 
         ApplyStartMenuOverlayLayout();
+        RebuildStartMenuContent();
         SetupStartMenuButtons();
         RefreshStartMenuTexts();
+    }
+
+    private void RebuildStartMenuContent()
+    {
+        if (startMenuRoot == null)
+            return;
+
+        for (int i = startMenuRoot.transform.childCount - 1; i >= 0; i--)
+            Destroy(startMenuRoot.transform.GetChild(i).gameObject);
+
+        startGameButton = null;
+        startBalancingGameButton = null;
+        quitGameButton = null;
+        startUnlocksButton = null;
+        startLexiconButton = null;
+        startStatsButton = null;
+        startOptionsButton = null;
+        startResetButton = null;
+        startMenuTitleText = null;
+        startMenuDescriptionText = null;
+
+        startMenuTitleText = CreateStartMenuOverlayText(startMenuRoot.transform, "StartMenuTitle", "TOWER DEFENSE", 42f, FontStyles.Bold, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -44f), new Vector2(760f, 72f));
+        startMenuDescriptionText = CreateStartMenuOverlayText(startMenuRoot.transform, "StartMenuDescription", "", 17f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -112f), new Vector2(820f, 56f));
+
+        GameObject leftPanel = CreateStartMenuPanel("StartMenuLeftPanel", new Color32(20, 24, 31, 210), new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0.5f), new Vector2(42f, 0f), new Vector2(300f, -170f));
+        VerticalLayoutGroup leftLayout = leftPanel.AddComponent<VerticalLayoutGroup>();
+        leftLayout.padding = new RectOffset(18, 18, 18, 18);
+        leftLayout.spacing = 16f;
+        leftLayout.childAlignment = TextAnchor.MiddleCenter;
+        leftLayout.childControlWidth = true;
+        leftLayout.childControlHeight = false;
+        leftLayout.childForceExpandWidth = true;
+        leftLayout.childForceExpandHeight = false;
+
+        startGameButton = CreateStartMenuButton(leftPanel.transform, "StartGameButton", "Spiel starten", new Vector2(0f, 64f), 20f);
+        startUnlocksButton = CreateStartMenuButton(leftPanel.transform, "StartUnlocksButton", "Freischaltungen", new Vector2(0f, 64f), 18f);
+        startLexiconButton = CreateStartMenuButton(leftPanel.transform, "StartLexiconButton", "Lexikon", new Vector2(0f, 64f), 18f);
+        startStatsButton = CreateStartMenuButton(leftPanel.transform, "StartStatsButton", "Statistik", new Vector2(0f, 64f), 18f);
+        quitGameButton = CreateStartMenuButton(leftPanel.transform, "QuitGameButton", "Beenden", new Vector2(0f, 64f), 18f);
+
+        startBalancingGameButton = CreateAnchoredStartMenuButton(startMenuRoot.transform, "DevStartButton", "Dev", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(18f, -18f), new Vector2(86f, 42f), 16f, new Color32(85, 65, 145, 245));
+        startOptionsButton = CreateAnchoredStartMenuButton(startMenuRoot.transform, "OptionsButton", "Optionen", new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-156f, 24f), new Vector2(132f, 42f), 15f, new Color32(35, 45, 64, 235));
+        startResetButton = CreateAnchoredStartMenuButton(startMenuRoot.transform, "ResetButton", "Reset", new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-18f, 24f), new Vector2(112f, 42f), 15f, new Color32(80, 45, 50, 235));
+    }
+
+    private GameObject CreateStartMenuPanel(string objectName, Color color, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 anchoredPosition, Vector2 sizeDelta)
+    {
+        GameObject panel = new GameObject(objectName, typeof(RectTransform), typeof(Image));
+        panel.transform.SetParent(startMenuRoot.transform, false);
+
+        RectTransform rect = panel.GetComponent<RectTransform>();
+        rect.anchorMin = anchorMin;
+        rect.anchorMax = anchorMax;
+        rect.pivot = pivot;
+        rect.anchoredPosition = anchoredPosition;
+        rect.sizeDelta = sizeDelta;
+
+        Image image = panel.GetComponent<Image>();
+        image.color = color;
+        image.raycastTarget = true;
+        return panel;
+    }
+
+    private TextMeshProUGUI CreateStartMenuOverlayText(Transform parent, string objectName, string text, float fontSize, FontStyles style, TextAlignmentOptions alignment, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 anchoredPosition, Vector2 sizeDelta)
+    {
+        GameObject textObject = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(parent, false);
+
+        RectTransform rect = textObject.GetComponent<RectTransform>();
+        rect.anchorMin = anchorMin;
+        rect.anchorMax = anchorMax;
+        rect.pivot = pivot;
+        rect.anchoredPosition = anchoredPosition;
+        rect.sizeDelta = sizeDelta;
+
+        TextMeshProUGUI label = textObject.GetComponent<TextMeshProUGUI>();
+        label.text = text;
+        label.fontSize = fontSize;
+        label.fontStyle = style;
+        label.color = new Color32(240, 244, 250, 255);
+        label.alignment = alignment;
+        label.enableWordWrapping = true;
+        label.raycastTarget = false;
+        return label;
+    }
+
+    private Button CreateAnchoredStartMenuButton(Transform parent, string objectName, string label, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 anchoredPosition, Vector2 size, float fontSize, Color color)
+    {
+        Button button = CreateStartMenuButton(parent, objectName, label, size, fontSize);
+        RectTransform rect = button.GetComponent<RectTransform>();
+        rect.anchorMin = anchorMin;
+        rect.anchorMax = anchorMax;
+        rect.pivot = pivot;
+        rect.anchoredPosition = anchoredPosition;
+        rect.sizeDelta = size;
+
+        Image image = button.GetComponent<Image>();
+        if (image != null)
+            image.color = color;
+
+        return button;
+    }
+
+    private Button CreateStartMenuButton(Transform parent, string objectName, string label, Vector2 preferredSize, float fontSize)
+    {
+        GameObject buttonObject = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+        buttonObject.transform.SetParent(parent, false);
+
+        LayoutElement layoutElement = buttonObject.GetComponent<LayoutElement>();
+        layoutElement.preferredHeight = preferredSize.y;
+        layoutElement.preferredWidth = preferredSize.x > 0f ? preferredSize.x : 240f;
+
+        Image image = buttonObject.GetComponent<Image>();
+        image.color = new Color32(65, 95, 145, 245);
+        image.raycastTarget = true;
+
+        Button button = buttonObject.GetComponent<Button>();
+
+        TextMeshProUGUI text = CreateStartMenuOverlayText(buttonObject.transform, objectName + "Text", label, fontSize, FontStyles.Bold, TextAlignmentOptions.Center, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+        RectTransform textRect = text.GetComponent<RectTransform>();
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+        text.enableWordWrapping = false;
+        return button;
     }
 
     private void ApplyStartMenuOverlayLayout()
@@ -453,119 +539,11 @@ public class GameManager : MonoBehaviour
             rootImage.color = new Color32(5, 8, 14, 255);
             rootImage.raycastTarget = true;
         }
-
-        ApplyStartMenuWindowLayout();
     }
 
-    private void ApplyStartMenuWindowLayout()
+    public void OpenStartMenuPlaceholder(string label)
     {
-        if (startMenuRoot == null)
-            return;
-
-        Transform window = startMenuRoot.transform.Find("StartMenuWindow");
-        if (window != null)
-        {
-            RectTransform windowRect = window.GetComponent<RectTransform>();
-            if (windowRect != null)
-            {
-                windowRect.anchorMin = new Vector2(0.5f, 0.5f);
-                windowRect.anchorMax = new Vector2(0.5f, 0.5f);
-                windowRect.pivot = new Vector2(0.5f, 0.5f);
-                windowRect.anchoredPosition = Vector2.zero;
-                windowRect.sizeDelta = new Vector2(620f, 540f);
-            }
-
-            VerticalLayoutGroup layout = window.GetComponent<VerticalLayoutGroup>();
-            if (layout != null)
-            {
-                layout.padding = new RectOffset(42, 42, 38, 48);
-                layout.spacing = 16f;
-                layout.childControlWidth = false;
-                layout.childControlHeight = false;
-                layout.childForceExpandWidth = false;
-                layout.childForceExpandHeight = false;
-            }
-        }
-
-        SetStartMenuTextHeight(startMenuTitleText, 60f);
-        SetStartMenuTextHeight(startMenuDescriptionText, 130f);
-        SetStartMenuButtonHeight(startGameButton, 60f);
-        SetStartMenuButtonHeight(startBalancingGameButton, 60f);
-        SetStartMenuButtonHeight(quitGameButton, 60f);
-    }
-
-    private void SetStartMenuTextHeight(TextMeshProUGUI text, float height)
-    {
-        if (text == null)
-            return;
-
-        LayoutElement layoutElement = text.GetComponent<LayoutElement>();
-        if (layoutElement != null)
-        {
-            layoutElement.preferredHeight = height;
-            layoutElement.preferredWidth = 520f;
-        }
-    }
-
-    private void SetStartMenuButtonHeight(Button button, float height)
-    {
-        if (button == null)
-            return;
-
-        LayoutElement layoutElement = button.GetComponent<LayoutElement>();
-        if (layoutElement != null)
-        {
-            layoutElement.preferredHeight = height;
-            layoutElement.preferredWidth = 460f;
-        }
-
-        TextMeshProUGUI text = button.GetComponentInChildren<TextMeshProUGUI>(true);
-        SetStartMenuTextHeight(text, height);
-    }
-
-    private TextMeshProUGUI CreateStartMenuText(Transform parent, string objectName, string text, float fontSize, FontStyles style, float height)
-    {
-        GameObject textObject = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
-        textObject.transform.SetParent(parent, false);
-
-        LayoutElement layoutElement = textObject.GetComponent<LayoutElement>();
-        layoutElement.preferredHeight = height;
-        layoutElement.preferredWidth = 520f;
-
-        TextMeshProUGUI label = textObject.GetComponent<TextMeshProUGUI>();
-        label.text = text;
-        label.fontSize = fontSize;
-        label.fontStyle = style;
-        label.color = new Color32(240, 244, 250, 255);
-        label.alignment = TextAlignmentOptions.Center;
-        label.enableWordWrapping = true;
-
-        return label;
-    }
-
-    private Button CreateStartMenuButton(Transform parent, string objectName, string label)
-    {
-        GameObject buttonObject = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
-        buttonObject.transform.SetParent(parent, false);
-
-        LayoutElement layoutElement = buttonObject.GetComponent<LayoutElement>();
-        layoutElement.preferredHeight = 60f;
-        layoutElement.preferredWidth = 460f;
-
-        Image image = buttonObject.GetComponent<Image>();
-        image.color = new Color32(65, 95, 145, 255);
-
-        Button button = buttonObject.GetComponent<Button>();
-
-        TextMeshProUGUI text = CreateStartMenuText(buttonObject.transform, objectName + "Text", label, 19f, FontStyles.Bold, 60f);
-        RectTransform textRect = text.GetComponent<RectTransform>();
-        textRect.anchorMin = Vector2.zero;
-        textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = Vector2.zero;
-        textRect.offsetMax = Vector2.zero;
-        text.enableWordWrapping = false;
-
-        return button;
+        Debug.Log(label + " ist im Hauptmenü vorbereitet, aber noch ohne Funktion.");
     }
 
     private void SetupStartMenuButtons()
@@ -587,6 +565,21 @@ public class GameManager : MonoBehaviour
             quitGameButton.onClick.RemoveAllListeners();
             quitGameButton.onClick.AddListener(QuitGameFromStartMenu);
         }
+
+        SetupPlaceholderStartMenuButton(startUnlocksButton, "Freischaltungen");
+        SetupPlaceholderStartMenuButton(startLexiconButton, "Lexikon");
+        SetupPlaceholderStartMenuButton(startStatsButton, "Statistik");
+        SetupPlaceholderStartMenuButton(startOptionsButton, "Optionen");
+        SetupPlaceholderStartMenuButton(startResetButton, "Reset");
+    }
+
+    private void SetupPlaceholderStartMenuButton(Button button, string label)
+    {
+        if (button == null)
+            return;
+
+        button.onClick.RemoveAllListeners();
+        button.onClick.AddListener(() => OpenStartMenuPlaceholder(label));
     }
 
     private void RefreshStartMenuTexts()
@@ -595,11 +588,7 @@ public class GameManager : MonoBehaviour
             startMenuTitleText.text = "TOWER DEFENSE";
 
         if (startMenuDescriptionText != null)
-        {
-            startMenuDescriptionText.text =
-                "Spiel starten: normaler Run.\n" +
-                "Balancing Game: Testmodus mit festen Enemy-Typ-Waves; Gold, XP, Chaos, Leveling und Tileauswahl bleiben aktiv.";
-        }
+            startMenuDescriptionText.text = "Wähle einen Modus oder öffne später freigeschaltete Hauptmenü-Bereiche.";
     }
 
     private int CalculateEnemyCountForWave(int targetWaveNumber)
@@ -805,35 +794,8 @@ public class GameManager : MonoBehaviour
 
         string enemyPreview = enemySpawner.GetPreviewTextForWave(data.waveNumber, data.requestedEnemyCount);
 
-        string modifierText = string.IsNullOrEmpty(data.modifierSummary)
-            ? ""
-            : "\nAktive Risiken: " + data.modifierSummary;
-
-        string chaosWaveText = string.IsNullOrEmpty(data.chaosWaveSummary)
-            ? ""
-            : "\nChaos-Wave: " + data.chaosWaveName + " | " + data.chaosWaveSummary;
-
-        string chaosVariantText = string.IsNullOrEmpty(data.chaosVariantSummary)
-            ? ""
-            : "\nChaos-Varianten: " + data.chaosVariantSummary;
-
-        string chaosLevelText = "";
-        ChaosJusticeManager manager = GetChaosJusticeManager();
-
-        if (manager != null && manager.GetChaosLevel() > 0)
-        {
-            chaosLevelText = "\nChaos-Einfluss: Haltbarkeit erhöht. Keine globale Speed-/BaseDamage-Erhöhung.";
-
-            if (manager.AreChaosVariantsUnlocked())
-                chaosLevelText += " Chaos-Varianten ab Chaos 3 möglich.";
-        }
-
         return
             "Wave " + data.waveNumber + " - " + data.scenarioName +
-            modifierText +
-            chaosLevelText +
-            chaosWaveText +
-            chaosVariantText +
             "\n\n" + enemyPreview;
     }
 

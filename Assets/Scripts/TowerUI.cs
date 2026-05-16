@@ -527,7 +527,7 @@ public class TowerUI : MonoBehaviour
 
         if (sellButtonText != null)
         {
-            sellButtonText.text = "Verkaufen: +" + selectedTower.GetSellRefundAmount() + " Gold";
+            sellButtonText.text = "Verkaufen für: " + selectedTower.GetSellRefundAmount() + " Gold";
             sellButtonText.fontSize = 16f;
             sellButtonText.fontStyle = FontStyles.Bold;
             sellButtonText.alignment = TextAlignmentOptions.Center;
