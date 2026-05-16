@@ -134,7 +134,7 @@ MonoBehaviour:
   enemyVariantType: 1
   autoApplyVariantStats: 1
   useChaosLevelScaling: 1
-  chaosHealthBonusPerLevel: 0.06
+  chaosHealthBonusPerLevel: 0.05
   chaosBossHealthBonusPerLevel: 0.03
   chaosStandardEffectDamageMultiplier: 0.9
   chaosStandardSlowResistanceBonus: 0.12
@@ -156,32 +156,32 @@ MonoBehaviour:
   appliedChaosWaveArmorBonus: 0
   appliedChaosWaveEffectDamageMultiplier: 1
   appliedChaosWaveSlowResistanceBonus: 0
-  maxHealth: 6
-  currentHealth: 10
+  maxHealth: 8
+  currentHealth: 8
   speed: 1.8
   armor: 0
   baseDamage: 1
-  goldReward: 5
-  killXPReward: 5
+  goldReward: 6
+  killXPReward: 6
   assistXPReward: 2
   globalXPReward: 0
   useWaveScaling: 1
   scalingStartWave: 11
-  healthScalingPerWave: 0.17
-  rewardScalingPerWave: 0
-  xpScalingPerWave: 0
-  speedScalingPerWave: 0.012
+  healthScalingPerWave: 0.10
+  rewardScalingPerWave: 0.025
+  xpScalingPerWave: 0.025
+  speedScalingPerWave: 0.008
   maxNormalSpeedBonus: 0.35
-  armorBonusEveryWaves: 8
-  maxArmorBonus: 10
-  baseDamageBonusEveryWaves: 20
-  maxBaseDamageBonus: 5
-  tankHealthScalingBonus: 1.5
-  knightHealthScalingBonus: 1.25
-  learnerHealthScalingBonus: 1.3
-  allRounderHealthScalingBonus: 1.35
-  miniBossHealthScalingBonus: 1.85
-  bossHealthScalingBonus: 1.8
+  armorBonusEveryWaves: 12
+  maxArmorBonus: 12
+  baseDamageBonusEveryWaves: 18
+  maxBaseDamageBonus: 6
+  tankHealthScalingBonus: 1.35
+  knightHealthScalingBonus: 1.20
+  learnerHealthScalingBonus: 1.20
+  allRounderHealthScalingBonus: 1.25
+  miniBossHealthScalingBonus: 1.60
+  bossHealthScalingBonus: 1.80
   isElite: 0
   isMiniBoss: 0
   isBoss: 0
@@ -190,7 +190,7 @@ MonoBehaviour:
   effectDamageMultiplier: 1
   canTeleportOnHit: 1
   teleportTilesForward: 1
-  teleportCooldown: 3
+  teleportCooldown: 3.5
   teleportExhaustSlowMultiplier: 0.55
   teleportExhaustDuration: 0.6
   defaultBurnDamagePerSecond: 1

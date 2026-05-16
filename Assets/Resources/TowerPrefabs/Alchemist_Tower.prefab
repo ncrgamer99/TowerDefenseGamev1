@@ -163,8 +163,8 @@ MonoBehaviour:
   towerRole: 7
   autoApplyTowerRoleStats: 1
   damage: 1
-  range: 3.6
-  fireRate: 0.75
+  range: 2.6
+  fireRate: 0.85
   targetMode: 6
   level: 1
   currentXP: 0
@@ -180,22 +180,22 @@ MonoBehaviour:
   visualTierLevelInterval: 10
   metaProgressionPoints: 0
   visualTier: 0
-  damageUpgradeCost: 45
-  rangeUpgradeCost: 50
-  fireRateUpgradeCost: 60
-  effectUpgradeCost: 999
-  goldUpgradeCostIncrease: 20
-  goldUpgradeCostMultiplier: 1.25
+  damageUpgradeCost: 60
+  rangeUpgradeCost: 60
+  fireRateUpgradeCost: 80
+  effectUpgradeCost: 90
+  goldUpgradeCostIncrease: 30
+  goldUpgradeCostMultiplier: 1.30
   damageIncreasePerGoldUpgrade: 1
-  rangeIncreasePerGoldUpgrade: 0.5
-  fireRateIncreasePerGoldUpgrade: 0.25
+  rangeIncreasePerGoldUpgrade: 0.25
+  fireRateIncreasePerGoldUpgrade: 0.20
   burnDamageIncreasePerGoldUpgrade: 1
   poisonDamageIncreasePerGoldUpgrade: 1
-  effectDurationIncreasePerGoldUpgrade: 0.25
-  slowAmountIncreasePerGoldUpgrade: 0.02
-  slowDurationIncreasePerGoldUpgrade: 0.25
+  effectDurationIncreasePerGoldUpgrade: 0.35
+  slowAmountIncreasePerGoldUpgrade: 0.015
+  slowDurationIncreasePerGoldUpgrade: 0.15
   upgradePointCostPerUpgrade: 1
-  pointUpgradePowerMultiplier: 5
+  pointUpgradePowerMultiplier: 3
   damageGoldUpgradeLevel: 0
   rangeGoldUpgradeLevel: 0
   fireRateGoldUpgradeLevel: 0
@@ -209,9 +209,9 @@ MonoBehaviour:
   burnDuration: 0
   appliesPoison: 1
   poisonDamage: 2
-  poisonDuration: 6
+  poisonDuration: 5.0
   appliesSlow: 1
-  slowAmount: 0.75
-  slowDuration: 2
+  slowAmount: 0.70
+  slowDuration: 1.6
   projectilePrefab: {fileID: 1169158669789981972, guid: 7ee81efd9e206544485c4f3ccc44816e, type: 3}
   firePoint: {fileID: 3505652619069901123}

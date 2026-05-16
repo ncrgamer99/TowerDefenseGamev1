@@ -313,32 +313,32 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Enemy
   enemyRole: 7
   autoApplyRoleStats: 1
-  maxHealth: 50
-  currentHealth: 10
-  speed: 0.95
+  maxHealth: 70
+  currentHealth: 70
+  speed: 0.90
   armor: 0
   baseDamage: 2
-  goldReward: 18
-  killXPReward: 15
+  goldReward: 25
+  killXPReward: 20
   assistXPReward: 4
-  globalXPReward: 2
+  globalXPReward: 3
   useWaveScaling: 1
   scalingStartWave: 11
-  healthScalingPerWave: 0.17
-  rewardScalingPerWave: 0
-  xpScalingPerWave: 0
-  speedScalingPerWave: 0.012
+  healthScalingPerWave: 0.10
+  rewardScalingPerWave: 0.025
+  xpScalingPerWave: 0.025
+  speedScalingPerWave: 0.008
   maxNormalSpeedBonus: 0.35
-  armorBonusEveryWaves: 8
-  maxArmorBonus: 10
-  baseDamageBonusEveryWaves: 20
-  maxBaseDamageBonus: 5
-  tankHealthScalingBonus: 1.5
-  knightHealthScalingBonus: 1.25
-  learnerHealthScalingBonus: 1.3
-  allRounderHealthScalingBonus: 1.35
-  miniBossHealthScalingBonus: 2
-  bossHealthScalingBonus: 2.3
+  armorBonusEveryWaves: 12
+  maxArmorBonus: 12
+  baseDamageBonusEveryWaves: 18
+  maxBaseDamageBonus: 6
+  tankHealthScalingBonus: 1.35
+  knightHealthScalingBonus: 1.20
+  learnerHealthScalingBonus: 1.20
+  allRounderHealthScalingBonus: 1.25
+  miniBossHealthScalingBonus: 1.60
+  bossHealthScalingBonus: 1.80
   isElite: 0
   isMiniBoss: 0
   isBoss: 0

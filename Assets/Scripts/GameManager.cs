@@ -37,7 +37,7 @@ public class GameManager : MonoBehaviour
 
     [Header("Start Menu")]
     public bool showStartMenuOnStart = true;
-    public int normalStartGold = 100;
+    public int normalStartGold = 110;
     public int normalStartLives = 20;
     public int balancingStartGold = 999999;
     public int balancingStartLives = 999999;

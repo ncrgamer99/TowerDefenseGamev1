@@ -36,9 +36,9 @@ public class EnemySpawner : MonoBehaviour
     [Header("Spawn Delay Scaling")]
     public bool scaleSpawnDelayByWave = true;
     public int spawnDelayScalingStartWave = 11;
-    public float spawnDelayReductionPer10Waves = 0.11f;
-    public float minSpawnDelayMultiplier = 0.45f;
-    public float minimumSpawnDelay = 0.06f;
+    public float spawnDelayReductionPer10Waves = 0.08f;
+    public float minSpawnDelayMultiplier = 0.55f;
+    public float minimumSpawnDelay = 0.08f;
 
     [Header("Debug / Backend Preview")]
     public List<EnemySpawnEntry> lastGeneratedWave = new List<EnemySpawnEntry>();
@@ -48,14 +48,14 @@ public class EnemySpawner : MonoBehaviour
     public bool usePreparedWaveModifiers = false;
     public List<WaveModifier> activeWaveModifiers = new List<WaveModifier>();
     public bool useWaveRiskPressureBudget = true;
-    public int maxWaveRiskPressureBudget = 28;
+    public int maxWaveRiskPressureBudget = 24;
 
     [Header("Chaos Variants V1")]
     public bool enableChaosVariantsV1 = true;
     public int chaosVariantsStartLevel = 3;
-    public float chaosVariantChanceAtStartLevel = 0.12f;
-    public float chaosVariantChancePerAdditionalLevel = 0.06f;
-    public float maxChaosVariantChance = 0.35f;
+    public float chaosVariantChanceAtStartLevel = 0.10f;
+    public float chaosVariantChancePerAdditionalLevel = 0.05f;
+    public float maxChaosVariantChance = 0.30f;
     public int maxChaosVariantsAtStartLevel = 2;
     public int maxChaosVariantsPerAdditionalLevel = 1;
     public int chaosVariantSeedSalt = 9137;
@@ -66,10 +66,10 @@ public class EnemySpawner : MonoBehaviour
     [Header("Chaos Wave Blocks V1")]
     public bool enableChaosWaveBlocksV1 = true;
     public int chaosWaveBlocksStartLevel = 2;
-    public int forceChaosWaveBlockAtLevel = 3;
+    public int forceChaosWaveBlockAtLevel = 4;
     public int maxChaosWaveBlocksV1 = 3;
-    public float chaosWaveBlockChanceAtStartLevel = 0.45f;
-    public float chaosWaveBlockChancePerAdditionalLevel = 0.12f;
+    public float chaosWaveBlockChanceAtStartLevel = 0.35f;
+    public float chaosWaveBlockChancePerAdditionalLevel = 0.10f;
     public int chaosWaveBlockSeedSalt = 44117;
     public bool allowRolePressureBlock = true;
     public bool allowDensityBlock = true;
@@ -1675,7 +1675,7 @@ public class EnemySpawner : MonoBehaviour
             case WaveScenario.EffectImmunity:
                 AddEntry(entries, EnemyRole.Standard, 9, 0.38f);
                 AddEntry(entries, EnemyRole.Tank, 3, 0.8f);
-                AddEntry(entries, EnemyRole.Learner, 4, 0.58f);
+                AddEntry(entries, EnemyRole.Learner, 3, 0.58f);
                 AddEntry(entries, EnemyRole.Runner, 3, 0.3f);
                 return true;
             case WaveScenario.Mixed:
@@ -1693,8 +1693,8 @@ public class EnemySpawner : MonoBehaviour
                 AddEntry(entries, EnemyRole.Standard, 7, 0.36f);
                 AddEntry(entries, EnemyRole.Runner, 4, 0.26f);
                 AddEntry(entries, EnemyRole.Tank, 4, 0.75f);
-                AddEntry(entries, EnemyRole.Knight, 5, 0.7f);
-                AddEntry(entries, EnemyRole.Learner, 4, 0.58f);
+                AddEntry(entries, EnemyRole.Knight, 4, 0.7f);
+                AddEntry(entries, EnemyRole.Learner, 3, 0.58f);
                 return true;
             case WaveScenario.Boss:
                 if (waveNumber == 10)

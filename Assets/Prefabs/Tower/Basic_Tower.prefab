@@ -160,9 +160,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tower
   towerName: Basic Tower
-  damage: 5
-  range: 4
-  fireRate: 1.5
+  damage: 4
+  range: 3
+  fireRate: 1.45
   targetMode: 0
   level: 1
   currentXP: 0
@@ -182,18 +182,18 @@ MonoBehaviour:
   rangeUpgradeCost: 50
   fireRateUpgradeCost: 60
   effectUpgradeCost: 999
-  goldUpgradeCostIncrease: 20
+  goldUpgradeCostIncrease: 25
   goldUpgradeCostMultiplier: 1.25
   damageIncreasePerGoldUpgrade: 1
-  rangeIncreasePerGoldUpgrade: 0.5
-  fireRateIncreasePerGoldUpgrade: 0.25
+  rangeIncreasePerGoldUpgrade: 0.25
+  fireRateIncreasePerGoldUpgrade: 0.20
   burnDamageIncreasePerGoldUpgrade: 1
   poisonDamageIncreasePerGoldUpgrade: 1
   effectDurationIncreasePerGoldUpgrade: 0.25
   slowAmountIncreasePerGoldUpgrade: 0.02
   slowDurationIncreasePerGoldUpgrade: 0.25
   upgradePointCostPerUpgrade: 1
-  pointUpgradePowerMultiplier: 5
+  pointUpgradePowerMultiplier: 3
   damageGoldUpgradeLevel: 0
   rangeGoldUpgradeLevel: 0
   fireRateGoldUpgradeLevel: 0

@@ -163,8 +163,8 @@ MonoBehaviour:
   towerRole: 3
   autoApplyTowerRoleStats: 1
   damage: 2
-  range: 3.5
-  fireRate: 1.1
+  range: 2.5
+  fireRate: 1.15
   targetMode: 5
   level: 1
   currentXP: 0
@@ -187,19 +187,19 @@ MonoBehaviour:
   damageUpgradeCost: 65
   rangeUpgradeCost: 60
   fireRateUpgradeCost: 80
-  effectUpgradeCost: 85
-  goldUpgradeCostIncrease: 20
-  goldUpgradeCostMultiplier: 1.25
+  effectUpgradeCost: 80
+  goldUpgradeCostIncrease: 25
+  goldUpgradeCostMultiplier: 1.30
   damageIncreasePerGoldUpgrade: 1
-  rangeIncreasePerGoldUpgrade: 0.5
-  fireRateIncreasePerGoldUpgrade: 0.15
+  rangeIncreasePerGoldUpgrade: 0.25
+  fireRateIncreasePerGoldUpgrade: 0.20
   burnDamageIncreasePerGoldUpgrade: 1
   poisonDamageIncreasePerGoldUpgrade: 1
-  effectDurationIncreasePerGoldUpgrade: 0.35
+  effectDurationIncreasePerGoldUpgrade: 0.25
   slowAmountIncreasePerGoldUpgrade: 0.02
   slowDurationIncreasePerGoldUpgrade: 0.25
   upgradePointCostPerUpgrade: 1
-  pointUpgradePowerMultiplier: 5
+  pointUpgradePowerMultiplier: 3
   damageGoldUpgradeLevel: 0
   rangeGoldUpgradeLevel: 0
   fireRateGoldUpgradeLevel: 0
@@ -210,7 +210,7 @@ MonoBehaviour:
   effectPointUpgradeLevel: 0
   appliesBurn: 1
   burnDamage: 2
-  burnDuration: 4
+  burnDuration: 3.0
   appliesPoison: 0
   poisonDamage: 1
   poisonDuration: 4
