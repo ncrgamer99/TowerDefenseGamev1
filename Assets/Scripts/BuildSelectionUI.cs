@@ -33,6 +33,9 @@ public class BuildSelectionUI : MonoBehaviour
     public GameObject tooltipPanel;
     public TextMeshProUGUI tooltipTitleText;
     public TextMeshProUGUI tooltipDescriptionText;
+    public bool autoPlaceTooltipRightOfSelectionPanel = true;
+    public Vector2 tooltipRightOffset = new Vector2(18f, 0f);
+    public Vector2 tooltipSize = new Vector2(310f, 132f);
 
     [Header("Tower Slots")]
     public List<TowerSelectionSlot> towerSlots = new List<TowerSelectionSlot>();
@@ -106,6 +109,7 @@ public class BuildSelectionUI : MonoBehaviour
 
     private bool selectionOpen = false;
     private BuildOption selectedOption;
+    private readonly Dictionary<string, Sprite> generatedIconCache = new Dictionary<string, Sprite>();
 
     private void Start()
     {
@@ -227,7 +231,7 @@ public class BuildSelectionUI : MonoBehaviour
         string resourceName = GetTowerIconResourceName(displayName);
 
         if (string.IsNullOrEmpty(resourceName))
-            return null;
+            return CreateGeneratedTowerIcon(displayName);
 
         Sprite sprite = Resources.Load<Sprite>("TowerIcons/" + resourceName);
 
@@ -237,9 +241,51 @@ public class BuildSelectionUI : MonoBehaviour
         Texture2D texture = Resources.Load<Texture2D>("TowerIcons/" + resourceName);
 
         if (texture == null)
-            return null;
+            return CreateGeneratedTowerIcon(displayName);
 
         return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100f);
+    }
+
+    private Sprite CreateGeneratedTowerIcon(string displayName)
+    {
+        string key = NormalizeTowerName(displayName);
+        if (generatedIconCache.TryGetValue(key, out Sprite cachedSprite))
+            return cachedSprite;
+
+        Color32 background = GetGeneratedIconColor(key);
+        Texture2D texture = new Texture2D(64, 64, TextureFormat.RGBA32, false);
+        texture.name = "Generated_" + key + "_TowerIcon";
+
+        for (int y = 0; y < texture.height; y++)
+        {
+            for (int x = 0; x < texture.width; x++)
+            {
+                bool border = x < 5 || y < 5 || x >= texture.width - 5 || y >= texture.height - 5;
+                bool diagonal = Mathf.Abs(x - y) <= 2 || Mathf.Abs((texture.width - 1 - x) - y) <= 2;
+                bool center = x >= 24 && x <= 39 && y >= 24 && y <= 39;
+                Color32 pixel = border ? new Color32(235, 210, 95, 255) : background;
+
+                if (diagonal || center)
+                    pixel = new Color32(235, 245, 255, 255);
+
+                texture.SetPixel(x, y, pixel);
+            }
+        }
+
+        texture.Apply();
+        Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100f);
+        generatedIconCache[key] = sprite;
+        return sprite;
+    }
+
+    private Color32 GetGeneratedIconColor(string key)
+    {
+        if (key.Contains("lightning")) return new Color32(60, 190, 255, 255);
+        if (key.Contains("mortar")) return new Color32(165, 125, 60, 255);
+        if (key.Contains("spike")) return new Color32(120, 70, 180, 255);
+        if (key.Contains("sniper")) return new Color32(65, 180, 110, 255);
+        if (key.Contains("alchemist")) return new Color32(155, 75, 210, 255);
+        return new Color32(70, 110, 165, 255);
     }
 
     private string GetTowerIconResourceName(string displayName)
@@ -248,12 +294,12 @@ public class BuildSelectionUI : MonoBehaviour
 
         if (lower.Contains("basic")) return "BasicTower";
         if (lower.Contains("rapid")) return "RapidTower";
-        if (lower.Contains("lightning")) return "RapidTower";
-        if (lower.Contains("mortar")) return "HeavyTower";
-        if (lower.Contains("spike")) return "PoisonTower";
-        if (lower.Contains("sniper")) return "HeavyTower";
+        if (lower.Contains("lightning")) return "";
+        if (lower.Contains("mortar")) return "";
+        if (lower.Contains("spike")) return "";
+        if (lower.Contains("sniper")) return "";
         if (lower.Contains("heavy")) return "HeavyTower";
-        if (lower.Contains("alchemist")) return "PoisonTower";
+        if (lower.Contains("alchemist")) return "";
         if (lower.Contains("fire")) return "FireTower";
         if (lower.Contains("slow")) return "SlowTower";
         if (lower.Contains("poison")) return "PoisonTower";
@@ -892,7 +938,10 @@ public class BuildSelectionUI : MonoBehaviour
         }
 
         if (tooltipPanel != null)
+        {
             tooltipPanel.SetActive(true);
+            ApplyTooltipRightOfSelectionPanelLayout();
+        }
 
         if (tooltipTitleText != null)
             tooltipTitleText.text = option.displayName;
@@ -905,6 +954,28 @@ public class BuildSelectionUI : MonoBehaviour
     {
         if (tooltipPanel != null)
             tooltipPanel.SetActive(false);
+    }
+
+    private void ApplyTooltipRightOfSelectionPanelLayout()
+    {
+        if (!autoPlaceTooltipRightOfSelectionPanel || tooltipPanel == null || selectionPanel == null)
+            return;
+
+        RectTransform tooltipRect = tooltipPanel.GetComponent<RectTransform>();
+        RectTransform selectionRect = selectionPanel.GetComponent<RectTransform>();
+
+        if (tooltipRect == null || selectionRect == null)
+            return;
+
+        tooltipRect.SetParent(selectionRect.parent, false);
+        tooltipRect.anchorMin = selectionRect.anchorMin;
+        tooltipRect.anchorMax = selectionRect.anchorMin;
+        tooltipRect.pivot = new Vector2(0f, 0.5f);
+        float selectionWidth = selectionRect.rect.width > 0f ? selectionRect.rect.width : selectionRect.sizeDelta.x;
+        float selectionHeight = selectionRect.rect.height > 0f ? selectionRect.rect.height : selectionRect.sizeDelta.y;
+        tooltipRect.sizeDelta = tooltipSize;
+        tooltipRect.anchoredPosition = selectionRect.anchoredPosition + new Vector2(selectionWidth * 0.5f, selectionHeight * 0.5f) + tooltipRightOffset;
+        tooltipPanel.transform.SetAsLastSibling();
     }
 
     private string BuildTooltipDescription(BuildOption option)

@@ -37,6 +37,10 @@ public class GameManager : MonoBehaviour
 
     [Header("Start Menu")]
     public bool showStartMenuOnStart = true;
+    public int normalStartGold = 100;
+    public int normalStartLives = 20;
+    public int balancingStartGold = 999999;
+    public int balancingStartLives = 999999;
     public bool gameStarted = false;
     public bool startMenuOpen = false;
     public GameStartMode currentStartMode = GameStartMode.Normal;
@@ -298,7 +302,11 @@ public class GameManager : MonoBehaviour
         EnsureStartMenuUI();
 
         if (startMenuRoot != null)
+        {
+            ApplyStartMenuOverlayLayout();
+            startMenuRoot.transform.SetAsLastSibling();
             startMenuRoot.SetActive(true);
+        }
     }
 
     public void StartNormalGame()
@@ -317,6 +325,7 @@ public class GameManager : MonoBehaviour
         gameStarted = true;
         startMenuOpen = false;
         currentPhase = GamePhase.Build;
+        ApplyStartModeResources(mode);
 
         if (startMenuRoot != null)
             startMenuRoot.SetActive(false);
@@ -333,6 +342,13 @@ public class GameManager : MonoBehaviour
             : "Spiel gestartet.");
     }
 
+    private void ApplyStartModeResources(GameStartMode mode)
+    {
+        gold = mode == GameStartMode.Balancing ? balancingStartGold : normalStartGold;
+        lives = mode == GameStartMode.Balancing ? balancingStartLives : normalStartLives;
+        isGameOver = false;
+    }
+
     public void QuitGameFromStartMenu()
     {
         Debug.Log("Spiel schließen gewählt.");
@@ -343,6 +359,7 @@ public class GameManager : MonoBehaviour
     {
         if (startMenuRoot != null && startGameButton != null && startBalancingGameButton != null && quitGameButton != null)
         {
+            ApplyStartMenuOverlayLayout();
             SetupStartMenuButtons();
             RefreshStartMenuTexts();
             return;
@@ -356,6 +373,7 @@ public class GameManager : MonoBehaviour
             GameObject canvasObject = new GameObject("StartMenuCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             startMenuCanvas = canvasObject.GetComponent<Canvas>();
             startMenuCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            startMenuCanvas.sortingOrder = 1000;
 
             CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -372,7 +390,8 @@ public class GameManager : MonoBehaviour
         rootRect.offsetMax = Vector2.zero;
 
         Image rootImage = startMenuRoot.GetComponent<Image>();
-        rootImage.color = new Color32(5, 8, 14, 220);
+        rootImage.color = new Color32(5, 8, 14, 255);
+        rootImage.raycastTarget = true;
 
         GameObject window = new GameObject("StartMenuWindow", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
         window.transform.SetParent(startMenuRoot.transform, false);
@@ -403,8 +422,37 @@ public class GameManager : MonoBehaviour
         startBalancingGameButton = CreateStartMenuButton(window.transform, "BalancingGameButton", "Balancing Game");
         quitGameButton = CreateStartMenuButton(window.transform, "QuitGameButton", "Spiel schließen");
 
+        ApplyStartMenuOverlayLayout();
         SetupStartMenuButtons();
         RefreshStartMenuTexts();
+    }
+
+    private void ApplyStartMenuOverlayLayout()
+    {
+        if (startMenuCanvas != null)
+        {
+            startMenuCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            startMenuCanvas.sortingOrder = Mathf.Max(startMenuCanvas.sortingOrder, 1000);
+        }
+
+        if (startMenuRoot == null)
+            return;
+
+        RectTransform rootRect = startMenuRoot.GetComponent<RectTransform>();
+        if (rootRect != null)
+        {
+            rootRect.anchorMin = Vector2.zero;
+            rootRect.anchorMax = Vector2.one;
+            rootRect.offsetMin = Vector2.zero;
+            rootRect.offsetMax = Vector2.zero;
+        }
+
+        Image rootImage = startMenuRoot.GetComponent<Image>();
+        if (rootImage != null)
+        {
+            rootImage.color = new Color32(5, 8, 14, 255);
+            rootImage.raycastTarget = true;
+        }
     }
 
     private TextMeshProUGUI CreateStartMenuText(Transform parent, string objectName, string text, float fontSize, FontStyles style, float height)
@@ -712,8 +760,6 @@ public class GameManager : MonoBehaviour
 
         return
             "Wave " + data.waveNumber + " - " + data.scenarioName +
-            "\nGesamt: " + data.totalSpawnCount + " Gegner" +
-            "\nHinweis: " + data.specialHint +
             modifierText +
             chaosLevelText +
             chaosWaveText +

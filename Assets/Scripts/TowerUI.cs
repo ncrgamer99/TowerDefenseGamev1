@@ -50,6 +50,8 @@ public class TowerUI : MonoBehaviour
     public TextMeshProUGUI sellButtonText;
     public bool autoCreateSellButton = true;
     public bool hideCloseButtonBecauseRightClickCloses = true;
+    public bool hideMetaAndVisualTierText = true;
+    public float sellButtonBottomBarHeight = 44f;
     public Vector2 sellButtonTopRightSize = new Vector2(150f, 34f);
     public int towerPanelSiblingIndexWhenOpen = 2;
 
@@ -333,10 +335,16 @@ public class TowerUI : MonoBehaviour
             upgradePointText.text = "Upgrade Points: " + selectedTower.upgradePoints;
 
         if (metaPointText != null)
-            metaPointText.text = "Meta vorbereitet: " + selectedTower.metaProgressionPoints;
+        {
+            metaPointText.text = hideMetaAndVisualTierText ? "" : "Meta vorbereitet: " + selectedTower.metaProgressionPoints;
+            metaPointText.gameObject.SetActive(!hideMetaAndVisualTierText);
+        }
 
         if (visualTierText != null)
-            visualTierText.text = "Visual Tier: " + selectedTower.visualTier;
+        {
+            visualTierText.text = hideMetaAndVisualTierText ? "" : "Visual Tier: " + selectedTower.visualTier;
+            visualTierText.gameObject.SetActive(!hideMetaAndVisualTierText);
+        }
     }
 
     private void UpdateStatsUI()
@@ -648,30 +656,16 @@ public class TowerUI : MonoBehaviour
         if (rectTransform == null)
             return;
 
+        if (panel != null && rectTransform.parent != panel.transform)
+            rectTransform.SetParent(panel.transform, false);
+
         rectTransform.anchorMin = new Vector2(0f, 0f);
         rectTransform.anchorMax = new Vector2(1f, 0f);
         rectTransform.pivot = new Vector2(0.5f, 0f);
-        if (closeButton != null)
-        {
-            RectTransform closeRect = closeButton.GetComponent<RectTransform>();
-
-            if (closeRect != null)
-            {
-                rectTransform.SetParent(closeRect.parent, false);
-                rectTransform.anchorMin = closeRect.anchorMin;
-                rectTransform.anchorMax = closeRect.anchorMax;
-                rectTransform.pivot = closeRect.pivot;
-                rectTransform.anchoredPosition = closeRect.anchoredPosition;
-                rectTransform.sizeDelta = sellButtonTopRightSize;
-                return;
-            }
-        }
-
-        rectTransform.anchorMin = new Vector2(1f, 1f);
-        rectTransform.anchorMax = new Vector2(1f, 1f);
-        rectTransform.pivot = new Vector2(1f, 1f);
-        rectTransform.anchoredPosition = new Vector2(-16f, -16f);
-        rectTransform.sizeDelta = sellButtonTopRightSize;
+        rectTransform.anchoredPosition = Vector2.zero;
+        rectTransform.sizeDelta = new Vector2(0f, sellButtonBottomBarHeight);
+        rectTransform.offsetMin = new Vector2(0f, 0f);
+        rectTransform.offsetMax = new Vector2(0f, sellButtonBottomBarHeight);
     }
 
     private void SetImageColor(Image img, Color color)
