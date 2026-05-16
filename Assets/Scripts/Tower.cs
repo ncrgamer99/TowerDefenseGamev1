@@ -269,7 +269,10 @@ public class Tower : MonoBehaviour
             Enemy target = FindTarget();
 
             if (target == null)
+            {
+                fireCooldown = Mathf.Max(fireCooldown, 0f);
                 break;
+            }
 
             Shoot(target);
 
