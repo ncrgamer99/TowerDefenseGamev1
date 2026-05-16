@@ -635,17 +635,16 @@ public class TowerUI : MonoBehaviour
         if (!autoCreateSellButton || sellButton != null || panel == null)
             return;
 
-        if (closeButton != null)
+        Transform sellButtonParent = panel.transform;
+
+        if (closeButton != null && closeButton.transform.parent != null)
         {
-            sellButton = closeButton;
-            sellButton.gameObject.name = "SellButton_FromCloseRow";
-            sellButton.gameObject.SetActive(true);
-            sellButtonText = sellButton.GetComponentInChildren<TextMeshProUGUI>(true);
-            return;
+            sellButtonParent = closeButton.transform.parent;
+            closeButton.gameObject.SetActive(false);
         }
 
         GameObject buttonObject = new GameObject("SellButton_Auto", typeof(RectTransform), typeof(Image), typeof(Button));
-        buttonObject.transform.SetParent(panel.transform, false);
+        buttonObject.transform.SetParent(sellButtonParent, false);
 
         RectTransform rectTransform = buttonObject.GetComponent<RectTransform>();
         ApplySellButtonBottomBarLayout(rectTransform);
@@ -759,9 +758,9 @@ public class TowerUI : MonoBehaviour
         if (rectTransform == null)
             return;
 
-        bool useCloseRow = sellButton != null && closeButton != null && sellButton == closeButton && rectTransform.parent is RectTransform;
+        bool useExistingBottomRow = rectTransform.parent is RectTransform && panel != null && rectTransform.parent != panel.transform;
 
-        if (useCloseRow)
+        if (useExistingBottomRow)
         {
             RectTransform rowRect = (RectTransform)rectTransform.parent;
 
