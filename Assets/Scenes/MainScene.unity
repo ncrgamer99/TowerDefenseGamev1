@@ -9357,9 +9357,9 @@ MonoBehaviour:
   activeWaveModifiers: []
   enableChaosVariantsV1: 1
   chaosVariantsStartLevel: 3
-  chaosVariantChanceAtStartLevel: 0.1
-  chaosVariantChancePerAdditionalLevel: 0.05
-  maxChaosVariantChance: 0.3
+  chaosVariantChanceAtStartLevel: 0.70
+  chaosVariantChancePerAdditionalLevel: 0.30
+  maxChaosVariantChance: 1
   maxChaosVariantsAtStartLevel: 2
   maxChaosVariantsPerAdditionalLevel: 1
   chaosVariantSeedSalt: 9137
@@ -9370,8 +9370,8 @@ MonoBehaviour:
   chaosWaveBlocksStartLevel: 2
   forceChaosWaveBlockAtLevel: 4
   maxChaosWaveBlocksV1: 3
-  chaosWaveBlockChanceAtStartLevel: 0.35
-  chaosWaveBlockChancePerAdditionalLevel: 0.1
+  chaosWaveBlockChanceAtStartLevel: 0.60
+  chaosWaveBlockChancePerAdditionalLevel: 0.20
   chaosWaveBlockSeedSalt: 44117
   allowRolePressureBlock: 1
   allowDensityBlock: 1

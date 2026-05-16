@@ -141,21 +141,21 @@ MonoBehaviour:
   globalXPReward: 0
   useWaveScaling: 1
   scalingStartWave: 11
-  healthScalingPerWave: 0.10
+  healthScalingPerWave: 0.18
   rewardScalingPerWave: 0.025
   xpScalingPerWave: 0.025
-  speedScalingPerWave: 0.008
+  speedScalingPerWave: 0.014
   maxNormalSpeedBonus: 0.35
-  armorBonusEveryWaves: 12
+  armorBonusEveryWaves: 8
   maxArmorBonus: 12
   baseDamageBonusEveryWaves: 18
   maxBaseDamageBonus: 6
-  tankHealthScalingBonus: 1.35
-  knightHealthScalingBonus: 1.20
-  learnerHealthScalingBonus: 1.20
-  allRounderHealthScalingBonus: 1.25
-  miniBossHealthScalingBonus: 1.60
-  bossHealthScalingBonus: 1.80
+  tankHealthScalingBonus: 1.65
+  knightHealthScalingBonus: 1.38
+  learnerHealthScalingBonus: 1.42
+  allRounderHealthScalingBonus: 1.48
+  miniBossHealthScalingBonus: 2.15
+  bossHealthScalingBonus: 2.70
   isElite: 0
   isMiniBoss: 0
   isBoss: 0
