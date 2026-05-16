@@ -35,7 +35,7 @@ public class BuildSelectionUI : MonoBehaviour
     public TextMeshProUGUI tooltipDescriptionText;
     public bool autoPlaceTooltipRightOfSelectionPanel = true;
     public Vector2 tooltipRightOffset = new Vector2(18f, 0f);
-    public Vector2 tooltipSize = new Vector2(330f, 148f);
+    public Vector2 tooltipSize = new Vector2(360f, 176f);
 
     [Header("Tower Slots")]
     public List<TowerSelectionSlot> towerSlots = new List<TowerSelectionSlot>();
@@ -71,6 +71,7 @@ public class BuildSelectionUI : MonoBehaviour
     public bool createSlotNameLabels = true;
     public bool showSlotCostLabels = true;
     public bool hideSelectionTitleAndCloseButton = true;
+    public bool hideSelectionPanelBackground = true;
     public bool autoRepairSlotGridLayout = true;
     public int slotGridColumns = 6;
     public Vector2 slotGridSpacing = new Vector2(5f, 4f);
@@ -86,10 +87,10 @@ public class BuildSelectionUI : MonoBehaviour
     public int readableSlotGridColumns = 2;
     public int readableSlotGridColumnsWhenTall = 3;
     public int maxSlotsBeforeThirdColumn = 8;
-    public Vector2 readableSlotSize = new Vector2(74f, 78f);
-    public Vector2 readableIconSize = new Vector2(34f, 34f);
-    public Vector2 readableLabelSize = new Vector2(78f, 18f);
-    public Vector2 readableCostLabelSize = new Vector2(78f, 16f);
+    public Vector2 readableSlotSize = new Vector2(88f, 92f);
+    public Vector2 readableIconSize = new Vector2(42f, 42f);
+    public Vector2 readableLabelSize = new Vector2(92f, 20f);
+    public Vector2 readableCostLabelSize = new Vector2(92f, 18f);
     public bool liftSelectionPanelFromBottom = true;
     public bool forceSelectionPanelBottomLeft = true;
     public bool keepOpenSelectionButtonAlwaysVisible = true;
@@ -212,11 +213,11 @@ public class BuildSelectionUI : MonoBehaviour
         else if (lowerName.Contains("heavy"))
             ApplyDefaultBuildOption(option, "Heavy Tower", 95, "Langsamer Einzelschaden gegen Armor, Tanks und Bosse.");
         else if (lowerName.Contains("alchemist"))
-            ApplyDefaultBuildOption(option, "Alchemist Tower", 85, "Hybrid-Tower: vergiftet Gegner und verlangsamt sie kurz.");
+            ApplyDefaultBuildOption(option, "Alchemist Tower", 90, "Hybrid-Tower: vergiftet Gegner und verlangsamt sie kurz.");
         else if (lowerName.Contains("lightning"))
-            ApplyDefaultBuildOption(option, "Lightning Tower", 105, "Kettenblitz-Tower: Treffer und Chains verlangsamen Gegner kurz.");
+            ApplyDefaultBuildOption(option, "Lightning Tower", 110, "Kettenblitz-Tower: Treffer und Chains verlangsamen Gegner kurz.");
         else if (lowerName.Contains("mortar"))
-            ApplyDefaultBuildOption(option, "Mortar Tower", 125, "Langsamer Mörser: Projektil schlägt an Zielposition ein und verursacht AOE-Schaden.");
+            ApplyDefaultBuildOption(option, "Mortar Tower", 130, "Langsamer Mörser: Projektil schlägt an Zielposition ein und verursacht AOE-Schaden.");
         else if (lowerName.Contains("spike"))
             ApplyDefaultBuildOption(option, "Spike Tower", 85, "Kurze Reichweite: Treffer bluten und hinterlassen einmalige Stacheln auf dem Weg.");
         else if (lowerName.Contains("fire"))
@@ -330,9 +331,9 @@ public class BuildSelectionUI : MonoBehaviour
         iconSize = readableIconSize;
         labelSize = readableLabelSize;
         costLabelSize = readableCostLabelSize;
-        labelYOffset = -16f;
-        costLabelYOffset = -33f;
-        slotIconYOffset = 15f;
+        labelYOffset = -20f;
+        costLabelYOffset = -39f;
+        slotIconYOffset = 18f;
         slotGridSpacing = new Vector2(Mathf.Max(slotGridSpacing.x, 6f), Mathf.Max(slotGridSpacing.y, 6f));
     }
 
@@ -399,9 +400,9 @@ public class BuildSelectionUI : MonoBehaviour
             towerSlots = new List<TowerSelectionSlot>();
 
         EnsureDefaultNewTowerSlot("Sniper Tower", 120, "Sehr hohe Reichweite und Einzelschaden gegen Elite, MiniBoss und Boss.", "Sniper_Tower");
-        EnsureDefaultNewTowerSlot("Alchemist Tower", 85, "Hybrid-Tower: vergiftet Gegner und verlangsamt sie kurz.", "Alchemist_Tower");
-        EnsureDefaultNewTowerSlot("Lightning Tower", 105, "Kettenblitz-Tower: Treffer und Chains verlangsamen Gegner kurz.", "Lightning_Tower");
-        EnsureDefaultNewTowerSlot("Mortar Tower", 125, "Langsamer Mörser: Projektil schlägt an Zielposition ein und verursacht AOE-Schaden.", "Mortar_Tower");
+        EnsureDefaultNewTowerSlot("Alchemist Tower", 90, "Hybrid-Tower: vergiftet Gegner und verlangsamt sie kurz.", "Alchemist_Tower");
+        EnsureDefaultNewTowerSlot("Lightning Tower", 110, "Kettenblitz-Tower: Treffer und Chains verlangsamen Gegner kurz.", "Lightning_Tower");
+        EnsureDefaultNewTowerSlot("Mortar Tower", 130, "Langsamer Mörser: Projektil schlägt an Zielposition ein und verursacht AOE-Schaden.", "Mortar_Tower");
         EnsureDefaultNewTowerSlot("Spike Tower", 85, "Kurze Reichweite: Treffer bluten und hinterlassen einmalige Stacheln auf dem Weg.", "Spike_Tower");
     }
 
@@ -636,7 +637,7 @@ public class BuildSelectionUI : MonoBehaviour
         label.enableWordWrapping = false;
         label.overflowMode = TextOverflowModes.Ellipsis;
         label.alignment = TextAlignmentOptions.Center;
-        label.fontSize = 11f;
+        label.fontSize = 12f;
         label.color = textSecondaryColor;
         label.raycastTarget = false;
         label.text = GetShortTowerName(slot.option);
@@ -671,7 +672,7 @@ public class BuildSelectionUI : MonoBehaviour
         costLabel.enableWordWrapping = false;
         costLabel.overflowMode = TextOverflowModes.Ellipsis;
         costLabel.alignment = TextAlignmentOptions.Center;
-        costLabel.fontSize = 9.5f;
+        costLabel.fontSize = 10.5f;
         costLabel.color = accentColor;
         costLabel.raycastTarget = false;
         costLabel.text = GetCostLabelText(slot.option);
@@ -813,7 +814,7 @@ public class BuildSelectionUI : MonoBehaviour
 
     private void ApplyTheme()
     {
-        SetImageColor(selectionPanelBackground, panelColor);
+        ApplySelectionPanelBackgroundVisibility();
         SetImageColor(selectedWindowBackground, selectedWindowColor);
         SetImageColor(tooltipBackground, cardColor);
         SetImageColor(openButtonBackground, accentColor);
@@ -822,6 +823,30 @@ public class BuildSelectionUI : MonoBehaviour
         SetTextColor(selectedText, textPrimaryColor);
         SetTextColor(tooltipTitleText, textPrimaryColor);
         SetTextColor(tooltipDescriptionText, textSecondaryColor);
+    }
+
+
+    private void ApplySelectionPanelBackgroundVisibility()
+    {
+        if (!hideSelectionPanelBackground)
+        {
+            SetImageColor(selectionPanelBackground, panelColor);
+            return;
+        }
+
+        Color transparent = new Color(0f, 0f, 0f, 0f);
+        SetImageColor(selectionPanelBackground, transparent);
+
+        Image panelImage = selectionPanel != null ? selectionPanel.GetComponent<Image>() : null;
+
+        if (panelImage != null && panelImage != selectionPanelBackground)
+        {
+            panelImage.color = transparent;
+            panelImage.raycastTarget = false;
+        }
+
+        if (selectionPanelBackground != null)
+            selectionPanelBackground.raycastTarget = false;
     }
 
     private void SetImageColor(Image image, Color color)
@@ -1027,18 +1052,31 @@ public class BuildSelectionUI : MonoBehaviour
 
         RectTransform tooltipRect = tooltipPanel.GetComponent<RectTransform>();
         RectTransform selectionRect = selectionPanel.GetComponent<RectTransform>();
+        RectTransform gridRect = ResolveAutoCreatedSlotParent() as RectTransform;
 
         if (tooltipRect == null || selectionRect == null)
             return;
 
-        tooltipRect.SetParent(selectionRect.parent, false);
-        tooltipRect.anchorMin = selectionRect.anchorMin;
-        tooltipRect.anchorMax = selectionRect.anchorMin;
+        RectTransform anchorRect = gridRect != null ? gridRect : selectionRect;
+        RectTransform parentRect = selectionRect.parent as RectTransform;
+
+        if (parentRect == null)
+            parentRect = anchorRect.parent as RectTransform;
+
+        if (parentRect == null)
+            return;
+
+        Vector3[] worldCorners = new Vector3[4];
+        anchorRect.GetWorldCorners(worldCorners);
+        Vector3 rightCenterWorld = (worldCorners[2] + worldCorners[3]) * 0.5f;
+        Vector3 rightCenterLocal = parentRect.InverseTransformPoint(rightCenterWorld);
+
+        tooltipRect.SetParent(parentRect, false);
+        tooltipRect.anchorMin = new Vector2(0.5f, 0.5f);
+        tooltipRect.anchorMax = new Vector2(0.5f, 0.5f);
         tooltipRect.pivot = new Vector2(0f, 0.5f);
-        float selectionWidth = selectionRect.rect.width > 0f ? selectionRect.rect.width : selectionRect.sizeDelta.x;
-        float selectionHeight = selectionRect.rect.height > 0f ? selectionRect.rect.height : selectionRect.sizeDelta.y;
         tooltipRect.sizeDelta = tooltipSize;
-        tooltipRect.anchoredPosition = selectionRect.anchoredPosition + new Vector2(selectionWidth * 0.5f, selectionHeight * 0.5f) + tooltipRightOffset;
+        tooltipRect.localPosition = rightCenterLocal + new Vector3(tooltipRightOffset.x, tooltipRightOffset.y, 0f);
         tooltipPanel.transform.SetAsLastSibling();
     }
 

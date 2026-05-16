@@ -504,17 +504,17 @@ public class Tower : MonoBehaviour
             case TowerRole.Lightning:
                 towerName = "Lightning Tower";
                 damage = 4;
-                range = 4.1f;
-                fireRate = 0.95f;
+                range = 4.0f;
+                fireRate = 0.90f;
                 targetMode = TowerTargetMode.First;
 
                 appliesSlow = true;
                 slowAmount = 0.75f;
                 slowDuration = 1.25f;
 
-                damageUpgradeCost = 65;
+                damageUpgradeCost = 70;
                 rangeUpgradeCost = 65;
-                fireRateUpgradeCost = 80;
+                fireRateUpgradeCost = 85;
                 effectUpgradeCost = 80;
                 goldUpgradeCostIncrease = 25;
                 goldUpgradeCostMultiplier = 1.30f;
@@ -528,7 +528,7 @@ public class Tower : MonoBehaviour
 
             case TowerRole.Mortar:
                 towerName = "Mortar Tower";
-                damage = 11;
+                damage = 10;
                 range = 5.0f;
                 fireRate = 0.45f;
                 targetMode = TowerTargetMode.Strongest;
