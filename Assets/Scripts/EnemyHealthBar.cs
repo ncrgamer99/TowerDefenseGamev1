@@ -33,6 +33,7 @@ public class EnemyHealthBar : MonoBehaviour
     public Color normalHealthColor = new Color32(70, 220, 95, 255);
     public Color burnHealthColor = new Color32(255, 80, 65, 255);
     public Color poisonHealthColor = new Color32(175, 75, 255, 255);
+    public Color darknessHealthColor = Color.black;
 
     [Header("Billboard")]
     public bool faceCamera = true;
@@ -251,6 +252,9 @@ public class EnemyHealthBar : MonoBehaviour
 
             case EnemyHealthBarEffectMode.Bleed:
                 return burnHealthColor;
+
+            case EnemyHealthBarEffectMode.Darkness:
+                return darknessHealthColor;
 
             case EnemyHealthBarEffectMode.None:
             default:

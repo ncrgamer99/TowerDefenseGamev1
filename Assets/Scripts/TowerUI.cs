@@ -49,7 +49,12 @@ public class TowerUI : MonoBehaviour
     public Button sellButton;
     public TextMeshProUGUI sellButtonText;
     public bool autoCreateSellButton = true;
-    public int towerPanelSiblingIndexWhenOpen = 0;
+    public bool hideCloseButtonBecauseRightClickCloses = true;
+    public bool hideMetaAndVisualTierText = true;
+    public float sellButtonBottomBarHeight = 52f;
+    public Color sellButtonColor = new Color32(200, 75, 75, 255);
+    public Vector2 sellButtonTopRightSize = new Vector2(150f, 34f);
+    public int towerPanelSiblingIndexWhenOpen = 2;
 
     [Header("Menu Tabs")]
     public Button goldUpgradeTabButton;
@@ -132,6 +137,9 @@ public class TowerUI : MonoBehaviour
         {
             closeButton.onClick.RemoveAllListeners();
             closeButton.onClick.AddListener(Close);
+
+            if (hideCloseButtonBecauseRightClickCloses)
+                closeButton.gameObject.SetActive(false);
         }
 
         if (targetModeButton != null)
@@ -142,6 +150,7 @@ public class TowerUI : MonoBehaviour
 
         if (sellButton != null)
         {
+            ApplySellButtonBottomBarLayout();
             sellButton.onClick.RemoveAllListeners();
             sellButton.onClick.AddListener(SellSelectedTower);
         }
@@ -285,6 +294,8 @@ public class TowerUI : MonoBehaviour
 
         if (xpFillImage != null)
             xpFillImage.color = new Color32(70, 220, 120, 255);
+
+        ApplySellButtonVisualStyle();
     }
 
     private void UpdateUI()
@@ -327,10 +338,16 @@ public class TowerUI : MonoBehaviour
             upgradePointText.text = "Upgrade Points: " + selectedTower.upgradePoints;
 
         if (metaPointText != null)
-            metaPointText.text = "Meta vorbereitet: " + selectedTower.metaProgressionPoints;
+        {
+            metaPointText.text = hideMetaAndVisualTierText ? "" : "Meta vorbereitet: " + selectedTower.metaProgressionPoints;
+            metaPointText.gameObject.SetActive(!hideMetaAndVisualTierText);
+        }
 
         if (visualTierText != null)
-            visualTierText.text = "Visual Tier: " + selectedTower.visualTier;
+        {
+            visualTierText.text = hideMetaAndVisualTierText ? "" : "Visual Tier: " + selectedTower.visualTier;
+            visualTierText.gameObject.SetActive(!hideMetaAndVisualTierText);
+        }
     }
 
     private void UpdateStatsUI()
@@ -490,7 +507,7 @@ public class TowerUI : MonoBehaviour
         SetTabButtonStyle(goldUpgradeTabButton, goldUpgradeTabText, currentMenu == TowerUIMenu.GoldUpgrades, goldAccentColor);
         SetTabButtonStyle(pointUpgradeTabButton, pointUpgradeTabText, currentMenu == TowerUIMenu.PointUpgrades, pointAccentColor);
         SetActionButtonStyle(targetModeButton, targetModeButtonText, true, targetButtonColor);
-        SetActionButtonStyle(sellButton, sellButtonText, selectedTower != null, closeButtonColor);
+        ApplySellButtonVisualStyle();
         SetCloseButtonStyle();
     }
 
@@ -509,7 +526,15 @@ public class TowerUI : MonoBehaviour
         bool canBuyPointEffect = hasEnoughPoints && selectedTower.HasAnyEffect();
 
         if (sellButtonText != null)
-            sellButtonText.text = "Verkaufen\n+" + selectedTower.GetSellRefundAmount() + " Gold";
+        {
+            sellButtonText.text = "Verkaufen für: " + selectedTower.GetSellRefundAmount() + " Gold";
+            sellButtonText.fontSize = 16f;
+            sellButtonText.fontStyle = FontStyles.Bold;
+            sellButtonText.alignment = TextAlignmentOptions.Center;
+            sellButtonText.color = Color.white;
+        }
+
+        ApplySellButtonVisualStyle();
 
         SetActionButtonStyle(goldDamageButton, goldDamageButtonText, canBuyGoldDamage, goldAccentColor);
         SetActionButtonStyle(goldRangeButton, goldRangeButtonText, canBuyGoldRange, goldAccentColor);
@@ -570,7 +595,7 @@ public class TowerUI : MonoBehaviour
 
     private void SetCloseButtonStyle()
     {
-        if (closeButton == null)
+        if (closeButton == null || hideCloseButtonBecauseRightClickCloses)
             return;
 
         Image img = closeButton.GetComponent<Image>();
@@ -604,11 +629,7 @@ public class TowerUI : MonoBehaviour
         buttonObject.transform.SetParent(panel.transform, false);
 
         RectTransform rectTransform = buttonObject.GetComponent<RectTransform>();
-        rectTransform.anchorMin = new Vector2(1f, 0f);
-        rectTransform.anchorMax = new Vector2(1f, 0f);
-        rectTransform.pivot = new Vector2(1f, 0f);
-        rectTransform.anchoredPosition = new Vector2(-16f, 16f);
-        rectTransform.sizeDelta = new Vector2(170f, 44f);
+        ApplySellButtonBottomBarLayout(rectTransform);
 
         Image image = buttonObject.GetComponent<Image>();
         image.color = closeButtonColor;
@@ -631,6 +652,87 @@ public class TowerUI : MonoBehaviour
         sellButtonText.fontSizeMin = 10f;
         sellButtonText.fontSizeMax = 16f;
         sellButtonText.color = Color.white;
+    }
+
+    private void ApplySellButtonVisualStyle()
+    {
+        if (sellButton == null)
+            return;
+
+        sellButton.interactable = selectedTower != null;
+        Image buttonImage = sellButton.GetComponent<Image>();
+        if (buttonImage != null)
+        {
+            buttonImage.color = sellButtonColor;
+            buttonImage.raycastTarget = true;
+        }
+
+        Graphic[] childGraphics = sellButton.GetComponentsInChildren<Graphic>(true);
+        foreach (Graphic graphic in childGraphics)
+        {
+            if (graphic == null || graphic == buttonImage || graphic is TextMeshProUGUI)
+                continue;
+
+            graphic.color = sellButtonColor;
+            graphic.raycastTarget = false;
+        }
+
+        ColorBlock colors = sellButton.colors;
+        colors.normalColor = sellButtonColor;
+        colors.highlightedColor = new Color32(225, 95, 95, 255);
+        colors.pressedColor = new Color32(160, 45, 45, 255);
+        colors.selectedColor = sellButtonColor;
+        colors.disabledColor = new Color32(90, 55, 60, 255);
+        sellButton.colors = colors;
+
+        if (sellButtonText == null)
+            sellButtonText = sellButton.GetComponentInChildren<TextMeshProUGUI>(true);
+
+        if (sellButtonText != null)
+        {
+            RectTransform textRect = sellButtonText.GetComponent<RectTransform>();
+            if (textRect != null)
+            {
+                textRect.anchorMin = Vector2.zero;
+                textRect.anchorMax = Vector2.one;
+                textRect.offsetMin = new Vector2(10f, 2f);
+                textRect.offsetMax = new Vector2(-10f, -2f);
+            }
+
+            sellButtonText.alignment = TextAlignmentOptions.Center;
+            sellButtonText.fontSize = 16f;
+            sellButtonText.fontStyle = FontStyles.Bold;
+            sellButtonText.enableAutoSizing = true;
+            sellButtonText.fontSizeMin = 12f;
+            sellButtonText.fontSizeMax = 18f;
+            sellButtonText.color = Color.white;
+            sellButtonText.transform.SetAsLastSibling();
+        }
+    }
+
+    private void ApplySellButtonBottomBarLayout()
+    {
+        if (sellButton == null)
+            return;
+
+        ApplySellButtonBottomBarLayout(sellButton.GetComponent<RectTransform>());
+    }
+
+    private void ApplySellButtonBottomBarLayout(RectTransform rectTransform)
+    {
+        if (rectTransform == null)
+            return;
+
+        if (panel != null && rectTransform.parent != panel.transform)
+            rectTransform.SetParent(panel.transform, false);
+
+        rectTransform.anchorMin = new Vector2(0f, 0f);
+        rectTransform.anchorMax = new Vector2(1f, 0f);
+        rectTransform.pivot = new Vector2(0.5f, 0f);
+        rectTransform.anchoredPosition = Vector2.zero;
+        rectTransform.sizeDelta = new Vector2(0f, sellButtonBottomBarHeight);
+        rectTransform.offsetMin = new Vector2(0f, 0f);
+        rectTransform.offsetMax = new Vector2(0f, sellButtonBottomBarHeight);
     }
 
     private void SetImageColor(Image img, Color color)
