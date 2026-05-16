@@ -256,6 +256,146 @@ public class EnemySpawner : MonoBehaviour
     }
 
 
+
+    public WaveData BuildBalancingWaveDataForWave(int waveNumber)
+    {
+        int safeWave = Mathf.Max(1, waveNumber);
+        WaveScenario scenario = GetBalancingWaveScenario(safeWave);
+        WaveData waveData = new WaveData();
+
+        waveData.waveNumber = safeWave;
+        waveData.requestedEnemyCount = GetBalancingBaseEnemyCountForWave(safeWave);
+        waveData.modifiedEnemyCount = waveData.requestedEnemyCount;
+        waveData.scenario = scenario;
+        waveData.scenarioName = GetBalancingScenarioNameForWave(safeWave);
+        waveData.specialHint = GetBalancingSpecialHintForWave(safeWave);
+        waveData.previewHidden = HasHiddenPreviewModifierForWave(safeWave, scenario);
+        waveData.appliedModifiers = GetActiveBudgetedWaveModifierCopiesForWave(safeWave, scenario);
+        waveData.modifierSummary = BuildWaveModifierSummary(waveData.appliedModifiers);
+        waveData.spawnEntries = GenerateBalancingSpawnEntriesForWave(safeWave);
+
+        ApplyPreparedWaveModifiersToEntries(waveData.spawnEntries, safeWave, scenario);
+
+        List<ChaosWaveBlock> chaosWaveBlocks = GenerateChaosWaveBlocksForWave(safeWave, scenario, waveData.spawnEntries);
+        ApplyChaosWaveBlocksToEntries(waveData.spawnEntries, chaosWaveBlocks, safeWave, scenario);
+        waveData.SetChaosWaveBlocks(chaosWaveBlocks);
+
+        if (waveData.hasChaosWaveBlocks && !string.IsNullOrEmpty(waveData.chaosWaveSummary))
+            waveData.specialHint = string.IsNullOrEmpty(waveData.specialHint) ? waveData.chaosWaveSummary : waveData.specialHint + " | " + waveData.chaosWaveSummary;
+
+        ApplyChaosVariantsToEntries(waveData.spawnEntries, safeWave, scenario, chaosWaveBlocks);
+        waveData.RecalculateTotalSpawnCount();
+        return waveData;
+    }
+
+    public WaveScenario GetBalancingWaveScenario(int waveNumber)
+    {
+        switch (GetBalancingCycleWave(waveNumber))
+        {
+            case 1: return WaveScenario.StandardIntro;
+            case 2: return WaveScenario.TankIntro;
+            case 3: return WaveScenario.RunnerIntro;
+            case 4: return WaveScenario.MageIntro;
+            case 5: return WaveScenario.MiniBoss;
+            case 6: return WaveScenario.EffectImmunity;
+            case 7: return WaveScenario.Mixed;
+            case 8: return WaveScenario.ArmorCheck;
+            case 9: return WaveScenario.PreBoss;
+            case 10: return WaveScenario.Boss;
+            default: return WaveScenario.Mixed;
+        }
+    }
+
+    public string GetBalancingScenarioNameForWave(int waveNumber)
+    {
+        switch (GetBalancingCycleWave(waveNumber))
+        {
+            case 1: return "Balancing: 5x Standard";
+            case 2: return "Balancing: 5x Tank";
+            case 3: return "Balancing: 5x Runner";
+            case 4: return "Balancing: 5x Mage";
+            case 5: return "Balancing: 1x MiniBoss";
+            case 6: return "Balancing: 5x Learner";
+            case 7: return "Balancing: 5x AllRounder";
+            case 8: return "Balancing: 5x Knight";
+            case 9: return "Balancing: 5x ChaosStandard";
+            case 10: return "Balancing: 1x Boss";
+            default: return "Balancing";
+        }
+    }
+
+    public string GetBalancingSpecialHintForWave(int waveNumber)
+    {
+        return GetBalancingScenarioNameForWave(waveNumber) + ". Testmodus: Economy, XP, Chaos und Tileauswahl bleiben aktiv.";
+    }
+
+    private int GetBalancingCycleWave(int waveNumber)
+    {
+        return ((Mathf.Max(1, waveNumber) - 1) % 10) + 1;
+    }
+
+    private int GetBalancingBaseEnemyCountForWave(int waveNumber)
+    {
+        int cycleWave = GetBalancingCycleWave(waveNumber);
+        return cycleWave == 5 || cycleWave == 10 ? 1 : 5;
+    }
+
+    private List<EnemySpawnEntry> GenerateBalancingSpawnEntriesForWave(int waveNumber)
+    {
+        List<EnemySpawnEntry> entries = new List<EnemySpawnEntry>();
+        int cycleWave = GetBalancingCycleWave(waveNumber);
+
+        switch (cycleWave)
+        {
+            case 1:
+                AddBalancingEntry(entries, EnemyRole.Standard, EnemyVariantType.Normal, 5);
+                break;
+            case 2:
+                AddBalancingEntry(entries, EnemyRole.Tank, EnemyVariantType.Normal, 5);
+                break;
+            case 3:
+                AddBalancingEntry(entries, EnemyRole.Runner, EnemyVariantType.Normal, 5);
+                break;
+            case 4:
+                AddBalancingEntry(entries, EnemyRole.Mage, EnemyVariantType.Normal, 5);
+                break;
+            case 5:
+                AddBalancingEntry(entries, EnemyRole.MiniBoss, EnemyVariantType.Normal, 1);
+                break;
+            case 6:
+                AddBalancingEntry(entries, EnemyRole.Learner, EnemyVariantType.Normal, 5);
+                break;
+            case 7:
+                AddBalancingEntry(entries, EnemyRole.AllRounder, EnemyVariantType.Normal, 5);
+                break;
+            case 8:
+                AddBalancingEntry(entries, EnemyRole.Knight, EnemyVariantType.Normal, 5);
+                break;
+            case 9:
+                AddBalancingEntry(entries, EnemyRole.Standard, EnemyVariantType.Chaos, 5);
+                break;
+            case 10:
+                AddBalancingEntry(entries, EnemyRole.Boss, EnemyVariantType.Normal, 1);
+                break;
+        }
+
+        return entries;
+    }
+
+    private void AddBalancingEntry(List<EnemySpawnEntry> entries, EnemyRole role, EnemyVariantType variantType, int amount)
+    {
+        if (entries == null)
+            return;
+
+        if (!HasEnemyPrefabForRole(role))
+        {
+            Debug.LogWarning("EnemySpawner: Balancing Game wollte " + role + " spawnen, aber das Prefab fehlt.");
+            return;
+        }
+
+        entries.Add(new EnemySpawnEntry(role, variantType, amount, GetRecommendedSpawnDelayForRole(role)));
+    }
+
     private List<WaveModifier> GetActiveBudgetedWaveModifiersForWave(int waveNumber, WaveScenario scenario)
     {
         List<WaveModifier> result = new List<WaveModifier>();
