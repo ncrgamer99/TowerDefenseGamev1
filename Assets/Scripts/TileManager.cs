@@ -543,15 +543,6 @@ public class TileManager : MonoBehaviour
         markerObject.transform.localScale = new Vector3(0.28f, 0.55f, 0.28f);
         ColorTile(markerObject, tileColor);
 
-        GameObject auraObject = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        auraObject.name = supportTileType + " Aura";
-        auraObject.transform.SetParent(tileObject.transform, false);
-        auraObject.transform.localPosition = new Vector3(0f, 0.08f, 0f);
-        auraObject.transform.localScale = new Vector3(2.25f, 0.02f, 2.25f);
-        Color auraColor = tileColor;
-        auraColor.a = 0.35f;
-        ColorTile(auraObject, auraColor);
-
         TowerSupportTileEffect effect = tileObject.AddComponent<TowerSupportTileEffect>();
         effect.Configure(supportTileType, gridPosition, tileSize);
 

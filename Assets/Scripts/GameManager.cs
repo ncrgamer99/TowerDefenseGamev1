@@ -1,11 +1,19 @@
 using System.Collections;
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public enum GamePhase
 {
     Build,
     Wave
+}
+
+public enum GameStartMode
+{
+    Normal,
+    Balancing
 }
 
 public class GameManager : MonoBehaviour
@@ -26,6 +34,23 @@ public class GameManager : MonoBehaviour
     public BuildSelectionUI buildSelectionUI;
     public PathBuildManager pathBuildManager;
     public TowerUI towerUI;
+
+    [Header("Start Menu")]
+    public bool showStartMenuOnStart = true;
+    public int normalStartGold = 100;
+    public int normalStartLives = 20;
+    public int balancingStartGold = 999999;
+    public int balancingStartLives = 999999;
+    public bool gameStarted = false;
+    public bool startMenuOpen = false;
+    public GameStartMode currentStartMode = GameStartMode.Normal;
+    public Canvas startMenuCanvas;
+    public GameObject startMenuRoot;
+    public TextMeshProUGUI startMenuTitleText;
+    public TextMeshProUGUI startMenuDescriptionText;
+    public Button startGameButton;
+    public Button startBalancingGameButton;
+    public Button quitGameButton;
 
     [Header("Wave Settings")]
     public int waveNumber = 0;
@@ -85,17 +110,21 @@ public class GameManager : MonoBehaviour
     {
         currentPhase = GamePhase.Build;
 
-        if (tileManager != null)
-            tileManager.SetCanBuild(true);
-
         EnsureWaveHistory();
         ResolveOptionalInteractionReferences();
         GetChaosJusticeManager();
         GetRunStatisticsTracker();
         GetChaosUnlockManager();
-        RefreshWaveScenarioDebug();
-        RefreshWaveDataDebug();
-        RaiseBuildPhaseStartedEvent();
+
+        if (showStartMenuOnStart)
+        {
+            OpenStartMenu();
+            RefreshWaveScenarioDebug();
+            RefreshWaveDataDebug();
+            return;
+        }
+
+        StartSelectedGame(GameStartMode.Normal);
     }
 
     private void Update()
@@ -111,7 +140,7 @@ public class GameManager : MonoBehaviour
 
     public void OnPathExtended()
     {
-        if (isGameOver || isBaseBlocked || currentPhase != GamePhase.Build || IsGameplayInputLockedByModalUI())
+        if (!gameStarted || isGameOver || isBaseBlocked || currentPhase != GamePhase.Build || IsGameplayInputLockedByModalUI())
             return;
 
         StopBlockedBuildTimer();
@@ -131,7 +160,7 @@ public class GameManager : MonoBehaviour
 
     private void StartNextWave()
     {
-        if (isGameOver || IsChaosJusticeChoiceOpen())
+        if (!gameStarted || isGameOver || IsChaosJusticeChoiceOpen())
             return;
 
         currentPhase = GamePhase.Wave;
@@ -203,7 +232,7 @@ public class GameManager : MonoBehaviour
 
     private void CompletePostWaveBuildPhase()
     {
-        if (isGameOver)
+        if (!gameStarted || isGameOver)
             return;
 
         postBossChoicePending = false;
@@ -249,9 +278,329 @@ public class GameManager : MonoBehaviour
         return manager.TryOpenBossChoice(lastCompletedWaveResult);
     }
 
+
+    private int GetBalancingBaseEnemyCountForWave(int targetWaveNumber)
+    {
+        int cycleWave = ((Mathf.Max(1, targetWaveNumber) - 1) % 10) + 1;
+        return cycleWave == 5 || cycleWave == 10 ? 1 : 5;
+    }
+
+    public bool IsBalancingGameMode()
+    {
+        return currentStartMode == GameStartMode.Balancing;
+    }
+
+    public void OpenStartMenu()
+    {
+        gameStarted = false;
+        startMenuOpen = true;
+        currentPhase = GamePhase.Build;
+
+        if (tileManager != null)
+            tileManager.SetCanBuild(false);
+
+        EnsureStartMenuUI();
+
+        if (startMenuRoot != null)
+        {
+            ApplyStartMenuOverlayLayout();
+            startMenuRoot.transform.SetAsLastSibling();
+            startMenuRoot.SetActive(true);
+        }
+    }
+
+    public void StartNormalGame()
+    {
+        StartSelectedGame(GameStartMode.Normal);
+    }
+
+    public void StartBalancingGame()
+    {
+        StartSelectedGame(GameStartMode.Balancing);
+    }
+
+    private void StartSelectedGame(GameStartMode mode)
+    {
+        currentStartMode = mode;
+        gameStarted = true;
+        startMenuOpen = false;
+        currentPhase = GamePhase.Build;
+        ApplyStartModeResources(mode);
+
+        if (startMenuRoot != null)
+            startMenuRoot.SetActive(false);
+
+        if (tileManager != null)
+            tileManager.SetCanBuild(true);
+
+        RefreshWaveScenarioDebug();
+        RefreshWaveDataDebug();
+        RaiseBuildPhaseStartedEvent();
+
+        Debug.Log(mode == GameStartMode.Balancing
+            ? "Balancing Game gestartet: feste Enemy-Typ-Waves aktiv."
+            : "Spiel gestartet.");
+    }
+
+    private void ApplyStartModeResources(GameStartMode mode)
+    {
+        gold = mode == GameStartMode.Balancing ? balancingStartGold : normalStartGold;
+        lives = mode == GameStartMode.Balancing ? balancingStartLives : normalStartLives;
+        isGameOver = false;
+    }
+
+    public void QuitGameFromStartMenu()
+    {
+        Debug.Log("Spiel schließen gewählt.");
+        Application.Quit();
+    }
+
+    private void EnsureStartMenuUI()
+    {
+        if (startMenuRoot != null && startGameButton != null && startBalancingGameButton != null && quitGameButton != null)
+        {
+            ApplyStartMenuOverlayLayout();
+            SetupStartMenuButtons();
+            RefreshStartMenuTexts();
+            return;
+        }
+
+        if (startMenuCanvas == null)
+            startMenuCanvas = FindObjectOfType<Canvas>();
+
+        if (startMenuCanvas == null)
+        {
+            GameObject canvasObject = new GameObject("StartMenuCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            startMenuCanvas = canvasObject.GetComponent<Canvas>();
+            startMenuCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            startMenuCanvas.sortingOrder = 1000;
+
+            CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+        }
+
+        startMenuRoot = new GameObject("StartMenuRoot", typeof(RectTransform), typeof(Image));
+        startMenuRoot.transform.SetParent(startMenuCanvas.transform, false);
+
+        RectTransform rootRect = startMenuRoot.GetComponent<RectTransform>();
+        rootRect.anchorMin = Vector2.zero;
+        rootRect.anchorMax = Vector2.one;
+        rootRect.offsetMin = Vector2.zero;
+        rootRect.offsetMax = Vector2.zero;
+
+        Image rootImage = startMenuRoot.GetComponent<Image>();
+        rootImage.color = new Color32(5, 8, 14, 255);
+        rootImage.raycastTarget = true;
+
+        GameObject window = new GameObject("StartMenuWindow", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
+        window.transform.SetParent(startMenuRoot.transform, false);
+
+        RectTransform windowRect = window.GetComponent<RectTransform>();
+        windowRect.anchorMin = new Vector2(0.5f, 0.5f);
+        windowRect.anchorMax = new Vector2(0.5f, 0.5f);
+        windowRect.pivot = new Vector2(0.5f, 0.5f);
+        windowRect.anchoredPosition = Vector2.zero;
+        windowRect.sizeDelta = new Vector2(620f, 480f);
+
+        Image windowImage = window.GetComponent<Image>();
+        windowImage.color = new Color32(20, 24, 31, 250);
+
+        VerticalLayoutGroup layout = window.GetComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(34, 34, 34, 34);
+        layout.spacing = 14f;
+        layout.childAlignment = TextAnchor.UpperCenter;
+        layout.childControlWidth = true;
+        layout.childControlHeight = false;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+
+        startMenuTitleText = CreateStartMenuText(window.transform, "StartMenuTitle", "TOWER DEFENSE", 34f, FontStyles.Bold, 58f);
+        startMenuDescriptionText = CreateStartMenuText(window.transform, "StartMenuDescription", "Wähle einen Modus. Balancing Game nutzt feste Enemy-Typ-Waves zum Testen.", 17f, FontStyles.Normal, 112f);
+
+        startGameButton = CreateStartMenuButton(window.transform, "StartGameButton", "Spiel starten");
+        startBalancingGameButton = CreateStartMenuButton(window.transform, "BalancingGameButton", "Balancing Game");
+        quitGameButton = CreateStartMenuButton(window.transform, "QuitGameButton", "Spiel schließen");
+
+        ApplyStartMenuOverlayLayout();
+        SetupStartMenuButtons();
+        RefreshStartMenuTexts();
+    }
+
+    private void ApplyStartMenuOverlayLayout()
+    {
+        if (startMenuCanvas != null)
+        {
+            startMenuCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            startMenuCanvas.sortingOrder = Mathf.Max(startMenuCanvas.sortingOrder, 1000);
+        }
+
+        if (startMenuRoot == null)
+            return;
+
+        RectTransform rootRect = startMenuRoot.GetComponent<RectTransform>();
+        if (rootRect != null)
+        {
+            rootRect.anchorMin = Vector2.zero;
+            rootRect.anchorMax = Vector2.one;
+            rootRect.offsetMin = Vector2.zero;
+            rootRect.offsetMax = Vector2.zero;
+        }
+
+        Image rootImage = startMenuRoot.GetComponent<Image>();
+        if (rootImage != null)
+        {
+            rootImage.color = new Color32(5, 8, 14, 255);
+            rootImage.raycastTarget = true;
+        }
+
+        ApplyStartMenuWindowLayout();
+    }
+
+    private void ApplyStartMenuWindowLayout()
+    {
+        if (startMenuRoot == null)
+            return;
+
+        Transform window = startMenuRoot.transform.Find("StartMenuWindow");
+        if (window != null)
+        {
+            RectTransform windowRect = window.GetComponent<RectTransform>();
+            if (windowRect != null)
+            {
+                windowRect.anchorMin = new Vector2(0.5f, 0.5f);
+                windowRect.anchorMax = new Vector2(0.5f, 0.5f);
+                windowRect.pivot = new Vector2(0.5f, 0.5f);
+                windowRect.anchoredPosition = Vector2.zero;
+                windowRect.sizeDelta = new Vector2(620f, 480f);
+            }
+
+            VerticalLayoutGroup layout = window.GetComponent<VerticalLayoutGroup>();
+            if (layout != null)
+            {
+                layout.padding = new RectOffset(34, 34, 34, 34);
+                layout.spacing = 14f;
+                layout.childControlWidth = true;
+                layout.childControlHeight = false;
+                layout.childForceExpandWidth = true;
+                layout.childForceExpandHeight = false;
+            }
+        }
+
+        SetStartMenuTextHeight(startMenuTitleText, 58f);
+        SetStartMenuTextHeight(startMenuDescriptionText, 112f);
+        SetStartMenuButtonHeight(startGameButton, 62f);
+        SetStartMenuButtonHeight(startBalancingGameButton, 62f);
+        SetStartMenuButtonHeight(quitGameButton, 62f);
+    }
+
+    private void SetStartMenuTextHeight(TextMeshProUGUI text, float height)
+    {
+        if (text == null)
+            return;
+
+        LayoutElement layoutElement = text.GetComponent<LayoutElement>();
+        if (layoutElement != null)
+            layoutElement.preferredHeight = height;
+    }
+
+    private void SetStartMenuButtonHeight(Button button, float height)
+    {
+        if (button == null)
+            return;
+
+        LayoutElement layoutElement = button.GetComponent<LayoutElement>();
+        if (layoutElement != null)
+            layoutElement.preferredHeight = height;
+
+        TextMeshProUGUI text = button.GetComponentInChildren<TextMeshProUGUI>(true);
+        SetStartMenuTextHeight(text, height);
+    }
+
+    private TextMeshProUGUI CreateStartMenuText(Transform parent, string objectName, string text, float fontSize, FontStyles style, float height)
+    {
+        GameObject textObject = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
+        textObject.transform.SetParent(parent, false);
+
+        LayoutElement layoutElement = textObject.GetComponent<LayoutElement>();
+        layoutElement.preferredHeight = height;
+
+        TextMeshProUGUI label = textObject.GetComponent<TextMeshProUGUI>();
+        label.text = text;
+        label.fontSize = fontSize;
+        label.fontStyle = style;
+        label.color = new Color32(240, 244, 250, 255);
+        label.alignment = TextAlignmentOptions.Center;
+        label.enableWordWrapping = true;
+
+        return label;
+    }
+
+    private Button CreateStartMenuButton(Transform parent, string objectName, string label)
+    {
+        GameObject buttonObject = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+        buttonObject.transform.SetParent(parent, false);
+
+        LayoutElement layoutElement = buttonObject.GetComponent<LayoutElement>();
+        layoutElement.preferredHeight = 62f;
+
+        Image image = buttonObject.GetComponent<Image>();
+        image.color = new Color32(65, 95, 145, 255);
+
+        Button button = buttonObject.GetComponent<Button>();
+
+        TextMeshProUGUI text = CreateStartMenuText(buttonObject.transform, objectName + "Text", label, 19f, FontStyles.Bold, 62f);
+        RectTransform textRect = text.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+        text.enableWordWrapping = false;
+
+        return button;
+    }
+
+    private void SetupStartMenuButtons()
+    {
+        if (startGameButton != null)
+        {
+            startGameButton.onClick.RemoveAllListeners();
+            startGameButton.onClick.AddListener(StartNormalGame);
+        }
+
+        if (startBalancingGameButton != null)
+        {
+            startBalancingGameButton.onClick.RemoveAllListeners();
+            startBalancingGameButton.onClick.AddListener(StartBalancingGame);
+        }
+
+        if (quitGameButton != null)
+        {
+            quitGameButton.onClick.RemoveAllListeners();
+            quitGameButton.onClick.AddListener(QuitGameFromStartMenu);
+        }
+    }
+
+    private void RefreshStartMenuTexts()
+    {
+        if (startMenuTitleText != null)
+            startMenuTitleText.text = "TOWER DEFENSE";
+
+        if (startMenuDescriptionText != null)
+        {
+            startMenuDescriptionText.text =
+                "Spiel starten: normaler Run.\n" +
+                "Balancing Game: Testmodus mit festen Enemy-Typ-Waves; Gold, XP, Chaos, Leveling und Tileauswahl bleiben aktiv.";
+        }
+    }
+
     private int CalculateEnemyCountForWave(int targetWaveNumber)
     {
         int safeWave = Mathf.Max(1, targetWaveNumber);
+
+        if (currentStartMode == GameStartMode.Balancing)
+            return GetBalancingBaseEnemyCountForWave(safeWave);
+
         int baseCount = Mathf.Max(8, baseEnemyCount);
 
         switch (safeWave)
@@ -314,6 +663,9 @@ public class GameManager : MonoBehaviour
         if (enemySpawner == null)
             return WaveScenario.Mixed;
 
+        if (currentStartMode == GameStartMode.Balancing)
+            return enemySpawner.GetBalancingWaveScenario(targetWaveNumber);
+
         return enemySpawner.GetWaveScenario(targetWaveNumber);
     }
 
@@ -332,6 +684,9 @@ public class GameManager : MonoBehaviour
         if (enemySpawner == null)
             return currentWaveScenario.ToString();
 
+        if (currentStartMode == GameStartMode.Balancing)
+            return enemySpawner.GetBalancingScenarioNameForWave(Mathf.Max(1, waveNumber));
+
         return enemySpawner.GetScenarioNameForWave(Mathf.Max(1, waveNumber));
     }
 
@@ -339,6 +694,9 @@ public class GameManager : MonoBehaviour
     {
         if (enemySpawner == null)
             return GetNextWaveScenario().ToString();
+
+        if (currentStartMode == GameStartMode.Balancing)
+            return enemySpawner.GetBalancingScenarioNameForWave(waveNumber + 1);
 
         return enemySpawner.GetScenarioNameForWave(waveNumber + 1);
     }
@@ -350,6 +708,10 @@ public class GameManager : MonoBehaviour
 
         int safeWave = Mathf.Max(1, targetWaveNumber);
         int enemyCount = CalculateEnemyCountForWave(safeWave);
+
+        if (currentStartMode == GameStartMode.Balancing)
+            return enemySpawner.BuildBalancingWaveDataForWave(safeWave);
+
         return enemySpawner.BuildWaveDataForWave(safeWave, enemyCount);
     }
 
@@ -460,8 +822,6 @@ public class GameManager : MonoBehaviour
 
         return
             "Wave " + data.waveNumber + " - " + data.scenarioName +
-            "\nGesamt: " + data.totalSpawnCount + " Gegner" +
-            "\nHinweis: " + data.specialHint +
             modifierText +
             chaosLevelText +
             chaosWaveText +
@@ -875,7 +1235,15 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return false;
 
-        return IsChaosJusticeChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
+        return startMenuOpen || IsChaosJusticeChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
+    }
+
+    public bool CanOpenAuxiliaryModalUI()
+    {
+        if (isGameOver)
+            return true;
+
+        return !startMenuOpen && !IsChaosJusticeChoiceOpen() && !IsBlockedEventSelectionOpen();
     }
 
     public bool IsPathInputLockedByModalUI()
@@ -883,7 +1251,7 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return true;
 
-        return IsChaosJusticeChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
+        return startMenuOpen || IsChaosJusticeChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
     }
 
     public void ClosePathAndBuildSelectionsForModal()

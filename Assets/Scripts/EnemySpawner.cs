@@ -47,6 +47,8 @@ public class EnemySpawner : MonoBehaviour
     [Header("Prepared Wave Modifiers")]
     public bool usePreparedWaveModifiers = false;
     public List<WaveModifier> activeWaveModifiers = new List<WaveModifier>();
+    public bool useWaveRiskPressureBudget = true;
+    public int maxWaveRiskPressureBudget = 28;
 
     [Header("Chaos Variants V1")]
     public bool enableChaosVariantsV1 = true;
@@ -235,8 +237,8 @@ public class EnemySpawner : MonoBehaviour
         waveData.specialHint = GetSpecialHintForWave(safeWave);
         waveData.modifiedEnemyCount = GetModifiedEnemyCount(safeEnemyCount, safeWave, waveData.scenario);
         waveData.previewHidden = HasHiddenPreviewModifierForWave(safeWave, waveData.scenario);
-        waveData.appliedModifiers = GetActiveWaveModifierCopiesForWave(safeWave, waveData.scenario);
-        waveData.modifierSummary = GetActiveWaveModifierSummaryForWave(safeWave, waveData.scenario);
+        waveData.appliedModifiers = GetActiveBudgetedWaveModifierCopiesForWave(safeWave, waveData.scenario);
+        waveData.modifierSummary = BuildWaveModifierSummary(waveData.appliedModifiers);
         waveData.spawnEntries = GenerateSpawnEntriesForWave(safeWave, waveData.modifiedEnemyCount);
 
         ApplyPreparedWaveModifiersToEntries(waveData.spawnEntries, safeWave, waveData.scenario);
@@ -245,9 +247,198 @@ public class EnemySpawner : MonoBehaviour
         ApplyChaosWaveBlocksToEntries(waveData.spawnEntries, chaosWaveBlocks, safeWave, waveData.scenario);
         waveData.SetChaosWaveBlocks(chaosWaveBlocks);
 
+        if (waveData.hasChaosWaveBlocks && !string.IsNullOrEmpty(waveData.chaosWaveSummary))
+            waveData.specialHint = string.IsNullOrEmpty(waveData.specialHint) ? waveData.chaosWaveSummary : waveData.specialHint + " | " + waveData.chaosWaveSummary;
+
         ApplyChaosVariantsToEntries(waveData.spawnEntries, safeWave, waveData.scenario, chaosWaveBlocks);
         waveData.RecalculateTotalSpawnCount();
         return waveData;
+    }
+
+
+
+    public WaveData BuildBalancingWaveDataForWave(int waveNumber)
+    {
+        int safeWave = Mathf.Max(1, waveNumber);
+        WaveScenario scenario = GetBalancingWaveScenario(safeWave);
+        WaveData waveData = new WaveData();
+
+        waveData.waveNumber = safeWave;
+        waveData.requestedEnemyCount = GetBalancingBaseEnemyCountForWave(safeWave);
+        waveData.modifiedEnemyCount = waveData.requestedEnemyCount;
+        waveData.scenario = scenario;
+        waveData.scenarioName = GetBalancingScenarioNameForWave(safeWave);
+        waveData.specialHint = GetBalancingSpecialHintForWave(safeWave);
+        waveData.previewHidden = HasHiddenPreviewModifierForWave(safeWave, scenario);
+        waveData.appliedModifiers = GetActiveBudgetedWaveModifierCopiesForWave(safeWave, scenario);
+        waveData.modifierSummary = BuildWaveModifierSummary(waveData.appliedModifiers);
+        waveData.spawnEntries = GenerateBalancingSpawnEntriesForWave(safeWave);
+
+        ApplyPreparedWaveModifiersToEntries(waveData.spawnEntries, safeWave, scenario);
+
+        List<ChaosWaveBlock> chaosWaveBlocks = GenerateChaosWaveBlocksForWave(safeWave, scenario, waveData.spawnEntries);
+        ApplyChaosWaveBlocksToEntries(waveData.spawnEntries, chaosWaveBlocks, safeWave, scenario);
+        waveData.SetChaosWaveBlocks(chaosWaveBlocks);
+
+        if (waveData.hasChaosWaveBlocks && !string.IsNullOrEmpty(waveData.chaosWaveSummary))
+            waveData.specialHint = string.IsNullOrEmpty(waveData.specialHint) ? waveData.chaosWaveSummary : waveData.specialHint + " | " + waveData.chaosWaveSummary;
+
+        ApplyChaosVariantsToEntries(waveData.spawnEntries, safeWave, scenario, chaosWaveBlocks);
+        waveData.RecalculateTotalSpawnCount();
+        return waveData;
+    }
+
+    public WaveScenario GetBalancingWaveScenario(int waveNumber)
+    {
+        switch (GetBalancingCycleWave(waveNumber))
+        {
+            case 1: return WaveScenario.StandardIntro;
+            case 2: return WaveScenario.TankIntro;
+            case 3: return WaveScenario.RunnerIntro;
+            case 4: return WaveScenario.MageIntro;
+            case 5: return WaveScenario.MiniBoss;
+            case 6: return WaveScenario.EffectImmunity;
+            case 7: return WaveScenario.Mixed;
+            case 8: return WaveScenario.ArmorCheck;
+            case 9: return WaveScenario.PreBoss;
+            case 10: return WaveScenario.Boss;
+            default: return WaveScenario.Mixed;
+        }
+    }
+
+    public string GetBalancingScenarioNameForWave(int waveNumber)
+    {
+        switch (GetBalancingCycleWave(waveNumber))
+        {
+            case 1: return "Balancing: 5x Standard";
+            case 2: return "Balancing: 5x Tank";
+            case 3: return "Balancing: 5x Runner";
+            case 4: return "Balancing: 5x Mage";
+            case 5: return "Balancing: 1x MiniBoss";
+            case 6: return "Balancing: 5x Learner";
+            case 7: return "Balancing: 5x AllRounder";
+            case 8: return "Balancing: 5x Knight";
+            case 9: return "Balancing: 5x ChaosStandard";
+            case 10: return "Balancing: 1x Boss";
+            default: return "Balancing";
+        }
+    }
+
+    public string GetBalancingSpecialHintForWave(int waveNumber)
+    {
+        return GetBalancingScenarioNameForWave(waveNumber) + ". Testmodus: Economy, XP, Chaos und Tileauswahl bleiben aktiv.";
+    }
+
+    private int GetBalancingCycleWave(int waveNumber)
+    {
+        return ((Mathf.Max(1, waveNumber) - 1) % 10) + 1;
+    }
+
+    private int GetBalancingBaseEnemyCountForWave(int waveNumber)
+    {
+        int cycleWave = GetBalancingCycleWave(waveNumber);
+        return cycleWave == 5 || cycleWave == 10 ? 1 : 5;
+    }
+
+    private List<EnemySpawnEntry> GenerateBalancingSpawnEntriesForWave(int waveNumber)
+    {
+        List<EnemySpawnEntry> entries = new List<EnemySpawnEntry>();
+        int cycleWave = GetBalancingCycleWave(waveNumber);
+
+        switch (cycleWave)
+        {
+            case 1:
+                AddBalancingEntry(entries, EnemyRole.Standard, EnemyVariantType.Normal, 5);
+                break;
+            case 2:
+                AddBalancingEntry(entries, EnemyRole.Tank, EnemyVariantType.Normal, 5);
+                break;
+            case 3:
+                AddBalancingEntry(entries, EnemyRole.Runner, EnemyVariantType.Normal, 5);
+                break;
+            case 4:
+                AddBalancingEntry(entries, EnemyRole.Mage, EnemyVariantType.Normal, 5);
+                break;
+            case 5:
+                AddBalancingEntry(entries, EnemyRole.MiniBoss, EnemyVariantType.Normal, 1);
+                break;
+            case 6:
+                AddBalancingEntry(entries, EnemyRole.Learner, EnemyVariantType.Normal, 5);
+                break;
+            case 7:
+                AddBalancingEntry(entries, EnemyRole.AllRounder, EnemyVariantType.Normal, 5);
+                break;
+            case 8:
+                AddBalancingEntry(entries, EnemyRole.Knight, EnemyVariantType.Normal, 5);
+                break;
+            case 9:
+                AddBalancingEntry(entries, EnemyRole.Standard, EnemyVariantType.Chaos, 5);
+                break;
+            case 10:
+                AddBalancingEntry(entries, EnemyRole.Boss, EnemyVariantType.Normal, 1);
+                break;
+        }
+
+        return entries;
+    }
+
+    private void AddBalancingEntry(List<EnemySpawnEntry> entries, EnemyRole role, EnemyVariantType variantType, int amount)
+    {
+        if (entries == null)
+            return;
+
+        if (!HasEnemyPrefabForRole(role))
+        {
+            Debug.LogWarning("EnemySpawner: Balancing Game wollte " + role + " spawnen, aber das Prefab fehlt.");
+            return;
+        }
+
+        entries.Add(new EnemySpawnEntry(role, variantType, amount, GetRecommendedSpawnDelayForRole(role)));
+    }
+
+    private List<WaveModifier> GetActiveBudgetedWaveModifiersForWave(int waveNumber, WaveScenario scenario)
+    {
+        List<WaveModifier> result = new List<WaveModifier>();
+
+        if (!usePreparedWaveModifiers || activeWaveModifiers == null)
+            return result;
+
+        int budget = Mathf.Max(1, maxWaveRiskPressureBudget);
+        int used = 0;
+
+        foreach (WaveModifier modifier in activeWaveModifiers)
+        {
+            if (modifier == null || !modifier.IsValid())
+                continue;
+
+            if (!modifier.AffectsWave(waveNumber, scenario))
+                continue;
+
+            int cost = Mathf.Max(1, modifier.GetPressureCostEstimate());
+
+            if (useWaveRiskPressureBudget && used + cost > budget)
+                continue;
+
+            result.Add(modifier);
+            used += cost;
+        }
+
+        return result;
+    }
+
+    public List<WaveModifier> GetActiveBudgetedWaveModifierCopiesForWave(int waveNumber, WaveScenario scenario)
+    {
+        List<WaveModifier> copies = new List<WaveModifier>();
+
+        foreach (WaveModifier modifier in GetActiveBudgetedWaveModifiersForWave(waveNumber, scenario))
+        {
+            if (modifier == null || !modifier.IsValid())
+                continue;
+
+            copies.Add(modifier.CreateCopy());
+        }
+
+        return copies;
     }
 
     private int GetModifiedEnemyCount(int originalEnemyCount, int waveNumber, WaveScenario scenario)
@@ -263,7 +454,7 @@ public class EnemySpawner : MonoBehaviour
         float multiplier = 1f;
         int flatBonus = 0;
 
-        foreach (WaveModifier modifier in activeWaveModifiers)
+        foreach (WaveModifier modifier in GetActiveBudgetedWaveModifiersForWave(waveNumber, scenario))
         {
             if (modifier == null || !modifier.IsValid())
                 continue;
@@ -288,7 +479,7 @@ public class EnemySpawner : MonoBehaviour
         if (!usePreparedWaveModifiers || entries == null || activeWaveModifiers == null || activeWaveModifiers.Count == 0)
             return;
 
-        foreach (WaveModifier modifier in activeWaveModifiers)
+        foreach (WaveModifier modifier in GetActiveBudgetedWaveModifiersForWave(waveNumber, scenario))
         {
             if (modifier == null || !modifier.IsValid())
                 continue;
@@ -426,6 +617,7 @@ public class EnemySpawner : MonoBehaviour
             return selectedBlocks;
 
         ShuffleChaosWaveBlocks(candidates, rng);
+        PrioritizePreferredChaosWaveBlocks(candidates, waveNumber, scenario);
 
         int desiredCount = GetDesiredChaosWaveBlockCount(chaosLevel, rng);
         desiredCount = Mathf.Clamp(desiredCount, 1, Mathf.Max(1, maxChaosWaveBlocksV1));
@@ -464,6 +656,43 @@ public class EnemySpawner : MonoBehaviour
         return selectedBlocks;
     }
 
+    private void PrioritizePreferredChaosWaveBlocks(List<ChaosWaveBlock> candidates, int waveNumber, WaveScenario scenario)
+    {
+        if (candidates == null || candidates.Count <= 1 || !usePreparedWaveModifiers || activeWaveModifiers == null)
+            return;
+
+        int insertIndex = 0;
+        HashSet<ChaosWaveBlockType> prioritizedTypes = new HashSet<ChaosWaveBlockType>();
+
+        foreach (WaveModifier modifier in GetActiveBudgetedWaveModifiersForWave(waveNumber, scenario))
+        {
+            if (modifier == null || !modifier.IsValid())
+                continue;
+
+            if (!modifier.AffectsWave(waveNumber, scenario))
+                continue;
+
+            if (!(modifier.modifierType == WaveModifierType.ChaosWaveBlockPressure || modifier.strengthensChaosWaveBlocks))
+                continue;
+
+            ChaosWaveBlockType preferredType = modifier.preferredChaosWaveBlockType;
+
+            if (preferredType == ChaosWaveBlockType.None || prioritizedTypes.Contains(preferredType))
+                continue;
+
+            int candidateIndex = candidates.FindIndex(block => block != null && block.blockType == preferredType);
+
+            if (candidateIndex < 0)
+                continue;
+
+            ChaosWaveBlock preferredBlock = candidates[candidateIndex];
+            candidates.RemoveAt(candidateIndex);
+            candidates.Insert(Mathf.Min(insertIndex, candidates.Count), preferredBlock);
+            prioritizedTypes.Add(preferredType);
+            insertIndex++;
+        }
+    }
+
     private float GetChaosWaveBlockChanceForWave(int chaosLevel, int waveNumber, WaveScenario scenario)
     {
         int startLevel = Mathf.Max(1, chaosWaveBlocksStartLevel);
@@ -472,7 +701,7 @@ public class EnemySpawner : MonoBehaviour
 
         if (usePreparedWaveModifiers && activeWaveModifiers != null)
         {
-            foreach (WaveModifier modifier in activeWaveModifiers)
+            foreach (WaveModifier modifier in GetActiveBudgetedWaveModifiersForWave(waveNumber, scenario))
             {
                 if (modifier == null || !modifier.IsValid())
                     continue;
@@ -536,7 +765,7 @@ public class EnemySpawner : MonoBehaviour
 
     private ChaosWaveBlock CreateDensityBlock(int chaosLevel, int waveNumber, WaveScenario scenario, System.Random rng)
     {
-        int strength = GetChaosWaveBlockStrength(ChaosWaveBlockType.Density, chaosLevel, rng);
+        int strength = GetChaosWaveBlockStrength(ChaosWaveBlockType.Density, chaosLevel, waveNumber, scenario, rng);
         float multiplier = Mathf.Clamp(0.96f - strength * 0.045f, 0.78f, 0.95f);
 
         return new ChaosWaveBlock
@@ -552,7 +781,7 @@ public class EnemySpawner : MonoBehaviour
 
     private ChaosWaveBlock CreateToughnessBlock(int chaosLevel, int waveNumber, WaveScenario scenario, System.Random rng)
     {
-        int strength = GetChaosWaveBlockStrength(ChaosWaveBlockType.Toughness, chaosLevel, rng);
+        int strength = GetChaosWaveBlockStrength(ChaosWaveBlockType.Toughness, chaosLevel, waveNumber, scenario, rng);
         float multiplier = 1f + 0.06f + strength * 0.035f;
 
         return new ChaosWaveBlock
@@ -568,7 +797,7 @@ public class EnemySpawner : MonoBehaviour
 
     private ChaosWaveBlock CreateRolePressureBlock(int chaosLevel, int waveNumber, WaveScenario scenario, System.Random rng)
     {
-        int strength = GetChaosWaveBlockStrength(ChaosWaveBlockType.RolePressure, chaosLevel, rng);
+        int strength = GetChaosWaveBlockStrength(ChaosWaveBlockType.RolePressure, chaosLevel, waveNumber, scenario, rng);
         EnemyRole role = SelectPressureRoleForScenario(scenario, rng);
 
         return new ChaosWaveBlock
@@ -585,7 +814,7 @@ public class EnemySpawner : MonoBehaviour
 
     private ChaosWaveBlock CreateRearguardBlock(int chaosLevel, int waveNumber, WaveScenario scenario, System.Random rng)
     {
-        int strength = GetChaosWaveBlockStrength(ChaosWaveBlockType.Rearguard, chaosLevel, rng);
+        int strength = GetChaosWaveBlockStrength(ChaosWaveBlockType.Rearguard, chaosLevel, waveNumber, scenario, rng);
         EnemyRole role = SelectRearguardRoleForScenario(scenario, rng);
 
         return new ChaosWaveBlock
@@ -603,7 +832,7 @@ public class EnemySpawner : MonoBehaviour
 
     private ChaosWaveBlock CreateArmorBlock(int chaosLevel, int waveNumber, WaveScenario scenario, System.Random rng)
     {
-        int strength = GetChaosWaveBlockStrength(ChaosWaveBlockType.Armor, chaosLevel, rng);
+        int strength = GetChaosWaveBlockStrength(ChaosWaveBlockType.Armor, chaosLevel, waveNumber, scenario, rng);
         int armor = Mathf.Clamp(1 + strength / 2, 1, 3);
 
         return new ChaosWaveBlock
@@ -619,7 +848,7 @@ public class EnemySpawner : MonoBehaviour
 
     private ChaosWaveBlock CreateChaosVariantGroupBlock(int chaosLevel, int waveNumber, WaveScenario scenario, System.Random rng)
     {
-        int strength = GetChaosWaveBlockStrength(ChaosWaveBlockType.ChaosVariantGroup, chaosLevel, rng);
+        int strength = GetChaosWaveBlockStrength(ChaosWaveBlockType.ChaosVariantGroup, chaosLevel, waveNumber, scenario, rng);
 
         return new ChaosWaveBlock
         {
@@ -635,7 +864,7 @@ public class EnemySpawner : MonoBehaviour
 
     private ChaosWaveBlock CreateResistanceBlock(int chaosLevel, int waveNumber, WaveScenario scenario, System.Random rng)
     {
-        int strength = GetChaosWaveBlockStrength(ChaosWaveBlockType.Resistance, chaosLevel, rng);
+        int strength = GetChaosWaveBlockStrength(ChaosWaveBlockType.Resistance, chaosLevel, waveNumber, scenario, rng);
 
         return new ChaosWaveBlock
         {
@@ -661,7 +890,7 @@ public class EnemySpawner : MonoBehaviour
         };
     }
 
-    private int GetChaosWaveBlockStrength(ChaosWaveBlockType blockType, int chaosLevel, System.Random rng)
+    private int GetChaosWaveBlockStrength(ChaosWaveBlockType blockType, int chaosLevel, int waveNumber, WaveScenario scenario, System.Random rng)
     {
         int baseStrength = 1;
 
@@ -671,18 +900,18 @@ public class EnemySpawner : MonoBehaviour
         if (chaosLevel >= 5 && rng.NextDouble() < 0.30f)
             baseStrength++;
 
-        baseStrength += GetChaosWaveBlockStrengthBonus(blockType);
+        baseStrength += GetChaosWaveBlockStrengthBonus(blockType, waveNumber, scenario);
         return Mathf.Clamp(baseStrength, 1, 5);
     }
 
-    private int GetChaosWaveBlockStrengthBonus(ChaosWaveBlockType blockType)
+    private int GetChaosWaveBlockStrengthBonus(ChaosWaveBlockType blockType, int waveNumber, WaveScenario scenario)
     {
         if (!usePreparedWaveModifiers || activeWaveModifiers == null)
             return 0;
 
         int bonus = 0;
 
-        foreach (WaveModifier modifier in activeWaveModifiers)
+        foreach (WaveModifier modifier in GetActiveBudgetedWaveModifiersForWave(waveNumber, scenario))
         {
             if (modifier == null || !modifier.IsValid())
                 continue;
@@ -1212,7 +1441,7 @@ public class EnemySpawner : MonoBehaviour
 
         if (usePreparedWaveModifiers && activeWaveModifiers != null)
         {
-            foreach (WaveModifier modifier in activeWaveModifiers)
+            foreach (WaveModifier modifier in GetActiveBudgetedWaveModifiersForWave(waveNumber, scenario))
             {
                 if (modifier == null || !modifier.IsValid())
                     continue;
@@ -1248,7 +1477,7 @@ public class EnemySpawner : MonoBehaviour
 
         if (usePreparedWaveModifiers && activeWaveModifiers != null)
         {
-            foreach (WaveModifier modifier in activeWaveModifiers)
+            foreach (WaveModifier modifier in GetActiveBudgetedWaveModifiersForWave(waveNumber, scenario))
             {
                 if (modifier == null || !modifier.IsValid())
                     continue;
@@ -1289,9 +1518,28 @@ public class EnemySpawner : MonoBehaviour
                 if (modifier == null)
                     continue;
 
-                hash = hash * 31 + (string.IsNullOrEmpty(modifier.displayName) ? 0 : modifier.displayName.GetHashCode());
+                hash = hash * 31 + GetStableStringHash(modifier.GetStableId());
                 hash = hash * 31 + modifier.riskLevel;
                 hash = hash * 31 + modifier.timesSelected;
+            }
+
+            return hash;
+        }
+    }
+
+
+    private int GetStableStringHash(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return 0;
+
+        unchecked
+        {
+            int hash = 23;
+
+            for (int i = 0; i < value.Length; i++)
+            {
+                hash = hash * 31 + value[i];
             }
 
             return hash;
@@ -1793,23 +2041,7 @@ public class EnemySpawner : MonoBehaviour
 
     public List<WaveModifier> GetActiveWaveModifierCopiesForWave(int waveNumber, WaveScenario scenario)
     {
-        List<WaveModifier> copies = new List<WaveModifier>();
-
-        if (!usePreparedWaveModifiers || activeWaveModifiers == null)
-            return copies;
-
-        foreach (WaveModifier modifier in activeWaveModifiers)
-        {
-            if (modifier == null || !modifier.IsValid())
-                continue;
-
-            if (!modifier.AffectsWave(waveNumber, scenario))
-                continue;
-
-            copies.Add(modifier.CreateCopy());
-        }
-
-        return copies;
+        return GetActiveBudgetedWaveModifierCopiesForWave(waveNumber, scenario);
     }
 
     public string GetActiveWaveModifierSummary()

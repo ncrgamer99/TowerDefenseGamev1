@@ -56,6 +56,9 @@ public class GameUI : MonoBehaviour
     public bool showBlockedInfoInPreview = true;
     public bool showBuildWarningsInPreview = true;
     public float nextWavePreviewFontSize = 15f;
+    public Vector2 nextWavePreviewPanelSize = new Vector2(390f, 250f);
+    public bool autoCompactNextWavePreviewPanel = true;
+    public Vector2 compactNextWavePreviewPanelSize = new Vector2(320f, 140f);
 
     [Header("Wave Messages")]
     public float waveMessageDuration = 3f;
@@ -170,7 +173,7 @@ public class GameUI : MonoBehaviour
 
         if (autoCreateNextWavePreviewPanel && nextWavePreviewText == null)
         {
-            GameObject panel = CreateHudPanel(parent, "NextWavePreviewPanel", new Vector2(12f, -112f), new Vector2(460f, 340f), previewPanelColor);
+            GameObject panel = CreateHudPanel(parent, "NextWavePreviewPanel", new Vector2(12f, -112f), nextWavePreviewPanelSize, previewPanelColor);
             TextMeshProUGUI text = CreateHudText(panel.transform, "NextWavePreviewText", nextWavePreviewFontSize);
             nextWavePreviewPanel = panel;
             nextWavePreviewText = text;
@@ -223,6 +226,7 @@ public class GameUI : MonoBehaviour
 
     private void ApplyOptionalHudTextDefaults()
     {
+        ApplyNextWavePreviewPanelLayout();
         DisableRaycastBlocking(nextWavePreviewPanel);
 
         if (chaosJusticeHudText != null)
@@ -495,6 +499,13 @@ public class GameUI : MonoBehaviour
             chaosJusticeHudText.text = shouldShow ? BuildCompactChaosJusticeSummary(currentChaosJusticeManager, true) : "";
 
         SetOptionalPanelVisible(chaosJusticeHudPanel, chaosJusticeHudText, shouldShow && chaosJusticeHudText != null);
+    }
+
+    private void ApplyNextWavePreviewPanelLayout()
+    {
+        RectTransform rect = nextWavePreviewPanel != null ? nextWavePreviewPanel.GetComponent<RectTransform>() : null;
+        if (rect != null)
+            rect.sizeDelta = autoCompactNextWavePreviewPanel ? compactNextWavePreviewPanelSize : nextWavePreviewPanelSize;
     }
 
     private bool ShouldShowChaosJusticeHud(ChaosJusticeManager currentChaosJusticeManager, bool chaosChoiceOpen)
