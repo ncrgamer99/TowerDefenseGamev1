@@ -274,6 +274,14 @@ public class PathBuildManager : MonoBehaviour
             optionButton3.onClick.AddListener(() => ChooseOption(2));
             SetupOptionHover(optionButton3, 2);
         }
+
+        descriptionText.text = currentOptions[optionIndex].description;
+    }
+
+    public void ShowDefaultChoiceDescription()
+    {
+        if (descriptionText != null)
+            descriptionText.text = "Wähle ein Tile, bevor die nächste Wave startet. Hover zeigt den Effekt.";
     }
 
     private void SetupOptionHover(Button button, int optionIndex)
