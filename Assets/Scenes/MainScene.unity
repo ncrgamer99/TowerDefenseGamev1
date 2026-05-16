@@ -7633,10 +7633,10 @@ MonoBehaviour:
   blockedBuildTimeRemaining: 0
   gold: 100
   giveWaveCompletionGold: 1
-  baseWaveCompletionGold: 5
-  waveCompletionGoldPerWave: 0
-  miniBossWaveCompletionGoldBonus: 8
-  bossWaveCompletionGoldBonus: 20
+  baseWaveCompletionGold: 6
+  waveCompletionGoldPerWave: 1
+  miniBossWaveCompletionGoldBonus: 10
+  bossWaveCompletionGoldBonus: 24
   lives: 999999
   isGameOver: 0
 --- !u!4 &652380031

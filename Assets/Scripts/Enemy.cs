@@ -413,12 +413,12 @@ public class Enemy : MonoBehaviour
                 break;
 
             case EnemyRole.Boss:
-                maxHealth = 220f;
+                maxHealth = 205f;
                 speed = 0.95f;
                 armor = 4;
                 baseDamage = 5;
-                goldReward = 75;
-                killXPReward = 40;
+                goldReward = 80;
+                killXPReward = 42;
                 assistXPReward = 8;
                 globalXPReward = 5;
                 isBoss = true;
