@@ -173,11 +173,11 @@ public class BuildSelectionUI : MonoBehaviour
         ApplyDefaultBuildOption(basicTower, "Basic Tower", 50, "Günstiger Allrounder für den Spielstart.");
         ApplyDefaultBuildOption(slowTower, "Slow Tower", 55, "Kontrolltower, der Gegner verlangsamt und andere Tower stärker macht.");
         ApplyDefaultBuildOption(poisonTower, "Poison Tower", 70, "DoT-Tower gegen Tanks, MiniBoss und Boss.");
-        ApplyDefaultBuildOption(rapidTower, "Rapid Tower", 65, "Schneller Tower gegen Runner und zum Aufräumen angeschlagener Gegner.");
+        ApplyDefaultBuildOption(rapidTower, "Rapid Tower", 60, "Schneller Tower gegen Runner und zum Aufräumen angeschlagener Gegner.");
         ApplyDefaultBuildOption(heavyTower, "Heavy Tower", 95, "Langsamer Einzelschaden gegen Armor, Tanks und Bosse.");
         ApplyDefaultBuildOption(fireTower, "Fire Tower", 80, "Burn-Tower gegen Gruppen und Standard-Gegner.");
         ApplyDefaultBuildOption(sniperTower, "Sniper Tower", 120, "Sehr hohe Reichweite und Einzelschaden gegen Elite, MiniBoss und Boss.");
-        ApplyDefaultBuildOption(alchemistTower, "Alchemist Tower", 90, "Hybrid-Tower: vergiftet Gegner und verlangsamt sie kurz.");
+        ApplyDefaultBuildOption(alchemistTower, "Alchemist Tower", 85, "Hybrid-Tower: vergiftet Gegner und verlangsamt sie kurz.");
 
         EnsureDefaultNewTowerSlotsIfEnabled();
 
@@ -207,7 +207,7 @@ public class BuildSelectionUI : MonoBehaviour
         else if (lowerName.Contains("poison"))
             ApplyDefaultBuildOption(option, "Poison Tower", 70, "DoT-Tower gegen Tanks, MiniBoss und Boss.");
         else if (lowerName.Contains("rapid"))
-            ApplyDefaultBuildOption(option, "Rapid Tower", 65, "Schneller Tower gegen Runner und zum Aufräumen angeschlagener Gegner.");
+            ApplyDefaultBuildOption(option, "Rapid Tower", 60, "Schneller Tower gegen Runner und zum Aufräumen angeschlagener Gegner.");
         else if (lowerName.Contains("sniper"))
             ApplyDefaultBuildOption(option, "Sniper Tower", 120, "Sehr hohe Reichweite und Einzelschaden gegen Elite, MiniBoss und Boss.");
         else if (lowerName.Contains("heavy"))

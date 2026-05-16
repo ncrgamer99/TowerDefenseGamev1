@@ -275,6 +275,74 @@ public class PathBuildManager : MonoBehaviour
             optionButton3.onClick.AddListener(() => ChooseOption(2));
             SetupOptionHover(optionButton3, 2);
         }
+
+        
+    }
+
+    private void SetupOptionHover(Button button, int optionIndex)
+    {
+        if (button == null)
+            return;
+
+        PathBuildOptionHoverProxy hoverProxy = button.GetComponent<PathBuildOptionHoverProxy>();
+
+        if (hoverProxy == null)
+            hoverProxy = button.gameObject.AddComponent<PathBuildOptionHoverProxy>();
+
+        hoverProxy.Initialize(this, optionIndex);
+    }
+
+    public void ShowOptionDescription(int optionIndex)
+    {
+        if (!choiceOpen || descriptionText == null)
+            return;
+
+        if (optionIndex < 0 || optionIndex >= currentOptions.Length || currentOptions[optionIndex] == null)
+        {
+            ShowDefaultChoiceDescription();
+            return;
+        }
+
+        descriptionText.text = currentOptions[optionIndex].description;
+    }
+
+    public void ShowDefaultChoiceDescription()
+    {
+        if (descriptionText != null)
+            descriptionText.text = "Wähle ein Tile, bevor die nächste Wave startet. Hover zeigt den Effekt.";
+    }
+
+    private void SetupOptionHover(Button button, int optionIndex)
+    {
+        if (button == null)
+            return;
+
+        PathBuildOptionHoverProxy hoverProxy = button.GetComponent<PathBuildOptionHoverProxy>();
+
+        if (hoverProxy == null)
+            hoverProxy = button.gameObject.AddComponent<PathBuildOptionHoverProxy>();
+
+        hoverProxy.Initialize(this, optionIndex);
+    }
+
+    public void ShowOptionDescription(int optionIndex)
+    {
+        if (!choiceOpen || descriptionText == null)
+            return;
+
+        if (optionIndex < 0 || optionIndex >= currentOptions.Length || currentOptions[optionIndex] == null)
+        {
+            ShowDefaultChoiceDescription();
+            return;
+        }
+
+        descriptionText.text = currentOptions[optionIndex].description;
+    }
+
+    public void ShowDefaultChoiceDescription()
+    {
+        if (descriptionText != null)
+            descriptionText.text = "Wähle ein Tile, bevor die nächste Wave startet. Hover zeigt den Effekt.";
     }
 
     private void SetupOptionHover(Button button, int optionIndex)
