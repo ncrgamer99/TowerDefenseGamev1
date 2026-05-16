@@ -31,19 +31,19 @@ public class Projectile : MonoBehaviour
     [Header("Lightning Chain")]
     public int lightningChainTargets = 3;
     public float lightningChainRange = 2.5f;
-    public float lightningChainDamageMultiplier = 0.5f;
+    public float lightningChainDamageMultiplier = 0.55f;
     public float lightningLineDuration = 0.12f;
     public Color lightningLineColor = new Color32(125, 220, 255, 255);
 
     [Header("Mortar")]
-    public float mortarRadius = 1.5f;
+    public float mortarRadius = 0.85f;
     public Color mortarImpactColor = new Color32(255, 150, 45, 185);
 
     [Header("Spike Trap")]
     public float spikeTriggerRadius = 0.45f;
-    public float spikeBleedDamagePerTick = 2f;
-    public float spikeBleedTickInterval = 3f;
-    public float spikeBleedDuration = 20f;
+    public float spikeBleedDamagePerTick = 3f;
+    public float spikeBleedTickInterval = 2.0f;
+    public float spikeBleedDuration = 14f;
 
     private Enemy target;
     private Tower ownerTower;
@@ -209,7 +209,7 @@ public class Projectile : MonoBehaviour
     {
         Vector3 spikePosition = target.transform.position;
         ApplyDirectHit(target, damage);
-        SpikeTrapEffect.CreateSpikeAtWorldPosition(spikePosition, spikeTriggerRadius, spikeBleedDamagePerTick, spikeBleedTickInterval, spikeBleedDuration);
+        SpikeTrapEffect.CreateSpikeAtWorldPosition(spikePosition, spikeTriggerRadius, spikeBleedDamagePerTick, spikeBleedTickInterval, spikeBleedDuration, ownerTower, target);
     }
 
     private void ExplodeMortar()

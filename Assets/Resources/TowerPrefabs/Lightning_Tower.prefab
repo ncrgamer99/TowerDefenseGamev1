@@ -162,9 +162,9 @@ MonoBehaviour:
   towerName: Lightning Tower
   towerRole: 8
   autoApplyTowerRoleStats: 1
-  damage: 4
-  range: 4.0
-  fireRate: 0.9
+  damage: 5
+  range: 3.0
+  fireRate: 0.85
   targetMode: 0
   level: 1
   currentXP: 0
@@ -180,22 +180,22 @@ MonoBehaviour:
   visualTierLevelInterval: 10
   metaProgressionPoints: 0
   visualTier: 0
-  damageUpgradeCost: 45
-  rangeUpgradeCost: 50
-  fireRateUpgradeCost: 60
-  effectUpgradeCost: 999
-  goldUpgradeCostIncrease: 20
-  goldUpgradeCostMultiplier: 1.25
+  damageUpgradeCost: 65
+  rangeUpgradeCost: 65
+  fireRateUpgradeCost: 80
+  effectUpgradeCost: 80
+  goldUpgradeCostIncrease: 25
+  goldUpgradeCostMultiplier: 1.30
   damageIncreasePerGoldUpgrade: 1
-  rangeIncreasePerGoldUpgrade: 0.5
-  fireRateIncreasePerGoldUpgrade: 0.25
+  rangeIncreasePerGoldUpgrade: 0.25
+  fireRateIncreasePerGoldUpgrade: 0.18
   burnDamageIncreasePerGoldUpgrade: 1
   poisonDamageIncreasePerGoldUpgrade: 1
   effectDurationIncreasePerGoldUpgrade: 0.25
-  slowAmountIncreasePerGoldUpgrade: 0.02
-  slowDurationIncreasePerGoldUpgrade: 0.25
+  slowAmountIncreasePerGoldUpgrade: 0.01
+  slowDurationIncreasePerGoldUpgrade: 0.15
   upgradePointCostPerUpgrade: 1
-  pointUpgradePowerMultiplier: 5
+  pointUpgradePowerMultiplier: 3
   damageGoldUpgradeLevel: 0
   rangeGoldUpgradeLevel: 0
   fireRateGoldUpgradeLevel: 0
@@ -211,7 +211,7 @@ MonoBehaviour:
   poisonDamage: 0
   poisonDuration: 0
   appliesSlow: 0
-  slowAmount: 1
-  slowDuration: 0
+  slowAmount: 0.75
+  slowDuration: 1.25
   projectilePrefab: {fileID: 1169158669789981972, guid: 7ee81efd9e206544485c4f3ccc44816e, type: 3}
   firePoint: {fileID: 3505652619069901123}
