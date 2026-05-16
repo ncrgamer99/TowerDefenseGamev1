@@ -52,6 +52,7 @@ public class TowerUI : MonoBehaviour
     public bool hideCloseButtonBecauseRightClickCloses = true;
     public bool hideMetaAndVisualTierText = true;
     public float sellButtonBottomBarHeight = 44f;
+    public Color sellButtonColor = new Color32(200, 75, 75, 255);
     public Vector2 sellButtonTopRightSize = new Vector2(150f, 34f);
     public int towerPanelSiblingIndexWhenOpen = 2;
 
@@ -293,6 +294,8 @@ public class TowerUI : MonoBehaviour
 
         if (xpFillImage != null)
             xpFillImage.color = new Color32(70, 220, 120, 255);
+
+        ApplySellButtonVisualStyle();
     }
 
     private void UpdateUI()
@@ -504,7 +507,7 @@ public class TowerUI : MonoBehaviour
         SetTabButtonStyle(goldUpgradeTabButton, goldUpgradeTabText, currentMenu == TowerUIMenu.GoldUpgrades, goldAccentColor);
         SetTabButtonStyle(pointUpgradeTabButton, pointUpgradeTabText, currentMenu == TowerUIMenu.PointUpgrades, pointAccentColor);
         SetActionButtonStyle(targetModeButton, targetModeButtonText, true, targetButtonColor);
-        SetActionButtonStyle(sellButton, sellButtonText, selectedTower != null, closeButtonColor);
+        ApplySellButtonVisualStyle();
         SetCloseButtonStyle();
     }
 
@@ -523,7 +526,15 @@ public class TowerUI : MonoBehaviour
         bool canBuyPointEffect = hasEnoughPoints && selectedTower.HasAnyEffect();
 
         if (sellButtonText != null)
-            sellButtonText.text = "Verkaufen +" + selectedTower.GetSellRefundAmount() + " Gold";
+        {
+            sellButtonText.text = "Verkaufen: +" + selectedTower.GetSellRefundAmount() + " Gold";
+            sellButtonText.fontSize = 16f;
+            sellButtonText.fontStyle = FontStyles.Bold;
+            sellButtonText.alignment = TextAlignmentOptions.Center;
+            sellButtonText.color = Color.white;
+        }
+
+        ApplySellButtonVisualStyle();
 
         SetActionButtonStyle(goldDamageButton, goldDamageButtonText, canBuyGoldDamage, goldAccentColor);
         SetActionButtonStyle(goldRangeButton, goldRangeButtonText, canBuyGoldRange, goldAccentColor);
@@ -641,6 +652,60 @@ public class TowerUI : MonoBehaviour
         sellButtonText.fontSizeMin = 10f;
         sellButtonText.fontSizeMax = 16f;
         sellButtonText.color = Color.white;
+    }
+
+    private void ApplySellButtonVisualStyle()
+    {
+        if (sellButton == null)
+            return;
+
+        sellButton.interactable = selectedTower != null;
+        Image buttonImage = sellButton.GetComponent<Image>();
+        if (buttonImage != null)
+        {
+            buttonImage.color = sellButtonColor;
+            buttonImage.raycastTarget = true;
+        }
+
+        Graphic[] childGraphics = sellButton.GetComponentsInChildren<Graphic>(true);
+        foreach (Graphic graphic in childGraphics)
+        {
+            if (graphic == null || graphic == buttonImage || graphic is TextMeshProUGUI)
+                continue;
+
+            graphic.color = sellButtonColor;
+        }
+
+        ColorBlock colors = sellButton.colors;
+        colors.normalColor = sellButtonColor;
+        colors.highlightedColor = new Color32(225, 95, 95, 255);
+        colors.pressedColor = new Color32(160, 45, 45, 255);
+        colors.selectedColor = sellButtonColor;
+        colors.disabledColor = new Color32(90, 55, 60, 255);
+        sellButton.colors = colors;
+
+        if (sellButtonText == null)
+            sellButtonText = sellButton.GetComponentInChildren<TextMeshProUGUI>(true);
+
+        if (sellButtonText != null)
+        {
+            RectTransform textRect = sellButtonText.GetComponent<RectTransform>();
+            if (textRect != null)
+            {
+                textRect.anchorMin = Vector2.zero;
+                textRect.anchorMax = Vector2.one;
+                textRect.offsetMin = Vector2.zero;
+                textRect.offsetMax = Vector2.zero;
+            }
+
+            sellButtonText.alignment = TextAlignmentOptions.Center;
+            sellButtonText.fontSize = 16f;
+            sellButtonText.fontStyle = FontStyles.Bold;
+            sellButtonText.enableAutoSizing = true;
+            sellButtonText.fontSizeMin = 12f;
+            sellButtonText.fontSizeMax = 18f;
+            sellButtonText.color = Color.white;
+        }
     }
 
     private void ApplySellButtonBottomBarLayout()

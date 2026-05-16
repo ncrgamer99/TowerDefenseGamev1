@@ -82,6 +82,16 @@ public class BuildSelectionUI : MonoBehaviour
     public float costLabelYOffset = -27f;
     public float slotIconYOffset = 11f;
     public bool preserveIconAspect = true;
+    public bool enforceReadableSlotLayout = true;
+    public int readableSlotGridColumns = 5;
+    public Vector2 readableSlotSize = new Vector2(74f, 82f);
+    public Vector2 readableIconSize = new Vector2(38f, 38f);
+    public Vector2 readableLabelSize = new Vector2(76f, 16f);
+    public Vector2 readableCostLabelSize = new Vector2(76f, 15f);
+
+    [Header("Top Right Layout QoL")]
+    public bool autoPlaceSelectedWindowBelowUtilityButtons = true;
+    public Vector2 selectedWindowTopRightPosition = new Vector2(-170f, -215f);
 
     [Header("Top Right Layout QoL")]
     public bool autoPlaceSelectedWindowBelowUtilityButtons = true;
@@ -115,6 +125,7 @@ public class BuildSelectionUI : MonoBehaviour
     {
         ResolveReferences();
         ApplyBuildOptionDefaultsIfEnabled();
+        ApplyReadableSlotLayoutDefaults();
         SetupButtons();
         ApplyTheme();
         ApplyCompactSelectionHeaderIfNeeded();
@@ -305,6 +316,22 @@ public class BuildSelectionUI : MonoBehaviour
         if (lower.Contains("poison")) return "PoisonTower";
 
         return "";
+    }
+
+    private void ApplyReadableSlotLayoutDefaults()
+    {
+        if (!enforceReadableSlotLayout)
+            return;
+
+        slotGridColumns = Mathf.Max(1, readableSlotGridColumns);
+        slotSize = readableSlotSize;
+        iconSize = readableIconSize;
+        labelSize = readableLabelSize;
+        costLabelSize = readableCostLabelSize;
+        labelYOffset = -17f;
+        costLabelYOffset = -33f;
+        slotIconYOffset = 14f;
+        slotGridSpacing = new Vector2(Mathf.Max(slotGridSpacing.x, 7f), Mathf.Max(slotGridSpacing.y, 7f));
     }
 
     private void SetupButtons()
@@ -717,8 +744,8 @@ public class BuildSelectionUI : MonoBehaviour
 
         if (panelRect != null)
         {
-            float verticalPadding = hideSelectionTitleAndCloseButton ? 45f : 90f;
-            panelRect.sizeDelta = new Vector2(requiredGridWidth + 60f, requiredGridHeight + verticalPadding);
+            float verticalPadding = hideSelectionTitleAndCloseButton ? 54f : 96f;
+            panelRect.sizeDelta = new Vector2(requiredGridWidth + 68f, requiredGridHeight + verticalPadding);
         }
     }
 

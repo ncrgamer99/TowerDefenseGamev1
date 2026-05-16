@@ -57,6 +57,8 @@ public class GameUI : MonoBehaviour
     public bool showBuildWarningsInPreview = true;
     public float nextWavePreviewFontSize = 15f;
     public Vector2 nextWavePreviewPanelSize = new Vector2(390f, 250f);
+    public bool autoCompactNextWavePreviewPanel = true;
+    public Vector2 compactNextWavePreviewPanelSize = new Vector2(320f, 140f);
 
     [Header("Wave Messages")]
     public float waveMessageDuration = 3f;
@@ -503,7 +505,7 @@ public class GameUI : MonoBehaviour
     {
         RectTransform rect = nextWavePreviewPanel != null ? nextWavePreviewPanel.GetComponent<RectTransform>() : null;
         if (rect != null)
-            rect.sizeDelta = nextWavePreviewPanelSize;
+            rect.sizeDelta = autoCompactNextWavePreviewPanel ? compactNextWavePreviewPanelSize : nextWavePreviewPanelSize;
     }
 
     private bool ShouldShowChaosJusticeHud(ChaosJusticeManager currentChaosJusticeManager, bool chaosChoiceOpen)

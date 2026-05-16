@@ -31,7 +31,10 @@ public class PathBuildManager : MonoBehaviour
     public TextMeshProUGUI optionText3;
     public TextMeshProUGUI descriptionText;
     public bool applyChoiceUILayoutDefaults = true;
-    public Vector2 pathTopBarSize = new Vector2(0f, 116f);
+    public Vector2 pathTopBarSize = new Vector2(0f, 96f);
+    public float pathTopBarTopOffset = 52f;
+    public float pathTopBarRightInset = 220f;
+    public bool hideUnusedTopBarTextLabels = true;
     public Color choiceBarColor = new Color32(18, 22, 30, 245);
     public Color choiceButtonColor = new Color32(65, 95, 145, 255);
     public Color choiceDescriptionColor = new Color32(255, 220, 120, 255);
@@ -186,13 +189,15 @@ public class PathBuildManager : MonoBehaviour
                 rect.anchorMin = new Vector2(0f, 1f);
                 rect.anchorMax = new Vector2(1f, 1f);
                 rect.pivot = new Vector2(0.5f, 1f);
-                rect.anchoredPosition = Vector2.zero;
-                rect.sizeDelta = pathTopBarSize;
+                rect.anchoredPosition = new Vector2(-pathTopBarRightInset * 0.5f, -pathTopBarTopOffset);
+                rect.sizeDelta = new Vector2(-pathTopBarRightInset, pathTopBarSize.y);
             }
 
             Image image = pathTopBar.GetComponent<Image>();
             if (image != null)
                 image.color = choiceBarColor;
+
+            HideUnusedTopBarTextLabels();
         }
 
         StyleChoiceButton(optionButton1, optionText1);
@@ -207,6 +212,22 @@ public class PathBuildManager : MonoBehaviour
         }
     }
 
+    private void HideUnusedTopBarTextLabels()
+    {
+        if (!hideUnusedTopBarTextLabels || pathTopBar == null)
+            return;
+
+        TextMeshProUGUI[] labels = pathTopBar.GetComponentsInChildren<TextMeshProUGUI>(true);
+        foreach (TextMeshProUGUI label in labels)
+        {
+            if (label == null || label == optionText1 || label == optionText2 || label == optionText3 || label == descriptionText)
+                continue;
+
+            if (label.text == "New Text" || string.IsNullOrWhiteSpace(label.text))
+                label.gameObject.SetActive(false);
+        }
+    }
+
     private void StyleChoiceButton(Button button, TextMeshProUGUI text)
     {
         if (button != null)
@@ -218,13 +239,13 @@ public class PathBuildManager : MonoBehaviour
             LayoutElement layout = button.GetComponent<LayoutElement>();
             if (layout == null)
                 layout = button.gameObject.AddComponent<LayoutElement>();
-            layout.preferredHeight = 54f;
-            layout.minHeight = 48f;
+            layout.preferredHeight = 46f;
+            layout.minHeight = 42f;
         }
 
         if (text != null)
         {
-            text.fontSize = Mathf.Max(text.fontSize, 18f);
+            text.fontSize = Mathf.Max(text.fontSize, 17f);
             text.fontStyle = FontStyles.Bold;
             text.color = Color.white;
             text.alignment = TextAlignmentOptions.Center;
@@ -253,6 +274,14 @@ public class PathBuildManager : MonoBehaviour
             optionButton3.onClick.AddListener(() => ChooseOption(2));
             SetupOptionHover(optionButton3, 2);
         }
+
+        descriptionText.text = currentOptions[optionIndex].description;
+    }
+
+    public void ShowDefaultChoiceDescription()
+    {
+        if (descriptionText != null)
+            descriptionText.text = "Wähle ein Tile, bevor die nächste Wave startet. Hover zeigt den Effekt.";
     }
 
     private void SetupOptionHover(Button button, int optionIndex)
