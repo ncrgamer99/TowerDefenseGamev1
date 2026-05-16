@@ -93,10 +93,6 @@ public class BuildSelectionUI : MonoBehaviour
     public bool autoPlaceSelectedWindowBelowUtilityButtons = true;
     public Vector2 selectedWindowTopRightPosition = new Vector2(-170f, -215f);
 
-    [Header("Top Right Layout QoL")]
-    public bool autoPlaceSelectedWindowBelowUtilityButtons = true;
-    public Vector2 selectedWindowTopRightPosition = new Vector2(-170f, -215f);
-
     [Header("Theme Colors")]
     public Color panelColor = new Color32(20, 24, 31, 245);
     public Color cardColor = new Color32(22, 39, 60, 255);
@@ -288,6 +284,7 @@ public class BuildSelectionUI : MonoBehaviour
         generatedIconCache[key] = sprite;
         return sprite;
     }
+    
 
     private Color32 GetGeneratedIconColor(string key)
     {

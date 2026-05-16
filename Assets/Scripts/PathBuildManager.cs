@@ -275,7 +275,7 @@ public class PathBuildManager : MonoBehaviour
             SetupOptionHover(optionButton3, 2);
         }
 
-        descriptionText.text = currentOptions[optionIndex].description;
+        
     }
 
     public void ShowDefaultChoiceDescription()
@@ -311,11 +311,6 @@ public class PathBuildManager : MonoBehaviour
         descriptionText.text = currentOptions[optionIndex].description;
     }
 
-    public void ShowDefaultChoiceDescription()
-    {
-        if (descriptionText != null)
-            descriptionText.text = "Wähle ein Tile, bevor die nächste Wave startet. Hover zeigt den Effekt.";
-    }
 
     private void UpdateGhost()
     {
