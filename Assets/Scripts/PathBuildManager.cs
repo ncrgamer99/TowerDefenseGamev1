@@ -276,7 +276,7 @@ public class PathBuildManager : MonoBehaviour
             SetupOptionHover(optionButton3, 2);
         }
 
-        descriptionText.text = currentOptions[optionIndex].description;
+        
     }
 
     private void SetupOptionHover(Button button, int optionIndex)
