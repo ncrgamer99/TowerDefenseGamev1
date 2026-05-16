@@ -35,7 +35,7 @@ public class BuildSelectionUI : MonoBehaviour
     public TextMeshProUGUI tooltipDescriptionText;
     public bool autoPlaceTooltipRightOfSelectionPanel = true;
     public Vector2 tooltipRightOffset = new Vector2(18f, 0f);
-    public Vector2 tooltipSize = new Vector2(310f, 132f);
+    public Vector2 tooltipSize = new Vector2(330f, 148f);
 
     [Header("Tower Slots")]
     public List<TowerSelectionSlot> towerSlots = new List<TowerSelectionSlot>();
@@ -86,10 +86,10 @@ public class BuildSelectionUI : MonoBehaviour
     public int readableSlotGridColumns = 2;
     public int readableSlotGridColumnsWhenTall = 3;
     public int maxSlotsBeforeThirdColumn = 8;
-    public Vector2 readableSlotSize = new Vector2(60f, 60f);
-    public Vector2 readableIconSize = new Vector2(24f, 24f);
-    public Vector2 readableLabelSize = new Vector2(66f, 17f);
-    public Vector2 readableCostLabelSize = new Vector2(66f, 15f);
+    public Vector2 readableSlotSize = new Vector2(74f, 78f);
+    public Vector2 readableIconSize = new Vector2(34f, 34f);
+    public Vector2 readableLabelSize = new Vector2(78f, 18f);
+    public Vector2 readableCostLabelSize = new Vector2(78f, 16f);
     public bool liftSelectionPanelFromBottom = true;
     public bool forceSelectionPanelBottomLeft = true;
     public bool keepOpenSelectionButtonAlwaysVisible = true;
@@ -330,9 +330,9 @@ public class BuildSelectionUI : MonoBehaviour
         iconSize = readableIconSize;
         labelSize = readableLabelSize;
         costLabelSize = readableCostLabelSize;
-        labelYOffset = -12f;
-        costLabelYOffset = -25f;
-        slotIconYOffset = 11f;
+        labelYOffset = -16f;
+        costLabelYOffset = -33f;
+        slotIconYOffset = 15f;
         slotGridSpacing = new Vector2(Mathf.Max(slotGridSpacing.x, 6f), Mathf.Max(slotGridSpacing.y, 6f));
     }
 
@@ -636,7 +636,7 @@ public class BuildSelectionUI : MonoBehaviour
         label.enableWordWrapping = false;
         label.overflowMode = TextOverflowModes.Ellipsis;
         label.alignment = TextAlignmentOptions.Center;
-        label.fontSize = 10.5f;
+        label.fontSize = 11f;
         label.color = textSecondaryColor;
         label.raycastTarget = false;
         label.text = GetShortTowerName(slot.option);
@@ -671,7 +671,7 @@ public class BuildSelectionUI : MonoBehaviour
         costLabel.enableWordWrapping = false;
         costLabel.overflowMode = TextOverflowModes.Ellipsis;
         costLabel.alignment = TextAlignmentOptions.Center;
-        costLabel.fontSize = 9f;
+        costLabel.fontSize = 9.5f;
         costLabel.color = accentColor;
         costLabel.raycastTarget = false;
         costLabel.text = GetCostLabelText(slot.option);
@@ -1076,7 +1076,7 @@ public class BuildSelectionUI : MonoBehaviour
             return;
 
         if (hovered)
-            ApplyTooltipRightOfSlotLayout(slot);
+            ApplyTooltipRightOfSelectionPanelLayout();
 
         Image image = slot.button.GetComponent<Image>();
         if (image == null)

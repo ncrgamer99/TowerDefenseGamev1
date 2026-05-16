@@ -133,13 +133,17 @@ public class TowerUI : MonoBehaviour
 
     private void SetupButtons()
     {
-        if (closeButton != null)
+        if (closeButton != null && closeButton != sellButton)
         {
             closeButton.onClick.RemoveAllListeners();
             closeButton.onClick.AddListener(Close);
 
             if (hideCloseButtonBecauseRightClickCloses)
                 closeButton.gameObject.SetActive(false);
+        }
+        else if (closeButton != null)
+        {
+            closeButton.gameObject.SetActive(true);
         }
 
         if (targetModeButton != null)
@@ -625,6 +629,15 @@ public class TowerUI : MonoBehaviour
         if (!autoCreateSellButton || sellButton != null || panel == null)
             return;
 
+        if (closeButton != null)
+        {
+            sellButton = closeButton;
+            sellButton.gameObject.name = "SellButton_FromCloseRow";
+            sellButton.gameObject.SetActive(true);
+            sellButtonText = sellButton.GetComponentInChildren<TextMeshProUGUI>(true);
+            return;
+        }
+
         GameObject buttonObject = new GameObject("SellButton_Auto", typeof(RectTransform), typeof(Image), typeof(Button));
         buttonObject.transform.SetParent(panel.transform, false);
 
@@ -665,6 +678,13 @@ public class TowerUI : MonoBehaviour
         {
             buttonImage.color = sellButtonColor;
             buttonImage.raycastTarget = true;
+        }
+
+        Image parentImage = sellButton.transform.parent != null ? sellButton.transform.parent.GetComponent<Image>() : null;
+        if (parentImage != null)
+        {
+            parentImage.color = sellButtonColor;
+            parentImage.raycastTarget = false;
         }
 
         Image[] childImages = sellButton.GetComponentsInChildren<Image>(true);
@@ -733,8 +753,43 @@ public class TowerUI : MonoBehaviour
         if (rectTransform == null)
             return;
 
+        bool useCloseRow = sellButton != null && closeButton != null && sellButton == closeButton && rectTransform.parent is RectTransform;
+
+        if (useCloseRow)
+        {
+            RectTransform rowRect = (RectTransform)rectTransform.parent;
+
+            if (panel != null && rowRect.parent != panel.transform)
+                rowRect.SetParent(panel.transform, false);
+
+            LayoutGroup rowLayout = rowRect.GetComponent<LayoutGroup>();
+            if (rowLayout != null)
+                rowLayout.enabled = false;
+
+            ApplyBottomBarRect(rowRect);
+            rowRect.SetAsLastSibling();
+
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.anchoredPosition = Vector2.zero;
+            rectTransform.sizeDelta = Vector2.zero;
+            rectTransform.offsetMin = Vector2.zero;
+            rectTransform.offsetMax = Vector2.zero;
+            return;
+        }
+
         if (panel != null && rectTransform.parent != panel.transform)
             rectTransform.SetParent(panel.transform, false);
+
+        ApplyBottomBarRect(rectTransform);
+        rectTransform.SetAsLastSibling();
+    }
+
+    private void ApplyBottomBarRect(RectTransform rectTransform)
+    {
+        if (rectTransform == null)
+            return;
 
         rectTransform.anchorMin = new Vector2(0f, 0f);
         rectTransform.anchorMax = new Vector2(1f, 0f);
@@ -743,7 +798,6 @@ public class TowerUI : MonoBehaviour
         rectTransform.sizeDelta = new Vector2(0f, sellButtonBottomBarHeight);
         rectTransform.offsetMin = new Vector2(0f, 0f);
         rectTransform.offsetMax = new Vector2(0f, sellButtonBottomBarHeight);
-        rectTransform.SetAsLastSibling();
     }
 
     private void SetImageColor(Image img, Color color)
