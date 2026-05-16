@@ -401,22 +401,22 @@ public class GameManager : MonoBehaviour
         windowRect.anchorMax = new Vector2(0.5f, 0.5f);
         windowRect.pivot = new Vector2(0.5f, 0.5f);
         windowRect.anchoredPosition = Vector2.zero;
-        windowRect.sizeDelta = new Vector2(620f, 480f);
+        windowRect.sizeDelta = new Vector2(620f, 540f);
 
         Image windowImage = window.GetComponent<Image>();
         windowImage.color = new Color32(20, 24, 31, 250);
 
         VerticalLayoutGroup layout = window.GetComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(34, 34, 34, 34);
-        layout.spacing = 14f;
+        layout.padding = new RectOffset(42, 42, 38, 48);
+        layout.spacing = 16f;
         layout.childAlignment = TextAnchor.UpperCenter;
-        layout.childControlWidth = true;
+        layout.childControlWidth = false;
         layout.childControlHeight = false;
-        layout.childForceExpandWidth = true;
+        layout.childForceExpandWidth = false;
         layout.childForceExpandHeight = false;
 
-        startMenuTitleText = CreateStartMenuText(window.transform, "StartMenuTitle", "TOWER DEFENSE", 34f, FontStyles.Bold, 58f);
-        startMenuDescriptionText = CreateStartMenuText(window.transform, "StartMenuDescription", "Wähle einen Modus. Balancing Game nutzt feste Enemy-Typ-Waves zum Testen.", 17f, FontStyles.Normal, 112f);
+        startMenuTitleText = CreateStartMenuText(window.transform, "StartMenuTitle", "TOWER DEFENSE", 34f, FontStyles.Bold, 60f);
+        startMenuDescriptionText = CreateStartMenuText(window.transform, "StartMenuDescription", "Wähle einen Modus. Balancing Game nutzt feste Enemy-Typ-Waves zum Testen.", 17f, FontStyles.Normal, 130f);
 
         startGameButton = CreateStartMenuButton(window.transform, "StartGameButton", "Spiel starten");
         startBalancingGameButton = CreateStartMenuButton(window.transform, "BalancingGameButton", "Balancing Game");
@@ -472,26 +472,26 @@ public class GameManager : MonoBehaviour
                 windowRect.anchorMax = new Vector2(0.5f, 0.5f);
                 windowRect.pivot = new Vector2(0.5f, 0.5f);
                 windowRect.anchoredPosition = Vector2.zero;
-                windowRect.sizeDelta = new Vector2(620f, 480f);
+                windowRect.sizeDelta = new Vector2(620f, 540f);
             }
 
             VerticalLayoutGroup layout = window.GetComponent<VerticalLayoutGroup>();
             if (layout != null)
             {
-                layout.padding = new RectOffset(34, 34, 34, 34);
-                layout.spacing = 14f;
-                layout.childControlWidth = true;
+                layout.padding = new RectOffset(42, 42, 38, 48);
+                layout.spacing = 16f;
+                layout.childControlWidth = false;
                 layout.childControlHeight = false;
-                layout.childForceExpandWidth = true;
+                layout.childForceExpandWidth = false;
                 layout.childForceExpandHeight = false;
             }
         }
 
-        SetStartMenuTextHeight(startMenuTitleText, 58f);
-        SetStartMenuTextHeight(startMenuDescriptionText, 112f);
-        SetStartMenuButtonHeight(startGameButton, 62f);
-        SetStartMenuButtonHeight(startBalancingGameButton, 62f);
-        SetStartMenuButtonHeight(quitGameButton, 62f);
+        SetStartMenuTextHeight(startMenuTitleText, 60f);
+        SetStartMenuTextHeight(startMenuDescriptionText, 130f);
+        SetStartMenuButtonHeight(startGameButton, 60f);
+        SetStartMenuButtonHeight(startBalancingGameButton, 60f);
+        SetStartMenuButtonHeight(quitGameButton, 60f);
     }
 
     private void SetStartMenuTextHeight(TextMeshProUGUI text, float height)
@@ -501,7 +501,10 @@ public class GameManager : MonoBehaviour
 
         LayoutElement layoutElement = text.GetComponent<LayoutElement>();
         if (layoutElement != null)
+        {
             layoutElement.preferredHeight = height;
+            layoutElement.preferredWidth = 520f;
+        }
     }
 
     private void SetStartMenuButtonHeight(Button button, float height)
@@ -511,7 +514,10 @@ public class GameManager : MonoBehaviour
 
         LayoutElement layoutElement = button.GetComponent<LayoutElement>();
         if (layoutElement != null)
+        {
             layoutElement.preferredHeight = height;
+            layoutElement.preferredWidth = 460f;
+        }
 
         TextMeshProUGUI text = button.GetComponentInChildren<TextMeshProUGUI>(true);
         SetStartMenuTextHeight(text, height);
@@ -524,6 +530,7 @@ public class GameManager : MonoBehaviour
 
         LayoutElement layoutElement = textObject.GetComponent<LayoutElement>();
         layoutElement.preferredHeight = height;
+        layoutElement.preferredWidth = 520f;
 
         TextMeshProUGUI label = textObject.GetComponent<TextMeshProUGUI>();
         label.text = text;
@@ -542,14 +549,15 @@ public class GameManager : MonoBehaviour
         buttonObject.transform.SetParent(parent, false);
 
         LayoutElement layoutElement = buttonObject.GetComponent<LayoutElement>();
-        layoutElement.preferredHeight = 62f;
+        layoutElement.preferredHeight = 60f;
+        layoutElement.preferredWidth = 460f;
 
         Image image = buttonObject.GetComponent<Image>();
         image.color = new Color32(65, 95, 145, 255);
 
         Button button = buttonObject.GetComponent<Button>();
 
-        TextMeshProUGUI text = CreateStartMenuText(buttonObject.transform, objectName + "Text", label, 19f, FontStyles.Bold, 62f);
+        TextMeshProUGUI text = CreateStartMenuText(buttonObject.transform, objectName + "Text", label, 19f, FontStyles.Bold, 60f);
         RectTransform textRect = text.GetComponent<RectTransform>();
         textRect.anchorMin = Vector2.zero;
         textRect.anchorMax = Vector2.one;
@@ -1216,6 +1224,12 @@ public class GameManager : MonoBehaviour
     public bool IsBlockedEventSelectionOpen()
     {
         return blockedEventManager != null && blockedEventManager.IsSelectionOpen();
+    }
+
+    public bool IsPathBuildChoiceOpen()
+    {
+        ResolveOptionalInteractionReferences();
+        return pathBuildManager != null && pathBuildManager.IsChoiceOpen();
     }
 
     public bool IsChaosLexiconOpen()

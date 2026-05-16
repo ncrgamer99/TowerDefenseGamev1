@@ -55,6 +55,7 @@ public class GameUI : MonoBehaviour
     public bool showNextWavePreviewInSeparateText = true;
     public bool showBlockedInfoInPreview = true;
     public bool showBuildWarningsInPreview = true;
+    public bool hideNextWavePreviewDuringPathChoice = true;
     public float nextWavePreviewFontSize = 15f;
     public Vector2 nextWavePreviewPanelSize = new Vector2(390f, 250f);
     public bool autoCompactNextWavePreviewPanel = true;
@@ -532,7 +533,10 @@ public class GameUI : MonoBehaviour
 
     private bool ShouldShowNextWavePreview(bool chaosChoiceOpen)
     {
-        return gameManager != null && gameManager.currentPhase == GamePhase.Build && !gameManager.isGameOver && !chaosChoiceOpen;
+        if (gameManager == null || gameManager.currentPhase != GamePhase.Build || gameManager.isGameOver || chaosChoiceOpen)
+            return false;
+
+        return !hideNextWavePreviewDuringPathChoice || !gameManager.IsPathBuildChoiceOpen();
     }
 
     private string BuildNextWavePreviewHudText()

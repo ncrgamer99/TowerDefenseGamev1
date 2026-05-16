@@ -88,6 +88,8 @@ public class BuildSelectionUI : MonoBehaviour
     public Vector2 readableIconSize = new Vector2(38f, 38f);
     public Vector2 readableLabelSize = new Vector2(76f, 16f);
     public Vector2 readableCostLabelSize = new Vector2(76f, 15f);
+    public bool liftSelectionPanelFromBottom = true;
+    public float selectionPanelBottomSafeOffset = 34f;
 
     [Header("Top Right Layout QoL")]
     public bool autoPlaceSelectedWindowBelowUtilityButtons = true;
@@ -284,7 +286,6 @@ public class BuildSelectionUI : MonoBehaviour
         generatedIconCache[key] = sprite;
         return sprite;
     }
-    
 
     private Color32 GetGeneratedIconColor(string key)
     {
@@ -741,9 +742,19 @@ public class BuildSelectionUI : MonoBehaviour
 
         if (panelRect != null)
         {
-            float verticalPadding = hideSelectionTitleAndCloseButton ? 54f : 96f;
+            float verticalPadding = hideSelectionTitleAndCloseButton ? 70f : 108f;
             panelRect.sizeDelta = new Vector2(requiredGridWidth + 68f, requiredGridHeight + verticalPadding);
+            ApplySelectionPanelSafePosition(panelRect);
         }
+    }
+
+    private void ApplySelectionPanelSafePosition(RectTransform panelRect)
+    {
+        if (!liftSelectionPanelFromBottom || panelRect == null)
+            return;
+
+        if (panelRect.anchorMin.y <= 0.5f && panelRect.anchorMax.y <= 0.5f)
+            panelRect.anchoredPosition = new Vector2(panelRect.anchoredPosition.x, Mathf.Max(panelRect.anchoredPosition.y, selectionPanelBottomSafeOffset));
     }
 
     private void ApplyCompactSelectionHeaderIfNeeded()

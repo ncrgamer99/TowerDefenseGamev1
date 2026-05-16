@@ -31,8 +31,9 @@ public class PathBuildManager : MonoBehaviour
     public TextMeshProUGUI optionText3;
     public TextMeshProUGUI descriptionText;
     public bool applyChoiceUILayoutDefaults = true;
-    public Vector2 pathTopBarSize = new Vector2(0f, 96f);
-    public float pathTopBarTopOffset = 52f;
+    public Vector2 pathTopBarSize = new Vector2(0f, 88f);
+    public float pathTopBarTopOffset = 116f;
+    public float pathTopBarLeftInset = 360f;
     public float pathTopBarRightInset = 220f;
     public bool hideUnusedTopBarTextLabels = true;
     public Color choiceBarColor = new Color32(18, 22, 30, 245);
@@ -189,8 +190,8 @@ public class PathBuildManager : MonoBehaviour
                 rect.anchorMin = new Vector2(0f, 1f);
                 rect.anchorMax = new Vector2(1f, 1f);
                 rect.pivot = new Vector2(0.5f, 1f);
-                rect.anchoredPosition = new Vector2(-pathTopBarRightInset * 0.5f, -pathTopBarTopOffset);
-                rect.sizeDelta = new Vector2(-pathTopBarRightInset, pathTopBarSize.y);
+                rect.anchoredPosition = new Vector2((pathTopBarLeftInset - pathTopBarRightInset) * 0.5f, -pathTopBarTopOffset);
+                rect.sizeDelta = new Vector2(-(pathTopBarLeftInset + pathTopBarRightInset), pathTopBarSize.y);
             }
 
             Image image = pathTopBar.GetComponent<Image>();
@@ -206,7 +207,7 @@ public class PathBuildManager : MonoBehaviour
 
         if (descriptionText != null)
         {
-            descriptionText.fontSize = Mathf.Max(descriptionText.fontSize, 18f);
+            descriptionText.fontSize = Mathf.Max(descriptionText.fontSize, 16f);
             descriptionText.color = choiceDescriptionColor;
             descriptionText.alignment = TextAlignmentOptions.Center;
         }
@@ -275,13 +276,7 @@ public class PathBuildManager : MonoBehaviour
             SetupOptionHover(optionButton3, 2);
         }
 
-        
-    }
-
-    public void ShowDefaultChoiceDescription()
-    {
-        if (descriptionText != null)
-            descriptionText.text = "Wähle ein Tile, bevor die nächste Wave startet. Hover zeigt den Effekt.";
+        descriptionText.text = currentOptions[optionIndex].description;
     }
 
     private void SetupOptionHover(Button button, int optionIndex)
@@ -311,6 +306,11 @@ public class PathBuildManager : MonoBehaviour
         descriptionText.text = currentOptions[optionIndex].description;
     }
 
+    public void ShowDefaultChoiceDescription()
+    {
+        if (descriptionText != null)
+            descriptionText.text = "Wähle ein Tile, bevor die nächste Wave startet. Hover zeigt den Effekt.";
+    }
 
     private void UpdateGhost()
     {

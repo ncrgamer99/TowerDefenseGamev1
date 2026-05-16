@@ -51,7 +51,7 @@ public class TowerUI : MonoBehaviour
     public bool autoCreateSellButton = true;
     public bool hideCloseButtonBecauseRightClickCloses = true;
     public bool hideMetaAndVisualTierText = true;
-    public float sellButtonBottomBarHeight = 44f;
+    public float sellButtonBottomBarHeight = 52f;
     public Color sellButtonColor = new Color32(200, 75, 75, 255);
     public Vector2 sellButtonTopRightSize = new Vector2(150f, 34f);
     public int towerPanelSiblingIndexWhenOpen = 2;
@@ -674,6 +674,7 @@ public class TowerUI : MonoBehaviour
                 continue;
 
             graphic.color = sellButtonColor;
+            graphic.raycastTarget = false;
         }
 
         ColorBlock colors = sellButton.colors;
@@ -694,8 +695,8 @@ public class TowerUI : MonoBehaviour
             {
                 textRect.anchorMin = Vector2.zero;
                 textRect.anchorMax = Vector2.one;
-                textRect.offsetMin = Vector2.zero;
-                textRect.offsetMax = Vector2.zero;
+                textRect.offsetMin = new Vector2(10f, 2f);
+                textRect.offsetMax = new Vector2(-10f, -2f);
             }
 
             sellButtonText.alignment = TextAlignmentOptions.Center;
@@ -705,6 +706,7 @@ public class TowerUI : MonoBehaviour
             sellButtonText.fontSizeMin = 12f;
             sellButtonText.fontSizeMax = 18f;
             sellButtonText.color = Color.white;
+            sellButtonText.transform.SetAsLastSibling();
         }
     }
 
