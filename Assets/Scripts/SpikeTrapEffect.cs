@@ -8,10 +8,12 @@ public class SpikeTrapEffect : MonoBehaviour
     public Vector3 worldPosition;
     public float triggerRadius = 0.35f;
     public float bleedDamagePerTick = 2f;
-    public float bleedTickInterval = 3f;
-    public float bleedDuration = 20f;
+    public float bleedTickInterval = 2.5f;
+    public float bleedDuration = 12f;
+    public Tower sourceTower;
+    public Enemy excludedEnemy;
 
-    public static void CreateSpikeAtWorldPosition(Vector3 position, float radius, float damagePerTick, float tickInterval, float duration)
+    public static void CreateSpikeAtWorldPosition(Vector3 position, float radius, float damagePerTick, float tickInterval, float duration, Tower sourceTower = null, Enemy excludedEnemy = null)
     {
         GameObject spikeObject = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         spikeObject.name = "Spike Trap";
@@ -32,6 +34,8 @@ public class SpikeTrapEffect : MonoBehaviour
         spike.bleedDamagePerTick = Mathf.Max(0.1f, damagePerTick);
         spike.bleedTickInterval = Mathf.Max(0.1f, tickInterval);
         spike.bleedDuration = Mathf.Max(0.1f, duration);
+        spike.sourceTower = sourceTower;
+        spike.excludedEnemy = excludedEnemy;
     }
 
     private void OnEnable()
@@ -60,12 +64,15 @@ public class SpikeTrapEffect : MonoBehaviour
                 continue;
             }
 
+            if (enemy == spike.excludedEnemy || enemy.HasBleed())
+                continue;
+
             Vector3 flatPosition = new Vector3(position.x, spike.worldPosition.y, position.z);
 
             if (Vector3.Distance(flatPosition, spike.worldPosition) > spike.triggerRadius)
                 continue;
 
-            enemy.ApplyBleed(spike.bleedDamagePerTick, spike.bleedDuration, spike.bleedTickInterval);
+            enemy.ApplyBleed(spike.bleedDamagePerTick, spike.bleedDuration, spike.bleedTickInterval, spike.sourceTower);
             Destroy(spike.gameObject);
             return;
         }
