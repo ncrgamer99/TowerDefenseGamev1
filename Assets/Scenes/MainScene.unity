@@ -4629,7 +4629,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0}
   m_AnchorMax: {x: 0.5, y: 0}
   m_AnchoredPosition: {x: 0, y: 130}
-  m_SizeDelta: {x: 620, y: 190}
+  m_SizeDelta: {x: 445, y: 185}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &448554940
 MonoBehaviour:
@@ -9230,7 +9230,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -170, y: -80}
+  m_AnchoredPosition: {x: -170, y: -215}
   m_SizeDelta: {x: 300, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &891939085
@@ -11201,7 +11201,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: -10}
-  m_SizeDelta: {x: 540, y: 80}
+  m_SizeDelta: {x: 385, y: 68}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1089001385
 MonoBehaviour:
@@ -11223,8 +11223,8 @@ MonoBehaviour:
   m_ChildAlignment: 4
   m_StartCorner: 0
   m_StartAxis: 0
-  m_CellSize: {x: 70, y: 70}
-  m_Spacing: {x: 12, y: 0}
+  m_CellSize: {x: 60, y: 68}
+  m_Spacing: {x: 5, y: 4}
   m_Constraint: 1
   m_ConstraintCount: 6
 --- !u!1 &1102863119
@@ -12129,12 +12129,21 @@ MonoBehaviour:
   forceIconInsideButton: 1
   createMissingIconImages: 1
   createSlotNameLabels: 1
-  slotSize: {x: 92, y: 92}
-  iconSize: {x: 52, y: 52}
-  labelSize: {x: 82, y: 18}
-  labelYOffset: -31
-  slotIconYOffset: 6
+  showSlotCostLabels: 1
+  hideSelectionTitleAndCloseButton: 1
+  autoRepairSlotGridLayout: 1
+  slotGridColumns: 6
+  slotGridSpacing: {x: 5, y: 4}
+  slotSize: {x: 60, y: 68}
+  iconSize: {x: 30, y: 30}
+  labelSize: {x: 64, y: 14}
+  costLabelSize: {x: 64, y: 13}
+  labelYOffset: -14
+  costLabelYOffset: -27
+  slotIconYOffset: 11
   preserveIconAspect: 1
+  autoPlaceSelectedWindowBelowUtilityButtons: 1
+  selectedWindowTopRightPosition: {x: -170, y: -215}
   panelColor: {r: 0.078431375, g: 0.09411765, b: 0.12156863, a: 0.9607843}
   cardColor: {r: 0.08627451, g: 0.15294118, b: 0.23529412, a: 1}
   cardAltColor: {r: 0.13725491, g: 0.1764706, b: 0.2509804, a: 1}
@@ -18418,17 +18427,30 @@ MonoBehaviour:
   towerUI: {fileID: 900815697}
   openChoiceAfterBossWaves: 1
   maxChaosLevel: 5
-  goldJusticeBonusPerLevel: 0.12
-  xpJusticeBonusPerLevel: 0.12
+  goldJusticeBonusPerLevel: 0.02
+  xpJusticeBonusPerLevel: 0.02
   useInspectorRiskModifierPool: 0
   riskModifierPool: []
   useUnlockGateForRiskModifierPool: 1
-  useCompletelyRandomRiskSelection: 1
-  allowImmediateRiskRepeats: 1
+  useCompletelyRandomRiskSelection: 0
+  allowImmediateRiskRepeats: 0
   logRandomRiskSelection: 0
   riskOfferCount: 3
   allowDuplicateRiskCardsInSameOffer: 0
   showNoModifierOption: 1
+  allowNoModifierAtMaxChaos: 1
+  useRewardRiskDiminishingReturns: 1
+  rewardRiskDiminishingFactor: 0.65
+  maxChaosRewardBonus: 0.75
+  maxSingleRiskRewardBonus: 0.25
+  maxEnemyCountMultiplierPerRisk: 1.65
+  maxFlatEnemyBonusPerRisk: 12
+  maxExtraRoleAmountPerRisk: 10
+  minSpawnDelayMultiplierPerRisk: 0.55
+  maxChaosVariantChanceBonusPerRisk: 0.3
+  maxChaosVariantFlatBonusPerRisk: 5
+  maxChaosWaveBlockStrengthBonusPerRisk: 3
+  maxChaosWaveBlockChanceBonusPerRisk: 0.2
   useFairRiskRotation: 1
   avoidDuplicateRiskModifiersUntilPoolExhausted: 1
   includeRiskSummaryInChoiceText: 1
