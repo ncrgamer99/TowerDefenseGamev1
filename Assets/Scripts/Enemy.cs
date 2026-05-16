@@ -92,12 +92,12 @@ public class Enemy : MonoBehaviour
     public int maxArmorBonus = 12;
     public int baseDamageBonusEveryWaves = 18;
     public int maxBaseDamageBonus = 6;
-    public float tankHealthScalingBonus = 1.55f;
-    public float knightHealthScalingBonus = 1.30f;
-    public float learnerHealthScalingBonus = 1.35f;
-    public float allRounderHealthScalingBonus = 1.40f;
-    public float miniBossHealthScalingBonus = 2.00f;
-    public float bossHealthScalingBonus = 2.50f;
+    public float tankHealthScalingBonus = 1.35f;
+    public float knightHealthScalingBonus = 1.20f;
+    public float learnerHealthScalingBonus = 1.20f;
+    public float allRounderHealthScalingBonus = 1.25f;
+    public float miniBossHealthScalingBonus = 1.60f;
+    public float bossHealthScalingBonus = 1.80f;
 
     private int waveScalingAppliedForWave = -1;
     private int chaosScalingAppliedForWave = -1;
@@ -131,7 +131,7 @@ public class Enemy : MonoBehaviour
     public float defaultBurnDamagePerSecond = 1f;
     public float defaultPoisonDamagePerSecond = 1f;
     public float defaultEffectTickRate = 0.5f;
-    public int maxBurnStacks = 3;
+    public int maxBurnStacks = 2;
 
     [Header("Health Bar")]
     public bool useHealthBar = true;
