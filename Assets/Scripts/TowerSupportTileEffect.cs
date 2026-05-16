@@ -9,7 +9,7 @@ public class TowerSupportTileEffect : MonoBehaviour
     public PathBuildOptionType tileType = PathBuildOptionType.RangeTile;
     public Vector2Int gridPosition;
     public float tileSize = 1f;
-    public float auraRadius = 2.25f;
+    public float auraRadius = 1.5f;
 
     [Header("Buff Values")]
     public float rangeBonus = 1.0f;
@@ -30,7 +30,7 @@ public class TowerSupportTileEffect : MonoBehaviour
         tileType = newTileType;
         gridPosition = newGridPosition;
         tileSize = Mathf.Max(0.1f, newTileSize);
-        auraRadius = Mathf.Max(tileSize, auraRadius);
+        auraRadius = Mathf.Max(tileSize * 1.5f, auraRadius);
         RegisterIfNeeded();
     }
 
@@ -105,7 +105,9 @@ public class TowerSupportTileEffect : MonoBehaviour
             return 0;
 
         float multiplier = GetXPMultiplier(tower);
-        return Mathf.Max(1, Mathf.RoundToInt(amount * multiplier));
+        float scaledAmount = amount * multiplier;
+        int roundedAmount = multiplier > 1f ? Mathf.CeilToInt(scaledAmount) : Mathf.RoundToInt(scaledAmount);
+        return Mathf.Max(1, roundedAmount);
     }
 
     private static float GetCappedMultiplierBonus(Tower tower, PathBuildOptionType type, System.Func<TowerSupportTileEffect, float> getBonus, System.Func<TowerSupportTileEffect, float> getCap)
