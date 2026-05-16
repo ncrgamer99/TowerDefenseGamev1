@@ -55,7 +55,11 @@ public class GameUI : MonoBehaviour
     public bool showNextWavePreviewInSeparateText = true;
     public bool showBlockedInfoInPreview = true;
     public bool showBuildWarningsInPreview = true;
+    public bool hideNextWavePreviewDuringPathChoice = true;
     public float nextWavePreviewFontSize = 15f;
+    public Vector2 nextWavePreviewPanelSize = new Vector2(390f, 250f);
+    public bool autoCompactNextWavePreviewPanel = true;
+    public Vector2 compactNextWavePreviewPanelSize = new Vector2(320f, 140f);
 
     [Header("Wave Messages")]
     public float waveMessageDuration = 3f;
@@ -170,7 +174,7 @@ public class GameUI : MonoBehaviour
 
         if (autoCreateNextWavePreviewPanel && nextWavePreviewText == null)
         {
-            GameObject panel = CreateHudPanel(parent, "NextWavePreviewPanel", new Vector2(12f, -112f), new Vector2(460f, 340f), previewPanelColor);
+            GameObject panel = CreateHudPanel(parent, "NextWavePreviewPanel", new Vector2(12f, -112f), nextWavePreviewPanelSize, previewPanelColor);
             TextMeshProUGUI text = CreateHudText(panel.transform, "NextWavePreviewText", nextWavePreviewFontSize);
             nextWavePreviewPanel = panel;
             nextWavePreviewText = text;
@@ -223,6 +227,7 @@ public class GameUI : MonoBehaviour
 
     private void ApplyOptionalHudTextDefaults()
     {
+        ApplyNextWavePreviewPanelLayout();
         DisableRaycastBlocking(nextWavePreviewPanel);
 
         if (chaosJusticeHudText != null)
@@ -497,6 +502,13 @@ public class GameUI : MonoBehaviour
         SetOptionalPanelVisible(chaosJusticeHudPanel, chaosJusticeHudText, shouldShow && chaosJusticeHudText != null);
     }
 
+    private void ApplyNextWavePreviewPanelLayout()
+    {
+        RectTransform rect = nextWavePreviewPanel != null ? nextWavePreviewPanel.GetComponent<RectTransform>() : null;
+        if (rect != null)
+            rect.sizeDelta = autoCompactNextWavePreviewPanel ? compactNextWavePreviewPanelSize : nextWavePreviewPanelSize;
+    }
+
     private bool ShouldShowChaosJusticeHud(ChaosJusticeManager currentChaosJusticeManager, bool chaosChoiceOpen)
     {
         if (currentChaosJusticeManager == null)
@@ -521,7 +533,10 @@ public class GameUI : MonoBehaviour
 
     private bool ShouldShowNextWavePreview(bool chaosChoiceOpen)
     {
-        return gameManager != null && gameManager.currentPhase == GamePhase.Build && !gameManager.isGameOver && !chaosChoiceOpen;
+        if (gameManager == null || gameManager.currentPhase != GamePhase.Build || gameManager.isGameOver || chaosChoiceOpen)
+            return false;
+
+        return !hideNextWavePreviewDuringPathChoice || !gameManager.IsPathBuildChoiceOpen();
     }
 
     private string BuildNextWavePreviewHudText()
