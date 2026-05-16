@@ -18427,8 +18427,8 @@ MonoBehaviour:
   towerUI: {fileID: 900815697}
   openChoiceAfterBossWaves: 1
   maxChaosLevel: 5
-  goldJusticeBonusPerLevel: 0.12
-  xpJusticeBonusPerLevel: 0.12
+  goldJusticeBonusPerLevel: 0.02
+  xpJusticeBonusPerLevel: 0.02
   useInspectorRiskModifierPool: 0
   riskModifierPool: []
   useUnlockGateForRiskModifierPool: 1

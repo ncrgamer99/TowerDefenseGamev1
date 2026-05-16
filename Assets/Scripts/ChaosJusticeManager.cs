@@ -604,16 +604,14 @@ public class ChaosJusticeManager : MonoBehaviour
     private ChaosJusticeChoiceOption CreateGoldJusticeOption()
     {
         int currentLevel = runData.goldJusticeLevel;
-        int nextLevel = currentLevel + 1;
         int currentBonusPercent = Mathf.RoundToInt(currentLevel * goldJusticeBonusPerLevel * 100f);
         int gainPercent = Mathf.RoundToInt(goldJusticeBonusPerLevel * 100f);
-        int nextBonusPercent = Mathf.RoundToInt(nextLevel * goldJusticeBonusPerLevel * 100f);
 
         return new ChaosJusticeChoiceOption
         {
             choiceType = ChaosJusticeChoiceType.GoldJustice,
             displayName = "Gold-Gerechtigkeit",
-            description = "Erhöht zukünftige Gold-Erträge um " + gainPercent + "% (Gesamt: +" + nextBonusPercent + "%). Aktuell: +" + currentBonusPercent + "%.",
+            description = "Erhöht zukünftige Gold-Erträge um " + gainPercent + "%. Aktuell: +" + currentBonusPercent + "%.",
             isEnabled = true,
             modifier = null,
             closesChoice = true
@@ -623,16 +621,14 @@ public class ChaosJusticeManager : MonoBehaviour
     private ChaosJusticeChoiceOption CreateXpJusticeOption()
     {
         int currentLevel = runData.xpJusticeLevel;
-        int nextLevel = currentLevel + 1;
         int currentBonusPercent = Mathf.RoundToInt(currentLevel * xpJusticeBonusPerLevel * 100f);
         int gainPercent = Mathf.RoundToInt(xpJusticeBonusPerLevel * 100f);
-        int nextBonusPercent = Mathf.RoundToInt(nextLevel * xpJusticeBonusPerLevel * 100f);
 
         return new ChaosJusticeChoiceOption
         {
             choiceType = ChaosJusticeChoiceType.XpJustice,
             displayName = "XP-Gerechtigkeit",
-            description = "Erhöht zukünftige XP-Erträge um " + gainPercent + "% (Gesamt: +" + nextBonusPercent + "%). Aktuell: +" + currentBonusPercent + "%.",
+            description = "Erhöht zukünftige XP-Erträge um " + gainPercent + "%. Aktuell: +" + currentBonusPercent + "%.",
             isEnabled = true,
             modifier = null,
             closesChoice = true

@@ -411,7 +411,7 @@ public class GameManager : MonoBehaviour
         startMenuTitleText = CreateStartMenuOverlayText(startMenuRoot.transform, "StartMenuTitle", "TOWER DEFENSE", 42f, FontStyles.Bold, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -44f), new Vector2(760f, 72f));
         startMenuDescriptionText = CreateStartMenuOverlayText(startMenuRoot.transform, "StartMenuDescription", "", 17f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -112f), new Vector2(820f, 56f));
 
-        GameObject leftPanel = CreateStartMenuPanel("StartMenuLeftPanel", new Color32(20, 24, 31, 210), new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0.5f), new Vector2(42f, 0f), new Vector2(300f, -170f));
+        GameObject leftPanel = CreateStartMenuButtonGroup("StartMenuLeftButtons", new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0.5f), new Vector2(42f, 0f), new Vector2(300f, -170f));
         VerticalLayoutGroup leftLayout = leftPanel.AddComponent<VerticalLayoutGroup>();
         leftLayout.padding = new RectOffset(18, 18, 18, 18);
         leftLayout.spacing = 16f;
@@ -430,6 +430,22 @@ public class GameManager : MonoBehaviour
         startBalancingGameButton = CreateAnchoredStartMenuButton(startMenuRoot.transform, "DevStartButton", "Dev", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(18f, -18f), new Vector2(86f, 42f), 16f, new Color32(85, 65, 145, 245));
         startOptionsButton = CreateAnchoredStartMenuButton(startMenuRoot.transform, "OptionsButton", "Optionen", new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-156f, 24f), new Vector2(132f, 42f), 15f, new Color32(35, 45, 64, 235));
         startResetButton = CreateAnchoredStartMenuButton(startMenuRoot.transform, "ResetButton", "Reset", new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-18f, 24f), new Vector2(112f, 42f), 15f, new Color32(80, 45, 50, 235));
+    }
+
+
+    private GameObject CreateStartMenuButtonGroup(string objectName, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 anchoredPosition, Vector2 sizeDelta)
+    {
+        GameObject group = new GameObject(objectName, typeof(RectTransform));
+        group.transform.SetParent(startMenuRoot.transform, false);
+
+        RectTransform rect = group.GetComponent<RectTransform>();
+        rect.anchorMin = anchorMin;
+        rect.anchorMax = anchorMax;
+        rect.pivot = pivot;
+        rect.anchoredPosition = anchoredPosition;
+        rect.sizeDelta = sizeDelta;
+
+        return group;
     }
 
     private GameObject CreateStartMenuPanel(string objectName, Color color, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 anchoredPosition, Vector2 sizeDelta)

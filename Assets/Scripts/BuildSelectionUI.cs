@@ -85,12 +85,14 @@ public class BuildSelectionUI : MonoBehaviour
     public bool enforceReadableSlotLayout = true;
     public int readableSlotGridColumns = 2;
     public int readableSlotGridColumnsWhenTall = 3;
-    public int maxSlotsBeforeThirdColumn = 10;
-    public Vector2 readableSlotSize = new Vector2(66f, 64f);
-    public Vector2 readableIconSize = new Vector2(27f, 27f);
-    public Vector2 readableLabelSize = new Vector2(70f, 16f);
-    public Vector2 readableCostLabelSize = new Vector2(70f, 15f);
+    public int maxSlotsBeforeThirdColumn = 8;
+    public Vector2 readableSlotSize = new Vector2(60f, 60f);
+    public Vector2 readableIconSize = new Vector2(24f, 24f);
+    public Vector2 readableLabelSize = new Vector2(66f, 17f);
+    public Vector2 readableCostLabelSize = new Vector2(66f, 15f);
     public bool liftSelectionPanelFromBottom = true;
+    public bool forceSelectionPanelBottomLeft = true;
+    public bool keepOpenSelectionButtonAlwaysVisible = true;
     public float selectionPanelBottomSafeOffset = 86f;
 
     [Header("Top Right Layout QoL")]
@@ -328,9 +330,9 @@ public class BuildSelectionUI : MonoBehaviour
         iconSize = readableIconSize;
         labelSize = readableLabelSize;
         costLabelSize = readableCostLabelSize;
-        labelYOffset = -13f;
-        costLabelYOffset = -27f;
-        slotIconYOffset = 12f;
+        labelYOffset = -12f;
+        costLabelYOffset = -25f;
+        slotIconYOffset = 11f;
         slotGridSpacing = new Vector2(Mathf.Max(slotGridSpacing.x, 6f), Mathf.Max(slotGridSpacing.y, 6f));
     }
 
@@ -338,6 +340,7 @@ public class BuildSelectionUI : MonoBehaviour
     {
         if (openSelectionButton != null)
         {
+            openSelectionButton.gameObject.SetActive(true);
             openSelectionButton.onClick.RemoveAllListeners();
             openSelectionButton.onClick.AddListener(ToggleSelectionPanel);
         }
@@ -633,7 +636,7 @@ public class BuildSelectionUI : MonoBehaviour
         label.enableWordWrapping = false;
         label.overflowMode = TextOverflowModes.Ellipsis;
         label.alignment = TextAlignmentOptions.Center;
-        label.fontSize = 9f;
+        label.fontSize = 10.5f;
         label.color = textSecondaryColor;
         label.raycastTarget = false;
         label.text = GetShortTowerName(slot.option);
@@ -668,7 +671,7 @@ public class BuildSelectionUI : MonoBehaviour
         costLabel.enableWordWrapping = false;
         costLabel.overflowMode = TextOverflowModes.Ellipsis;
         costLabel.alignment = TextAlignmentOptions.Center;
-        costLabel.fontSize = 8f;
+        costLabel.fontSize = 9f;
         costLabel.color = accentColor;
         costLabel.raycastTarget = false;
         costLabel.text = GetCostLabelText(slot.option);
@@ -757,6 +760,13 @@ public class BuildSelectionUI : MonoBehaviour
     {
         if (!liftSelectionPanelFromBottom || panelRect == null)
             return;
+
+        if (forceSelectionPanelBottomLeft)
+        {
+            panelRect.anchorMin = Vector2.zero;
+            panelRect.anchorMax = Vector2.zero;
+            panelRect.pivot = Vector2.zero;
+        }
 
         if (panelRect.anchorMin.y <= 0.5f && panelRect.anchorMax.y <= 0.5f)
             panelRect.anchoredPosition = new Vector2(panelRect.anchoredPosition.x, Mathf.Max(panelRect.anchoredPosition.y, selectionPanelBottomSafeOffset));
@@ -862,6 +872,7 @@ public class BuildSelectionUI : MonoBehaviour
         }
 
         selectionOpen = true;
+        EnsureOpenSelectionButtonVisible();
         ApplyCompactSelectionHeaderIfNeeded();
         RepairAllSlotLayoutsIfNeeded();
 
@@ -872,11 +883,21 @@ public class BuildSelectionUI : MonoBehaviour
     public void CloseSelectionPanel()
     {
         selectionOpen = false;
+        EnsureOpenSelectionButtonVisible();
 
         if (selectionPanel != null)
             selectionPanel.SetActive(false);
 
         HideTooltip();
+    }
+
+
+    private void EnsureOpenSelectionButtonVisible()
+    {
+        if (!keepOpenSelectionButtonAlwaysVisible || openSelectionButton == null)
+            return;
+
+        openSelectionButton.gameObject.SetActive(true);
     }
 
     public void CancelTowerBuildSelection()

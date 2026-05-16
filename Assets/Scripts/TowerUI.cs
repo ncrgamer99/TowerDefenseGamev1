@@ -667,10 +667,20 @@ public class TowerUI : MonoBehaviour
             buttonImage.raycastTarget = true;
         }
 
+        Image[] childImages = sellButton.GetComponentsInChildren<Image>(true);
+        foreach (Image image in childImages)
+        {
+            if (image == null)
+                continue;
+
+            image.color = sellButtonColor;
+            image.raycastTarget = image == buttonImage;
+        }
+
         Graphic[] childGraphics = sellButton.GetComponentsInChildren<Graphic>(true);
         foreach (Graphic graphic in childGraphics)
         {
-            if (graphic == null || graphic == buttonImage || graphic is TextMeshProUGUI)
+            if (graphic == null || graphic == buttonImage || graphic is TextMeshProUGUI || graphic is Image)
                 continue;
 
             graphic.color = sellButtonColor;
@@ -733,6 +743,7 @@ public class TowerUI : MonoBehaviour
         rectTransform.sizeDelta = new Vector2(0f, sellButtonBottomBarHeight);
         rectTransform.offsetMin = new Vector2(0f, 0f);
         rectTransform.offsetMax = new Vector2(0f, sellButtonBottomBarHeight);
+        rectTransform.SetAsLastSibling();
     }
 
     private void SetImageColor(Image img, Color color)
