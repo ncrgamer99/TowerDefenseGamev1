@@ -8,8 +8,8 @@ public class SpikeTrapEffect : MonoBehaviour
     public Vector3 worldPosition;
     public float triggerRadius = 0.35f;
     public float bleedDamagePerTick = 2f;
-    public float bleedTickInterval = 3f;
-    public float bleedDuration = 20f;
+    public float bleedTickInterval = 2.5f;
+    public float bleedDuration = 12f;
 
     public static void CreateSpikeAtWorldPosition(Vector3 position, float radius, float damagePerTick, float tickInterval, float duration)
     {

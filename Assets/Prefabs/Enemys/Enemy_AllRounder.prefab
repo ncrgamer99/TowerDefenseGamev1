@@ -131,36 +131,36 @@ MonoBehaviour:
   enemyRole: 6
   autoApplyRoleStats: 1
   maxHealth: 28
-  currentHealth: 10
-  speed: 4
-  armor: 2
-  baseDamage: 1
-  goldReward: 30
-  killXPReward: 2
-  assistXPReward: 1
+  currentHealth: 28
+  speed: 1.95
+  armor: 1
+  baseDamage: 2
+  goldReward: 12
+  killXPReward: 11
+  assistXPReward: 3
   globalXPReward: 0
   useWaveScaling: 1
   scalingStartWave: 11
-  healthScalingPerWave: 0.17
-  rewardScalingPerWave: 0
-  xpScalingPerWave: 0
-  speedScalingPerWave: 0.012
+  healthScalingPerWave: 0.10
+  rewardScalingPerWave: 0.025
+  xpScalingPerWave: 0.025
+  speedScalingPerWave: 0.008
   maxNormalSpeedBonus: 0.35
-  armorBonusEveryWaves: 8
-  maxArmorBonus: 10
-  baseDamageBonusEveryWaves: 20
-  maxBaseDamageBonus: 5
-  tankHealthScalingBonus: 1.5
-  knightHealthScalingBonus: 1.25
-  learnerHealthScalingBonus: 1.3
-  allRounderHealthScalingBonus: 1.4
-  miniBossHealthScalingBonus: 1.85
-  bossHealthScalingBonus: 2.3
+  armorBonusEveryWaves: 12
+  maxArmorBonus: 12
+  baseDamageBonusEveryWaves: 18
+  maxBaseDamageBonus: 6
+  tankHealthScalingBonus: 1.35
+  knightHealthScalingBonus: 1.20
+  learnerHealthScalingBonus: 1.20
+  allRounderHealthScalingBonus: 1.25
+  miniBossHealthScalingBonus: 1.60
+  bossHealthScalingBonus: 1.80
   isElite: 0
   isMiniBoss: 0
   isBoss: 0
   immuneToEffects: 0
-  slowResistance: 0
+  slowResistance: 0.2
   effectDamageMultiplier: 1
   canTeleportOnHit: 0
   teleportTilesForward: 2

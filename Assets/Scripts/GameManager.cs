@@ -37,7 +37,7 @@ public class GameManager : MonoBehaviour
 
     [Header("Start Menu")]
     public bool showStartMenuOnStart = true;
-    public int normalStartGold = 100;
+    public int normalStartGold = 110;
     public int normalStartLives = 20;
     public int balancingStartGold = 999999;
     public int balancingStartLives = 999999;
@@ -99,10 +99,10 @@ public class GameManager : MonoBehaviour
 
     [Header("Wave Completion Rewards")]
     public bool giveWaveCompletionGold = true;
-    public int baseWaveCompletionGold = 7;
+    public int baseWaveCompletionGold = 6;
     public int waveCompletionGoldPerWave = 1;
     public int miniBossWaveCompletionGoldBonus = 10;
-    public int bossWaveCompletionGoldBonus = 25;
+    public int bossWaveCompletionGoldBonus = 24;
 
     private int lastWaveRewarded = 0;
     private int lastWaveCompletionGoldReward = 0;

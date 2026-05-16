@@ -481,6 +481,9 @@ public class TowerUI : MonoBehaviour
         if (selectedTower.appliesSlow)
             return "-" + selectedTower.slowAmountIncreasePerGoldUpgrade.ToString("0.00") + " Slow / +" + selectedTower.slowDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
 
+        if (selectedTower.towerRole == TowerRole.Spike)
+            return "+1 Bleed / +" + selectedTower.effectDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
+
         return "+0";
     }
 
@@ -497,6 +500,9 @@ public class TowerUI : MonoBehaviour
 
         if (selectedTower.appliesSlow)
             return "-" + selectedTower.GetPointSlowAmountIncreasePreview().ToString("0.00") + " Slow / +" + selectedTower.GetPointSlowDurationIncreasePreview().ToString("0.00") + "s";
+
+        if (selectedTower.towerRole == TowerRole.Spike)
+            return "+" + selectedTower.GetPointSpikeBleedDamageIncreasePreview() + " Bleed / +" + selectedTower.GetPointSpikeBleedDurationIncreasePreview().ToString("0.00") + "s";
 
         return "+0";
     }

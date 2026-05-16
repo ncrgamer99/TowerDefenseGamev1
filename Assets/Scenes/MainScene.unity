@@ -7633,10 +7633,10 @@ MonoBehaviour:
   blockedBuildTimeRemaining: 0
   gold: 100
   giveWaveCompletionGold: 1
-  baseWaveCompletionGold: 5
-  waveCompletionGoldPerWave: 0
-  miniBossWaveCompletionGoldBonus: 8
-  bossWaveCompletionGoldBonus: 20
+  baseWaveCompletionGold: 6
+  waveCompletionGoldPerWave: 1
+  miniBossWaveCompletionGoldBonus: 10
+  bossWaveCompletionGoldBonus: 24
   lives: 999999
   isGameOver: 0
 --- !u!4 &652380031
@@ -9322,9 +9322,9 @@ MonoBehaviour:
   spawnDelay: 0.45
   scaleSpawnDelayByWave: 1
   spawnDelayScalingStartWave: 11
-  spawnDelayReductionPer10Waves: 0.14
-  minSpawnDelayMultiplier: 0.35
-  minimumSpawnDelay: 0.05
+  spawnDelayReductionPer10Waves: 0.08
+  minSpawnDelayMultiplier: 0.55
+  minimumSpawnDelay: 0.08
   lastGeneratedWave: []
   lastWaveData:
     waveNumber: 1
@@ -9357,9 +9357,9 @@ MonoBehaviour:
   activeWaveModifiers: []
   enableChaosVariantsV1: 1
   chaosVariantsStartLevel: 3
-  chaosVariantChanceAtStartLevel: 0.12
-  chaosVariantChancePerAdditionalLevel: 0.06
-  maxChaosVariantChance: 0.35
+  chaosVariantChanceAtStartLevel: 0.1
+  chaosVariantChancePerAdditionalLevel: 0.05
+  maxChaosVariantChance: 0.3
   maxChaosVariantsAtStartLevel: 2
   maxChaosVariantsPerAdditionalLevel: 1
   chaosVariantSeedSalt: 9137
@@ -9368,10 +9368,10 @@ MonoBehaviour:
   logChaosVariantGeneration: 0
   enableChaosWaveBlocksV1: 1
   chaosWaveBlocksStartLevel: 2
-  forceChaosWaveBlockAtLevel: 3
+  forceChaosWaveBlockAtLevel: 4
   maxChaosWaveBlocksV1: 3
-  chaosWaveBlockChanceAtStartLevel: 0.45
-  chaosWaveBlockChancePerAdditionalLevel: 0.12
+  chaosWaveBlockChanceAtStartLevel: 0.35
+  chaosWaveBlockChancePerAdditionalLevel: 0.1
   chaosWaveBlockSeedSalt: 44117
   allowRolePressureBlock: 1
   allowDensityBlock: 1
@@ -12046,7 +12046,7 @@ MonoBehaviour:
       description: Langsamer Einzelschaden gegen Armor, Tanks und Bosse.
       icon: {fileID: 0}
       prefab: {fileID: 704908914254974826, guid: 1044c66bfda8f094e93175a460a3eddb, type: 3}
-      cost: 95
+      cost: 100
       placementType: 0
     button: {fileID: 1970333527}
     iconImage: {fileID: 1327738323}
@@ -12055,7 +12055,7 @@ MonoBehaviour:
       description: DoT-Tower gegen Tanks, MiniBoss und Boss.
       icon: {fileID: 0}
       prefab: {fileID: 8292224941147690173, guid: 31480da4ee3664f4b9a3e8788f80ec04, type: 3}
-      cost: 70
+      cost: 80
       placementType: 0
     button: {fileID: 225612783}
     iconImage: {fileID: 2143983888}
@@ -12065,7 +12065,7 @@ MonoBehaviour:
         Gegner."
       icon: {fileID: 0}
       prefab: {fileID: 6314805777368074503, guid: 3b35e077ec48e82448470f50f8191ad5, type: 3}
-      cost: 65
+      cost: 70
       placementType: 0
     button: {fileID: 760603730}
     iconImage: {fileID: 1800951208}
@@ -12075,7 +12075,7 @@ MonoBehaviour:
         macht."
       icon: {fileID: 0}
       prefab: {fileID: 8292224941147690173, guid: 844855c1fd8b7f74291343637247f139, type: 3}
-      cost: 55
+      cost: 65
       placementType: 0
     button: {fileID: 651892003}
     iconImage: {fileID: 615387778}
@@ -18427,8 +18427,8 @@ MonoBehaviour:
   towerUI: {fileID: 900815697}
   openChoiceAfterBossWaves: 1
   maxChaosLevel: 5
-  goldJusticeBonusPerLevel: 0.02
-  xpJusticeBonusPerLevel: 0.02
+  goldJusticeBonusPerLevel: 0.03
+  xpJusticeBonusPerLevel: 0.03
   useInspectorRiskModifierPool: 0
   riskModifierPool: []
   useUnlockGateForRiskModifierPool: 1
@@ -18440,9 +18440,9 @@ MonoBehaviour:
   showNoModifierOption: 1
   allowNoModifierAtMaxChaos: 1
   useRewardRiskDiminishingReturns: 1
-  rewardRiskDiminishingFactor: 0.65
-  maxChaosRewardBonus: 0.75
-  maxSingleRiskRewardBonus: 0.25
+  rewardRiskDiminishingFactor: 0.6
+  maxChaosRewardBonus: 0.6
+  maxSingleRiskRewardBonus: 0.2
   maxEnemyCountMultiplierPerRisk: 1.65
   maxFlatEnemyBonusPerRisk: 12
   maxExtraRoleAmountPerRisk: 10

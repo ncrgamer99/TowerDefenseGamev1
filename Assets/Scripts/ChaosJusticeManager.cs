@@ -141,8 +141,8 @@ public class ChaosJusticeManager : MonoBehaviour
     [Header("V1 Settings")]
     public bool openChoiceAfterBossWaves = true;
     public int maxChaosLevel = 5;
-    public float goldJusticeBonusPerLevel = 0.02f;
-    public float xpJusticeBonusPerLevel = 0.02f;
+    public float goldJusticeBonusPerLevel = 0.03f;
+    public float xpJusticeBonusPerLevel = 0.03f;
 
     [Header("Risk Modifier Pool")]
     public bool useInspectorRiskModifierPool = false;
@@ -162,14 +162,14 @@ public class ChaosJusticeManager : MonoBehaviour
 
     [Header("Risk Reward Safety V1")]
     public bool useRewardRiskDiminishingReturns = true;
-    public float rewardRiskDiminishingFactor = 0.65f;
-    public float maxChaosRewardBonus = 0.75f;
-    public float maxSingleRiskRewardBonus = 0.25f;
+    public float rewardRiskDiminishingFactor = 0.60f;
+    public float maxChaosRewardBonus = 0.60f;
+    public float maxSingleRiskRewardBonus = 0.20f;
 
     [Header("Risk Budget V1")]
     public bool enforceTotalRiskPressureBudget = true;
-    public int maxTotalRiskPressureBudget = 42;
-    public int maxWaveRiskPressureBudget = 28;
+    public int maxTotalRiskPressureBudget = 36;
+    public int maxWaveRiskPressureBudget = 24;
 
     [Header("Risk Level Caps V1")]
     public float maxEnemyCountMultiplierPerRisk = 1.65f;
