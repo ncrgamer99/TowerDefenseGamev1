@@ -35,8 +35,8 @@ public class Enemy : MonoBehaviour
 
     [Header("Chaos Level Scaling V1")]
     public bool useChaosLevelScaling = true;
-    public float chaosHealthBonusPerLevel = 0.09f;
-    public float chaosBossHealthBonusPerLevel = 0.05f;
+    public float chaosHealthBonusPerLevel = 0.12f;
+    public float chaosBossHealthBonusPerLevel = 0.07f;
 
     [Header("Chaos Variant Stats V1")]
     public float chaosStandardEffectDamageMultiplier = 0.90f;
@@ -83,21 +83,21 @@ public class Enemy : MonoBehaviour
     [Header("Wave Scaling")]
     public bool useWaveScaling = true;
     public int scalingStartWave = 11;
-    public float healthScalingPerWave = 0.16f;
+    public float healthScalingPerWave = 0.18f;
     public float rewardScalingPerWave = 0f;
     public float xpScalingPerWave = 0f;
-    public float speedScalingPerWave = 0.012f;
+    public float speedScalingPerWave = 0.014f;
     public float maxNormalSpeedBonus = 0.35f;
-    public int armorBonusEveryWaves = 9;
+    public int armorBonusEveryWaves = 8;
     public int maxArmorBonus = 12;
     public int baseDamageBonusEveryWaves = 18;
     public int maxBaseDamageBonus = 6;
-    public float tankHealthScalingBonus = 1.35f;
-    public float knightHealthScalingBonus = 1.20f;
-    public float learnerHealthScalingBonus = 1.20f;
-    public float allRounderHealthScalingBonus = 1.25f;
-    public float miniBossHealthScalingBonus = 1.60f;
-    public float bossHealthScalingBonus = 1.80f;
+    public float tankHealthScalingBonus = 1.65f;
+    public float knightHealthScalingBonus = 1.38f;
+    public float learnerHealthScalingBonus = 1.42f;
+    public float allRounderHealthScalingBonus = 1.48f;
+    public float miniBossHealthScalingBonus = 2.15f;
+    public float bossHealthScalingBonus = 2.70f;
 
     private int waveScalingAppliedForWave = -1;
     private int chaosScalingAppliedForWave = -1;

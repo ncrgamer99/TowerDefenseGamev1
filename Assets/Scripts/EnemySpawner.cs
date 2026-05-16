@@ -53,8 +53,8 @@ public class EnemySpawner : MonoBehaviour
     [Header("Chaos Variants V1")]
     public bool enableChaosVariantsV1 = true;
     public int chaosVariantsStartLevel = 3;
-    public float chaosVariantChanceAtStartLevel = 0.55f;
-    public float chaosVariantChancePerAdditionalLevel = 0.25f;
+    public float chaosVariantChanceAtStartLevel = 0.70f;
+    public float chaosVariantChancePerAdditionalLevel = 0.30f;
     public float maxChaosVariantChance = 1.00f;
     public int maxChaosVariantsAtStartLevel = 3;
     public int maxChaosVariantsPerAdditionalLevel = 2;
@@ -68,8 +68,8 @@ public class EnemySpawner : MonoBehaviour
     public int chaosWaveBlocksStartLevel = 2;
     public int forceChaosWaveBlockAtLevel = 4;
     public int maxChaosWaveBlocksV1 = 3;
-    public float chaosWaveBlockChanceAtStartLevel = 0.50f;
-    public float chaosWaveBlockChancePerAdditionalLevel = 0.15f;
+    public float chaosWaveBlockChanceAtStartLevel = 0.60f;
+    public float chaosWaveBlockChancePerAdditionalLevel = 0.20f;
     public int chaosWaveBlockSeedSalt = 44117;
     public bool allowRolePressureBlock = true;
     public bool allowDensityBlock = true;
