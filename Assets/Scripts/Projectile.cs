@@ -29,21 +29,22 @@ public class Projectile : MonoBehaviour
     public float slowDuration = 2f;
 
     [Header("Lightning Chain")]
-    public int lightningChainTargets = 3;
+    public int lightningChainTargets = 2;
+    public float lightningBonusChainChance = 0f;
     public float lightningChainRange = 2.5f;
-    public float lightningChainDamageMultiplier = 0.5f;
+    public float lightningChainDamageMultiplier = 0.55f;
     public float lightningLineDuration = 0.12f;
     public Color lightningLineColor = new Color32(125, 220, 255, 255);
 
     [Header("Mortar")]
-    public float mortarRadius = 1.5f;
+    public float mortarRadius = 0.85f;
     public Color mortarImpactColor = new Color32(255, 150, 45, 185);
 
     [Header("Spike Trap")]
     public float spikeTriggerRadius = 0.45f;
-    public float spikeBleedDamagePerTick = 2f;
-    public float spikeBleedTickInterval = 3f;
-    public float spikeBleedDuration = 20f;
+    public float spikeBleedDamagePerTick = 3f;
+    public float spikeBleedTickInterval = 2.0f;
+    public float spikeBleedDuration = 14f;
 
     private Enemy target;
     private Tower ownerTower;
@@ -167,16 +168,26 @@ public class Projectile : MonoBehaviour
 
         for (int i = 0; i < chains; i++)
         {
-            Enemy nextTarget = FindNearestChainTarget(chainSource, hitEnemies);
-
-            if (nextTarget == null)
+            if (!TryChainToNextTarget(ref chainSource, hitEnemies, chainDamage))
                 return;
-
-            DrawTemporaryLine(chainSource.transform.position + Vector3.up * 0.35f, nextTarget.transform.position + Vector3.up * 0.35f, lightningLineColor, lightningLineDuration);
-            ApplyDirectHit(nextTarget, chainDamage);
-            hitEnemies.Add(nextTarget);
-            chainSource = nextTarget;
         }
+
+        if (Random.value <= Mathf.Clamp01(lightningBonusChainChance))
+            TryChainToNextTarget(ref chainSource, hitEnemies, chainDamage);
+    }
+
+    private bool TryChainToNextTarget(ref Enemy chainSource, List<Enemy> hitEnemies, int chainDamage)
+    {
+        Enemy nextTarget = FindNearestChainTarget(chainSource, hitEnemies);
+
+        if (nextTarget == null)
+            return false;
+
+        DrawTemporaryLine(chainSource.transform.position + Vector3.up * 0.35f, nextTarget.transform.position + Vector3.up * 0.35f, lightningLineColor, lightningLineDuration);
+        ApplyDirectHit(nextTarget, chainDamage);
+        hitEnemies.Add(nextTarget);
+        chainSource = nextTarget;
+        return true;
     }
 
     private Enemy FindNearestChainTarget(Enemy chainSource, List<Enemy> excludedEnemies)
@@ -209,7 +220,7 @@ public class Projectile : MonoBehaviour
     {
         Vector3 spikePosition = target.transform.position;
         ApplyDirectHit(target, damage);
-        SpikeTrapEffect.CreateSpikeAtWorldPosition(spikePosition, spikeTriggerRadius, spikeBleedDamagePerTick, spikeBleedTickInterval, spikeBleedDuration);
+        SpikeTrapEffect.CreateSpikeAtWorldPosition(spikePosition, spikeTriggerRadius, spikeBleedDamagePerTick, spikeBleedTickInterval, spikeBleedDuration, ownerTower, target);
     }
 
     private void ExplodeMortar()
