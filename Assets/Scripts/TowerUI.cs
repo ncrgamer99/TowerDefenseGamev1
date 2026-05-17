@@ -40,6 +40,8 @@ public class TowerUI : MonoBehaviour
 
     [Header("Stats UI")]
     public TextMeshProUGUI statsText;
+    public TextMeshProUGUI totalStatsText;
+    public bool autoCreateTotalStatsText = true;
 
     [Header("Targeting UI")]
     public Button targetModeButton;
@@ -109,6 +111,7 @@ public class TowerUI : MonoBehaviour
     private void Start()
     {
         CreateSellButtonIfNeeded();
+        CreateTotalStatsTextIfNeeded();
         SetupButtons();
         ApplyStaticTheme();
 
@@ -295,6 +298,7 @@ public class TowerUI : MonoBehaviour
         SetTextColor(metaPointText, textSecondaryColor);
         SetTextColor(visualTierText, textSecondaryColor);
         SetTextColor(statsText, textPrimaryColor);
+        SetTextColor(totalStatsText, textSecondaryColor);
 
         if (xpFillImage != null)
             xpFillImage.color = new Color32(70, 220, 120, 255);
@@ -362,18 +366,19 @@ public class TowerUI : MonoBehaviour
         statsText.text =
             "Stats" +
             "\nDMG: " + BuildEffectiveStatText(selectedTower.damage.ToString(), selectedTower.GetEffectiveDamage().ToString()) +
-            " | RNG: " + BuildEffectiveStatText(selectedTower.range.ToString("0.0"), selectedTower.GetEffectiveRange().ToString("0.0")) +
-            " | FR: " + BuildEffectiveStatText(selectedTower.fireRate.ToString("0.00"), selectedTower.GetEffectiveFireRate().ToString("0.00")) +
-            "\nTarget: " + selectedTower.GetTargetModeName() +
-            GetEffectStatsText() +
-            "\n\nWave" +
-            "\nKills: " + selectedTower.currentWaveKills +
-            " | Assists: " + selectedTower.currentWaveAssists +
-            "\nDamage: " + selectedTower.currentWaveDamageDealt.ToString("0") +
-            "\n\nTotal" +
-            "\nKills: " + selectedTower.totalKills +
-            " | Assists: " + selectedTower.totalAssists +
-            "\nDamage: " + selectedTower.totalDamageDealt.ToString("0");
+            "\nRNG: " + BuildEffectiveStatText(selectedTower.range.ToString("0.0"), selectedTower.GetEffectiveRange().ToString("0.0")) +
+            "\nFR: " + BuildEffectiveStatText(selectedTower.fireRate.ToString("0.00"), selectedTower.GetEffectiveFireRate().ToString("0.00")) +
+            GetLightningStatsText() +
+            GetEffectStatsText();
+
+        if (totalStatsText != null)
+        {
+            totalStatsText.text =
+                "Total" +
+                "\nKills: " + selectedTower.totalKills +
+                "\nAssists: " + selectedTower.totalAssists +
+                "\nDamage: " + selectedTower.totalDamageDealt.ToString("0");
+        }
     }
 
     private string BuildEffectiveStatText(string baseValue, string effectiveValue)
@@ -382,6 +387,20 @@ public class TowerUI : MonoBehaviour
             return baseValue;
 
         return baseValue + " > " + effectiveValue;
+    }
+
+    private string GetLightningStatsText()
+    {
+        if (selectedTower == null || selectedTower.towerRole != TowerRole.Lightning)
+            return "";
+
+        string text = "\nChain Targets: " + selectedTower.GetLightningGuaranteedChainTargetCount();
+        float bonusChance = selectedTower.GetLightningBonusChainChance();
+
+        if (bonusChance > 0f)
+            text += " + " + (bonusChance * 100f).ToString("0") + "% Bonus";
+
+        return text;
     }
 
     private string GetEffectStatsText()
@@ -479,7 +498,7 @@ public class TowerUI : MonoBehaviour
             return "+" + selectedTower.poisonDamageIncreasePerGoldUpgrade + " Poison / +" + selectedTower.effectDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
 
         if (selectedTower.towerRole == TowerRole.Lightning)
-            return "+1 Chain / +0.04 Chain-Dmg";
+            return "+" + (selectedTower.GetLightningBonusChainChanceIncreasePerGoldUpgrade() * 100f).ToString("0") + "% Bonus-Chain";
 
         if (selectedTower.appliesSlow)
             return "-" + selectedTower.slowAmountIncreasePerGoldUpgrade.ToString("0.00") + " Slow / +" + selectedTower.slowDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
@@ -502,7 +521,7 @@ public class TowerUI : MonoBehaviour
             return "+" + selectedTower.GetPointPoisonDamageIncreasePreview() + " Poison / +" + selectedTower.GetPointEffectDurationIncreasePreview().ToString("0.00") + "s";
 
         if (selectedTower.towerRole == TowerRole.Lightning)
-            return "+" + selectedTower.GetPointLightningChainTargetIncreasePreview() + " Chain / +" + selectedTower.GetPointLightningChainDamageIncreasePreview().ToString("0.00") + " Chain-Dmg";
+            return "+" + (selectedTower.GetPointLightningBonusChainChanceIncreasePreview() * 100f).ToString("0") + "% Bonus-Chain";
 
         if (selectedTower.appliesSlow)
             return "-" + selectedTower.GetPointSlowAmountIncreasePreview().ToString("0.00") + " Slow / +" + selectedTower.GetPointSlowDurationIncreasePreview().ToString("0.00") + "s";
@@ -634,6 +653,45 @@ public class TowerUI : MonoBehaviour
             buttonText.text = "X";
             buttonText.color = Color.white;
         }
+    }
+
+    private void CreateTotalStatsTextIfNeeded()
+    {
+        if (!autoCreateTotalStatsText || totalStatsText != null || statsText == null)
+            return;
+
+        Transform parent = statsBackground != null ? statsBackground.transform : statsText.transform.parent;
+
+        if (parent == null)
+            return;
+
+        GameObject textObject = new GameObject("TotalStatsText_Auto", typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(parent, false);
+
+        RectTransform totalRect = textObject.GetComponent<RectTransform>();
+        totalRect.anchorMin = new Vector2(0.55f, 0f);
+        totalRect.anchorMax = new Vector2(1f, 1f);
+        totalRect.offsetMin = new Vector2(8f, 8f);
+        totalRect.offsetMax = new Vector2(-12f, -8f);
+
+        RectTransform statsRect = statsText.GetComponent<RectTransform>();
+        if (statsRect != null && statsRect.parent == parent)
+        {
+            statsRect.anchorMin = new Vector2(0f, 0f);
+            statsRect.anchorMax = new Vector2(0.55f, 1f);
+            statsRect.offsetMin = new Vector2(12f, 8f);
+            statsRect.offsetMax = new Vector2(-8f, -8f);
+        }
+
+        totalStatsText = textObject.GetComponent<TextMeshProUGUI>();
+        totalStatsText.font = statsText.font;
+        totalStatsText.fontSize = statsText.fontSize;
+        totalStatsText.enableAutoSizing = statsText.enableAutoSizing;
+        totalStatsText.fontSizeMin = statsText.fontSizeMin;
+        totalStatsText.fontSizeMax = statsText.fontSizeMax;
+        totalStatsText.alignment = TextAlignmentOptions.TopRight;
+        totalStatsText.raycastTarget = false;
+        totalStatsText.color = textSecondaryColor;
     }
 
     private void CreateSellButtonIfNeeded()

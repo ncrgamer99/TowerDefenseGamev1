@@ -29,7 +29,8 @@ public class Projectile : MonoBehaviour
     public float slowDuration = 2f;
 
     [Header("Lightning Chain")]
-    public int lightningChainTargets = 3;
+    public int lightningChainTargets = 2;
+    public float lightningBonusChainChance = 0f;
     public float lightningChainRange = 2.5f;
     public float lightningChainDamageMultiplier = 0.55f;
     public float lightningLineDuration = 0.12f;
@@ -167,16 +168,26 @@ public class Projectile : MonoBehaviour
 
         for (int i = 0; i < chains; i++)
         {
-            Enemy nextTarget = FindNearestChainTarget(chainSource, hitEnemies);
-
-            if (nextTarget == null)
+            if (!TryChainToNextTarget(ref chainSource, hitEnemies, chainDamage))
                 return;
-
-            DrawTemporaryLine(chainSource.transform.position + Vector3.up * 0.35f, nextTarget.transform.position + Vector3.up * 0.35f, lightningLineColor, lightningLineDuration);
-            ApplyDirectHit(nextTarget, chainDamage);
-            hitEnemies.Add(nextTarget);
-            chainSource = nextTarget;
         }
+
+        if (Random.value <= Mathf.Clamp01(lightningBonusChainChance))
+            TryChainToNextTarget(ref chainSource, hitEnemies, chainDamage);
+    }
+
+    private bool TryChainToNextTarget(ref Enemy chainSource, List<Enemy> hitEnemies, int chainDamage)
+    {
+        Enemy nextTarget = FindNearestChainTarget(chainSource, hitEnemies);
+
+        if (nextTarget == null)
+            return false;
+
+        DrawTemporaryLine(chainSource.transform.position + Vector3.up * 0.35f, nextTarget.transform.position + Vector3.up * 0.35f, lightningLineColor, lightningLineDuration);
+        ApplyDirectHit(nextTarget, chainDamage);
+        hitEnemies.Add(nextTarget);
+        chainSource = nextTarget;
+        return true;
     }
 
     private Enemy FindNearestChainTarget(Enemy chainSource, List<Enemy> excludedEnemies)

@@ -1671,6 +1671,11 @@ public class Enemy : MonoBehaviour
 
     public bool HasPoison()
     {
+        return isBleeding;
+    }
+
+    public bool HasPoison()
+    {
         return isPoisoned;
     }
 

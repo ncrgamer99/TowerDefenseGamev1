@@ -347,7 +347,7 @@ public class Tower : MonoBehaviour
         {
             case TowerRole.Basic:
                 towerName = "Basic Tower";
-                damage = 4;
+                damage = 5;
                 range = 3.0f;
                 fireRate = 1.45f;
                 targetMode = TowerTargetMode.First;
@@ -968,7 +968,8 @@ public class Tower : MonoBehaviour
 
         if (towerRole == TowerRole.Lightning)
         {
-            projectile.lightningChainTargets = GetLightningChainTargets();
+            projectile.lightningChainTargets = GetLightningGuaranteedChainJumps();
+            projectile.lightningBonusChainChance = GetLightningBonusChainChance();
             projectile.lightningChainRange = 2.5f;
             projectile.lightningChainDamageMultiplier = GetLightningChainDamageMultiplier();
         }
@@ -1417,25 +1418,36 @@ public class Tower : MonoBehaviour
         return effectDurationIncreasePerGoldUpgrade * GetEffectivePointUpgradePowerMultiplier();
     }
 
-    public int GetLightningChainTargets()
+    public int GetLightningGuaranteedChainJumps()
     {
-        return Mathf.Clamp(3 + effectGoldUpgradeLevel + effectPointUpgradeLevel * GetEffectivePointUpgradePowerMultiplier(), 1, 12);
+        return 2;
+    }
+
+    public int GetLightningGuaranteedChainTargetCount()
+    {
+        return 1 + GetLightningGuaranteedChainJumps();
+    }
+
+    public float GetLightningBonusChainChance()
+    {
+        float chance = effectGoldUpgradeLevel * GetLightningBonusChainChanceIncreasePerGoldUpgrade();
+        chance += effectPointUpgradeLevel * GetPointLightningBonusChainChanceIncreasePreview();
+        return Mathf.Clamp01(chance);
+    }
+
+    public float GetLightningBonusChainChanceIncreasePerGoldUpgrade()
+    {
+        return 0.20f;
     }
 
     public float GetLightningChainDamageMultiplier()
     {
-        float bonus = effectGoldUpgradeLevel * 0.04f + effectPointUpgradeLevel * 0.04f * GetEffectivePointUpgradePowerMultiplier();
-        return Mathf.Clamp(0.55f + bonus, 0.1f, 0.95f);
+        return 0.55f;
     }
 
-    public int GetPointLightningChainTargetIncreasePreview()
+    public float GetPointLightningBonusChainChanceIncreasePreview()
     {
-        return GetEffectivePointUpgradePowerMultiplier();
-    }
-
-    public float GetPointLightningChainDamageIncreasePreview()
-    {
-        return 0.04f * GetEffectivePointUpgradePowerMultiplier();
+        return GetLightningBonusChainChanceIncreasePerGoldUpgrade() * GetEffectivePointUpgradePowerMultiplier();
     }
 
 

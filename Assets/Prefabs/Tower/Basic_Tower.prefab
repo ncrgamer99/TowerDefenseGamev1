@@ -160,7 +160,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tower
   towerName: Basic Tower
-  damage: 4
+  damage: 5
   range: 3
   fireRate: 1.45
   targetMode: 0
