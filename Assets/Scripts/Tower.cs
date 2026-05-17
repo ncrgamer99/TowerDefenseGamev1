@@ -969,7 +969,7 @@ public class Tower : MonoBehaviour
         if (towerRole == TowerRole.Lightning)
         {
             projectile.lightningChainTargets = GetLightningGuaranteedChainJumps();
-            projectile.lightningBonusChainChance = GetLightningBonusChainChance();
+            projectile.lightningBonusChainChance = GetLightningBonusChainRemainderChance();
             projectile.lightningChainRange = 2.5f;
             projectile.lightningChainDamageMultiplier = GetLightningChainDamageMultiplier();
         }
@@ -1420,7 +1420,7 @@ public class Tower : MonoBehaviour
 
     public int GetLightningGuaranteedChainJumps()
     {
-        return 2;
+        return 2 + Mathf.FloorToInt(GetLightningBonusChainChance() + 0.0001f);
     }
 
     public int GetLightningGuaranteedChainTargetCount()
@@ -1432,7 +1432,14 @@ public class Tower : MonoBehaviour
     {
         float chance = effectGoldUpgradeLevel * GetLightningBonusChainChanceIncreasePerGoldUpgrade();
         chance += effectPointUpgradeLevel * GetPointLightningBonusChainChanceIncreasePreview();
-        return Mathf.Clamp01(chance);
+        return Mathf.Max(0f, chance);
+    }
+
+    public float GetLightningBonusChainRemainderChance()
+    {
+        float chance = GetLightningBonusChainChance();
+        int guaranteedBonusChains = Mathf.FloorToInt(chance + 0.0001f);
+        return Mathf.Clamp01(chance - guaranteedBonusChains);
     }
 
     public float GetLightningBonusChainChanceIncreasePerGoldUpgrade()
