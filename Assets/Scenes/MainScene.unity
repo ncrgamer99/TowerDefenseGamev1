@@ -9368,7 +9368,7 @@ MonoBehaviour:
   logChaosVariantGeneration: 0
   enableChaosWaveBlocksV1: 1
   chaosWaveBlocksStartLevel: 2
-  forceChaosWaveBlockAtLevel: 3
+  forceChaosWaveBlockAtLevel: 4
   maxChaosWaveBlocksV1: 3
   chaosWaveBlockChanceAtStartLevel: 0.60
   chaosWaveBlockChancePerAdditionalLevel: 0.20
