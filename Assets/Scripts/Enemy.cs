@@ -131,7 +131,7 @@ public class Enemy : MonoBehaviour
     public float defaultBurnDamagePerSecond = 1f;
     public float defaultPoisonDamagePerSecond = 1f;
     public float defaultEffectTickRate = 0.5f;
-    public int maxBurnStacks = 3;
+    public int maxBurnStacks = 2;
 
     [Header("Health Bar")]
     public bool useHealthBar = true;
@@ -1670,11 +1670,6 @@ public class Enemy : MonoBehaviour
     }
 
     public bool HasPoison()
-    {
-        return isPoisoned;
-    }
-
-    public bool HasBleed()
     {
         return isBleeding;
     }
