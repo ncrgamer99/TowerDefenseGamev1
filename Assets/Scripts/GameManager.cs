@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -97,6 +98,8 @@ public class GameManager : MonoBehaviour
     private Coroutine blockedBuildTimerCoroutine;
     private bool blockedEventChosenForCurrentPosition = false;
     private Vector2Int blockedEventPosition;
+    private bool blockedBaseRelocationPending = false;
+    private float pendingBaseRelocationBuildPhaseDuration = 0f;
 
     [Header("Gold")]
     public int gold = 120;
@@ -1165,6 +1168,89 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    public List<string> GetActiveRiskModifierDisplayNames()
+    {
+        ChaosJusticeManager manager = GetChaosJusticeManager();
+
+        if (manager == null)
+            return new List<string>();
+
+        return manager.GetSelectedRiskModifierDisplayNames();
+    }
+
+    public void ResetChaosToOneKeepingRiskModifier(int keepIndex)
+    {
+        ChaosJusticeManager manager = GetChaosJusticeManager();
+
+        if (manager == null)
+            return;
+
+        manager.ResetChaosToOneKeepingRiskModifierAt(keepIndex);
+        RefreshWaveDebugDataAfterChaosJusticeChange();
+    }
+
+    public void BeginBlockedBaseRelocation(float buildPhaseDuration)
+    {
+        if (tileManager == null)
+        {
+            Debug.LogError("Neue Basis: TileManager fehlt.");
+            StartTimedBuildPhaseAfterBlockedEvent(buildPhaseDuration);
+            return;
+        }
+
+        StopBlockedBuildTimer();
+        ClosePathAndBuildSelectionsForModal();
+        blockedBaseRelocationPending = true;
+        pendingBaseRelocationBuildPhaseDuration = Mathf.Max(0f, buildPhaseDuration);
+        currentPhase = GamePhase.Build;
+        isBaseBlocked = true;
+        isTimedBlockedBuildPhase = false;
+        tileManager.SetBaseRelocationModeActive(true);
+        RaiseBlockedBuildPhaseStartedEvent();
+        Debug.Log("Neue Basis: Platzierungsmodus aktiv. Linksklick setzt die Basis, Rechtsklick/Escape bricht ab.");
+    }
+
+    public void CompleteBlockedBaseRelocation()
+    {
+        if (!blockedBaseRelocationPending)
+            return;
+
+        blockedBaseRelocationPending = false;
+
+        if (tileManager != null)
+            tileManager.SetBaseRelocationModeActive(false);
+
+        MarkBlockedEventChosenForCurrentPosition();
+        StartTimedBuildPhaseAfterBlockedEvent(pendingBaseRelocationBuildPhaseDuration);
+    }
+
+    public void CancelBlockedBaseRelocation()
+    {
+        if (!blockedBaseRelocationPending)
+            return;
+
+        blockedBaseRelocationPending = false;
+
+        if (tileManager != null)
+            tileManager.SetBaseRelocationModeActive(false);
+
+        StartTimedBuildPhaseAfterBlockedEvent(pendingBaseRelocationBuildPhaseDuration);
+    }
+
+    public bool TryCreateBlockedTeleporterBase()
+    {
+        if (tileManager == null)
+            return false;
+
+        int radius = Mathf.Max(1, tileManager.teleporterSearchRadius);
+        bool success = tileManager.TryCreateTeleporterBase(radius);
+
+        if (success)
+            MarkBlockedEventChosenForCurrentPosition();
+
+        return success;
+    }
+
     public void AddLives(int amount)
     {
         if (isGameOver)
@@ -1221,8 +1307,12 @@ public class GameManager : MonoBehaviour
         currentPhase = GamePhase.Wave;
 
         if (tileManager != null)
+        {
             tileManager.SetCanBuild(false);
+            tileManager.SetBaseRelocationModeActive(false);
+        }
 
+        blockedBaseRelocationPending = false;
         StopBlockedBuildTimer();
         postBossChoicePending = false;
 
@@ -1304,7 +1394,7 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return false;
 
-        return startMenuOpen || IsChaosJusticeChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
+        return startMenuOpen || blockedBaseRelocationPending || IsChaosJusticeChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
     }
 
     public bool CanOpenAuxiliaryModalUI()
@@ -1312,7 +1402,7 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return true;
 
-        return !startMenuOpen && !IsChaosJusticeChoiceOpen() && !IsBlockedEventSelectionOpen();
+        return !startMenuOpen && !blockedBaseRelocationPending && !IsChaosJusticeChoiceOpen() && !IsBlockedEventSelectionOpen();
     }
 
     public bool IsPathInputLockedByModalUI()
@@ -1320,7 +1410,7 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return true;
 
-        return startMenuOpen || IsChaosJusticeChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
+        return startMenuOpen || blockedBaseRelocationPending || IsChaosJusticeChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
     }
 
     public void ClosePathAndBuildSelectionsForModal()

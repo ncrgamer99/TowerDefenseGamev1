@@ -2833,6 +2833,74 @@ public class ChaosJusticeManager : MonoBehaviour
         return runData.selectedRiskModifiers.Count;
     }
 
+    public List<string> GetSelectedRiskModifierDisplayNames()
+    {
+        List<string> names = new List<string>();
+
+        if (runData == null || runData.selectedRiskModifiers == null)
+            return names;
+
+        foreach (WaveModifier modifier in runData.selectedRiskModifiers)
+        {
+            if (modifier == null)
+                continue;
+
+            names.Add(modifier.GetDisplayNameWithLevel());
+        }
+
+        return names;
+    }
+
+    public void ResetChaosToOneKeepingRiskModifierAt(int keepIndex)
+    {
+        if (runData == null)
+            return;
+
+        WaveModifier keptModifier = null;
+
+        if (runData.selectedRiskModifiers != null && keepIndex >= 0 && keepIndex < runData.selectedRiskModifiers.Count)
+        {
+            WaveModifier source = runData.selectedRiskModifiers[keepIndex];
+
+            if (source != null)
+                keptModifier = source.CreateCopy();
+        }
+
+        runData.chaosLevel = 1;
+        runData.highestChaosLevel = Mathf.Max(runData.highestChaosLevel, runData.chaosLevel);
+
+        if (runData.selectedRiskModifiers == null)
+            runData.selectedRiskModifiers = new List<WaveModifier>();
+        else
+            runData.selectedRiskModifiers.Clear();
+
+        if (runData.selectedRiskModifierNames == null)
+            runData.selectedRiskModifierNames = new List<string>();
+        else
+            runData.selectedRiskModifierNames.Clear();
+
+        if (runData.selectedRiskModifierKeys == null)
+            runData.selectedRiskModifierKeys = new List<string>();
+        else
+            runData.selectedRiskModifierKeys.Clear();
+
+        if (keptModifier != null)
+        {
+            keptModifier.isPermanentRiskModifier = true;
+            keptModifier.isTemporaryRiskModifier = false;
+            runData.selectedRiskModifiers.Add(keptModifier);
+            runData.selectedRiskModifierNames.Add(keptModifier.displayName);
+            runData.selectedRiskModifierKeys.Add(GetRiskModifierKey(keptModifier));
+        }
+
+        ApplyPreparedModifiersToSpawner();
+
+        if (chaosUnlockManager != null)
+            chaosUnlockManager.RefreshAndNotify();
+
+        Debug.Log("Verbau-Event: Chaos auf 1 gesetzt; behaltenes Risiko: " + (keptModifier != null ? keptModifier.GetDisplayNameWithLevel() : "keins"));
+    }
+
     private string GetRiskCategory(WaveModifier modifier)
     {
         List<string> labels = GetRiskCategoryLabels(modifier);
