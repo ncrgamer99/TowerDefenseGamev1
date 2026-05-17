@@ -38,6 +38,7 @@ public class BlockedEventManager : MonoBehaviour
 {
     [Header("References")]
     public GameManager gameManager;
+    public PathBuildManager pathBuildManagerStyleSource;
 
     [Header("UI - Same Style As PathBuildManager")]
     public GameObject eventTopBar;
@@ -63,6 +64,9 @@ public class BlockedEventManager : MonoBehaviour
     public Color choiceBarColor = new Color32(18, 22, 30, 245);
     public Color choiceButtonColor = new Color32(65, 95, 145, 255);
     public Color choiceDescriptionColor = new Color32(255, 220, 120, 255);
+
+    [Header("PathBuildManager Mirror")]
+    public bool mirrorPathBuildManagerLayout = true;
 
     [Header("Settings")]
     public float timedBuildPhaseDuration = 60f;
@@ -163,6 +167,8 @@ public class BlockedEventManager : MonoBehaviour
         if (!applyChoiceUILayoutDefaults)
             return;
 
+        CopyPathBuildManagerLayoutDefaults();
+
         if (eventTopBar != null)
         {
             RectTransform rect = eventTopBar.GetComponent<RectTransform>();
@@ -194,8 +200,29 @@ public class BlockedEventManager : MonoBehaviour
             descriptionText.fontSize = Mathf.Max(descriptionText.fontSize, 16f);
             descriptionText.color = choiceDescriptionColor;
             descriptionText.alignment = TextAlignmentOptions.Center;
-            descriptionText.enableWordWrapping = true;
         }
+    }
+
+
+    private void CopyPathBuildManagerLayoutDefaults()
+    {
+        if (!mirrorPathBuildManagerLayout)
+            return;
+
+        if (pathBuildManagerStyleSource == null)
+            pathBuildManagerStyleSource = FindObjectOfType<PathBuildManager>();
+
+        if (pathBuildManagerStyleSource == null)
+            return;
+
+        eventTopBarSize = pathBuildManagerStyleSource.pathTopBarSize;
+        eventTopBarTopOffset = pathBuildManagerStyleSource.pathTopBarTopOffset;
+        eventTopBarLeftInset = pathBuildManagerStyleSource.pathTopBarLeftInset;
+        eventTopBarRightInset = pathBuildManagerStyleSource.pathTopBarRightInset;
+        hideUnusedTopBarTextLabels = pathBuildManagerStyleSource.hideUnusedTopBarTextLabels;
+        choiceBarColor = pathBuildManagerStyleSource.choiceBarColor;
+        choiceButtonColor = pathBuildManagerStyleSource.choiceButtonColor;
+        choiceDescriptionColor = pathBuildManagerStyleSource.choiceDescriptionColor;
     }
 
     private void HideUnusedTopBarTextLabels()
@@ -225,7 +252,6 @@ public class BlockedEventManager : MonoBehaviour
             LayoutElement layout = button.GetComponent<LayoutElement>();
             if (layout == null)
                 layout = button.gameObject.AddComponent<LayoutElement>();
-
             layout.preferredHeight = 46f;
             layout.minHeight = 42f;
         }
@@ -236,7 +262,6 @@ public class BlockedEventManager : MonoBehaviour
             text.fontStyle = FontStyles.Bold;
             text.color = Color.white;
             text.alignment = TextAlignmentOptions.Center;
-            text.enableWordWrapping = false;
         }
     }
 
