@@ -298,7 +298,7 @@ public class TowerUI : MonoBehaviour
         SetTextColor(metaPointText, textSecondaryColor);
         SetTextColor(visualTierText, textSecondaryColor);
         SetTextColor(statsText, textPrimaryColor);
-        SetTextColor(totalStatsText, textSecondaryColor);
+        SetTextColor(totalStatsText, textPrimaryColor);
 
         if (xpFillImage != null)
             xpFillImage.color = new Color32(70, 220, 120, 255);
@@ -395,7 +395,7 @@ public class TowerUI : MonoBehaviour
             return "";
 
         string text = "\nChain Targets: " + selectedTower.GetLightningGuaranteedChainTargetCount();
-        float bonusChance = selectedTower.GetLightningBonusChainChance();
+        float bonusChance = selectedTower.GetLightningBonusChainRemainderChance();
 
         if (bonusChance > 0f)
             text += " + " + (bonusChance * 100f).ToString("0") + "% Bonus";
@@ -417,7 +417,7 @@ public class TowerUI : MonoBehaviour
 
         if (selectedTower.appliesPoison)
         {
-            text += "\nPoison: " + selectedTower.poisonDamage + " / " + selectedTower.poisonDuration.ToString("0.0") + "s | ignoriert Armor";
+            text += "\nPoison: " + selectedTower.poisonDamage + " / " + selectedTower.poisonDuration.ToString("0.0") + "s";
         }
 
         if (selectedTower.appliesSlow)
@@ -691,7 +691,7 @@ public class TowerUI : MonoBehaviour
         totalStatsText.fontSizeMax = statsText.fontSizeMax;
         totalStatsText.alignment = TextAlignmentOptions.TopRight;
         totalStatsText.raycastTarget = false;
-        totalStatsText.color = textSecondaryColor;
+        totalStatsText.color = textPrimaryColor;
     }
 
     private void CreateSellButtonIfNeeded()

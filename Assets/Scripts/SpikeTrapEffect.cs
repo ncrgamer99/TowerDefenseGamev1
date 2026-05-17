@@ -42,11 +42,19 @@ public class SpikeTrapEffect : MonoBehaviour
     {
         if (!activeSpikes.Contains(this))
             activeSpikes.Add(this);
+
+        WaveEventBus.WaveCompleted += HandleWaveCompleted;
     }
 
     private void OnDisable()
     {
         activeSpikes.Remove(this);
+        WaveEventBus.WaveCompleted -= HandleWaveCompleted;
+    }
+
+    private void HandleWaveCompleted(WaveCompletionResult result)
+    {
+        Destroy(gameObject);
     }
 
     public static void TryApplyAtWorldPosition(Vector3 position, Enemy enemy)
