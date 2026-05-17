@@ -1027,10 +1027,10 @@ public class GameManager : MonoBehaviour
         blockedBuildTimeRemaining = duration;
 
         if (tileManager != null)
-            tileManager.SetCanBuild(false);
+            tileManager.SetCanBuild(true);
 
         RaiseBlockedBuildPhaseStartedEvent();
-        Debug.Log("Timed Buildphase nach Verbau gestartet: " + duration + " Sekunden.");
+        Debug.Log("Timed Buildphase nach Verbau gestartet: " + duration + " Sekunden. Towerbau ist erlaubt, Wegbau bleibt gesperrt.");
 
         while (blockedBuildTimeRemaining > 0f)
         {
@@ -1410,7 +1410,7 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return true;
 
-        return startMenuOpen || blockedBaseRelocationPending || IsChaosJusticeChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
+        return startMenuOpen || blockedBaseRelocationPending || isBaseBlocked || isTimedBlockedBuildPhase || IsChaosJusticeChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
     }
 
     public void ClosePathAndBuildSelectionsForModal()
