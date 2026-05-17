@@ -616,7 +616,10 @@ public class Enemy : MonoBehaviour
         float appliedDamage = Mathf.Max(0f, previousHealth - currentHealth);
 
         if (sourceTower != null)
+        {
             sourceTower.RegisterDamage(appliedDamage);
+            EnemyWaveDebugWindow.RecordDamage(this, sourceTower, appliedDamage, !canTriggerOnHitEffects);
+        }
 
         RefreshHealthBar();
 
@@ -1026,6 +1029,7 @@ public class Enemy : MonoBehaviour
         GiveGoldReward();
         GiveXPRewards(killingTower);
         GiveGlobalXPReward();
+        EnemyWaveDebugWindow.MarkEnemyFinished(this, "Getötet");
         OnEnemyFinished?.Invoke(this);
         Destroy(gameObject);
     }
@@ -1133,6 +1137,7 @@ public class Enemy : MonoBehaviour
             gameManager = FindObjectOfType<GameManager>();
 
         TryDamageBase();
+        EnemyWaveDebugWindow.MarkEnemyFinished(this, "Base erreicht");
         OnEnemyFinished?.Invoke(this);
         Destroy(gameObject);
     }
@@ -1299,6 +1304,7 @@ public class Enemy : MonoBehaviour
         if (entry == null || !entry.HasChaosWaveEntryEffect())
         {
             UpdateVisualColor();
+            EnemyWaveDebugWindow.RegisterEnemySpawned(this, gameManager != null ? gameManager.waveNumber : 0);
             return;
         }
 
@@ -1330,6 +1336,7 @@ public class Enemy : MonoBehaviour
 
         RefreshHealthBar();
         UpdateVisualColor();
+        EnemyWaveDebugWindow.RegisterEnemySpawned(this, gameManager != null ? gameManager.waveNumber : 0);
     }
 
     private void ResetVariantRuntimeStats()

@@ -79,6 +79,10 @@ public class GameManager : MonoBehaviour
     [Header("Wave History Debug")]
     public WaveHistory waveHistory = new WaveHistory();
 
+    [Header("Enemy Wave Debug Window")]
+    public bool autoCreateEnemyWaveDebugWindow = true;
+    public KeyCode enemyWaveDebugToggleKey = KeyCode.F3;
+
     [Header("Wave Backend Events")]
     public bool fireWaveBackendEvents = true;
 
@@ -120,6 +124,7 @@ public class GameManager : MonoBehaviour
         GetChaosJusticeManager();
         GetRunStatisticsTracker();
         GetChaosUnlockManager();
+        EnsureEnemyWaveDebugWindow();
 
         if (showStartMenuOnStart)
         {
@@ -130,6 +135,14 @@ public class GameManager : MonoBehaviour
         }
 
         StartSelectedGame(GameStartMode.Normal);
+    }
+
+    private void EnsureEnemyWaveDebugWindow()
+    {
+        if (!autoCreateEnemyWaveDebugWindow)
+            return;
+
+        EnemyWaveDebugWindow.EnsureExists(this, enemyWaveDebugToggleKey);
     }
 
     private void Update()
@@ -194,9 +207,9 @@ public class GameManager : MonoBehaviour
         currentWaveScenario = currentWaveData.scenario;
         currentWaveScenarioName = currentWaveData.scenarioName;
         CreateCurrentWaveResult(currentWaveData);
+        RaiseWaveStartedEvent(currentWaveData);
         enemySpawner.StartWave(currentWaveData, OnWaveFinished);
         RefreshNextWaveDataDebug();
-        RaiseWaveStartedEvent(currentWaveData);
 
         Debug.Log(
             "Wave " + waveNumber +
