@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -37,7 +38,7 @@ public class GameManager : MonoBehaviour
 
     [Header("Start Menu")]
     public bool showStartMenuOnStart = true;
-    public int normalStartGold = 100;
+    public int normalStartGold = 120;
     public int normalStartLives = 20;
     public int balancingStartGold = 999999;
     public int balancingStartLives = 999999;
@@ -79,6 +80,10 @@ public class GameManager : MonoBehaviour
     [Header("Wave History Debug")]
     public WaveHistory waveHistory = new WaveHistory();
 
+    [Header("Enemy Wave Debug Window")]
+    public bool autoCreateEnemyWaveDebugWindow = true;
+    public KeyCode enemyWaveDebugToggleKey = KeyCode.F3;
+
     [Header("Wave Backend Events")]
     public bool fireWaveBackendEvents = true;
 
@@ -93,16 +98,23 @@ public class GameManager : MonoBehaviour
     private Coroutine blockedBuildTimerCoroutine;
     private bool blockedEventChosenForCurrentPosition = false;
     private Vector2Int blockedEventPosition;
+    private bool blockedBaseRelocationPending = false;
+    private float pendingBaseRelocationBuildPhaseDuration = 0f;
 
     [Header("Gold")]
-    public int gold = 100;
+    public int gold = 120;
 
     [Header("Wave Completion Rewards")]
     public bool giveWaveCompletionGold = true;
-    public int baseWaveCompletionGold = 7;
+    public int baseWaveCompletionGold = 6;
     public int waveCompletionGoldPerWave = 1;
     public int miniBossWaveCompletionGoldBonus = 10;
-    public int bossWaveCompletionGoldBonus = 25;
+    public int bossWaveCompletionGoldBonus = 24;
+
+    [Header("Blocked Event Rewards V1")]
+    public float blockedEventRewardBonusPerStack = 0.01f;
+    public int blockedEventRewardBonusStacks = 0;
+    public int pendingEvolutionTowerBoosts = 0;
 
     private int lastWaveRewarded = 0;
     private int lastWaveCompletionGoldReward = 0;
@@ -120,6 +132,7 @@ public class GameManager : MonoBehaviour
         GetChaosJusticeManager();
         GetRunStatisticsTracker();
         GetChaosUnlockManager();
+        EnsureEnemyWaveDebugWindow();
 
         if (showStartMenuOnStart)
         {
@@ -130,6 +143,14 @@ public class GameManager : MonoBehaviour
         }
 
         StartSelectedGame(GameStartMode.Normal);
+    }
+
+    private void EnsureEnemyWaveDebugWindow()
+    {
+        if (!autoCreateEnemyWaveDebugWindow)
+            return;
+
+        EnemyWaveDebugWindow.EnsureExists(this, enemyWaveDebugToggleKey);
     }
 
     private void Update()
@@ -194,9 +215,9 @@ public class GameManager : MonoBehaviour
         currentWaveScenario = currentWaveData.scenario;
         currentWaveScenarioName = currentWaveData.scenarioName;
         CreateCurrentWaveResult(currentWaveData);
+        RaiseWaveStartedEvent(currentWaveData);
         enemySpawner.StartWave(currentWaveData, OnWaveFinished);
         RefreshNextWaveDataDebug();
-        RaiseWaveStartedEvent(currentWaveData);
 
         Debug.Log(
             "Wave " + waveNumber +
@@ -1083,9 +1104,151 @@ public class GameManager : MonoBehaviour
         ChaosJusticeManager manager = GetChaosJusticeManager();
 
         if (manager == null)
+            return ApplyBlockedEventRewardBonus(safeAmount);
+
+        int modifiedAmount = manager.ApplyGoldRewardModifiers(safeAmount);
+        return ApplyBlockedEventRewardBonus(modifiedAmount);
+    }
+
+    public int ApplyXPRewardModifiers(int baseAmount)
+    {
+        int safeAmount = Mathf.Max(0, baseAmount);
+
+        ChaosJusticeManager manager = GetChaosJusticeManager();
+
+        if (manager != null)
+            safeAmount = manager.ApplyXPRewardModifiers(safeAmount);
+
+        return ApplyBlockedEventRewardBonus(safeAmount);
+    }
+
+    private int ApplyBlockedEventRewardBonus(int amount)
+    {
+        int safeAmount = Mathf.Max(0, amount);
+
+        if (safeAmount <= 0 || blockedEventRewardBonusStacks <= 0)
             return safeAmount;
 
-        return manager.ApplyGoldRewardModifiers(safeAmount);
+        float multiplier = 1f + blockedEventRewardBonusStacks * Mathf.Max(0f, blockedEventRewardBonusPerStack);
+        return Mathf.Max(0, Mathf.RoundToInt(safeAmount * multiplier));
+    }
+
+    public void AddBlockedEventRewardBonusStack()
+    {
+        blockedEventRewardBonusStacks = Mathf.Max(0, blockedEventRewardBonusStacks + 1);
+        Debug.Log("Verbau-Bonus: Gold/XP-Rewards jetzt +" + (blockedEventRewardBonusStacks * blockedEventRewardBonusPerStack * 100f).ToString("0") + "%.");
+    }
+
+    public void AddEvolutionTowerBoost()
+    {
+        pendingEvolutionTowerBoosts = Mathf.Max(0, pendingEvolutionTowerBoosts + 1);
+        Debug.Log("Evolutionspunkt erhalten. Der nächste ausgewählte Tower erhält +50% aktuelle Werte.");
+    }
+
+    public bool TryApplyPendingEvolutionToTower(Tower tower)
+    {
+        if (tower == null || pendingEvolutionTowerBoosts <= 0)
+            return false;
+
+        pendingEvolutionTowerBoosts--;
+        tower.ApplyEvolutionBoost(0.5f);
+        return true;
+    }
+
+    public void RaiseLowTowersToLevelFive()
+    {
+        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+
+        foreach (Tower tower in towers)
+        {
+            if (tower == null)
+                continue;
+
+            tower.RaiseToMinimumLevel(5);
+        }
+    }
+
+    public List<string> GetActiveRiskModifierDisplayNames()
+    {
+        ChaosJusticeManager manager = GetChaosJusticeManager();
+
+        if (manager == null)
+            return new List<string>();
+
+        return manager.GetSelectedRiskModifierDisplayNames();
+    }
+
+    public void ResetChaosToOneKeepingRiskModifier(int keepIndex)
+    {
+        ChaosJusticeManager manager = GetChaosJusticeManager();
+
+        if (manager == null)
+            return;
+
+        manager.ResetChaosToOneKeepingRiskModifierAt(keepIndex);
+        RefreshWaveDebugDataAfterChaosJusticeChange();
+    }
+
+    public void BeginBlockedBaseRelocation(float buildPhaseDuration)
+    {
+        if (tileManager == null)
+        {
+            Debug.LogError("Neue Basis: TileManager fehlt.");
+            StartTimedBuildPhaseAfterBlockedEvent(buildPhaseDuration);
+            return;
+        }
+
+        StopBlockedBuildTimer();
+        ClosePathAndBuildSelectionsForModal();
+        blockedBaseRelocationPending = true;
+        pendingBaseRelocationBuildPhaseDuration = Mathf.Max(0f, buildPhaseDuration);
+        currentPhase = GamePhase.Build;
+        isBaseBlocked = true;
+        isTimedBlockedBuildPhase = false;
+        tileManager.SetBaseRelocationModeActive(true);
+        RaiseBlockedBuildPhaseStartedEvent();
+        Debug.Log("Neue Basis: Platzierungsmodus aktiv. Linksklick setzt die Basis, Rechtsklick/Escape bricht ab.");
+    }
+
+    public void CompleteBlockedBaseRelocation()
+    {
+        if (!blockedBaseRelocationPending)
+            return;
+
+        blockedBaseRelocationPending = false;
+
+        if (tileManager != null)
+            tileManager.SetBaseRelocationModeActive(false);
+
+        MarkBlockedEventChosenForCurrentPosition();
+        StartTimedBuildPhaseAfterBlockedEvent(pendingBaseRelocationBuildPhaseDuration);
+    }
+
+    public void CancelBlockedBaseRelocation()
+    {
+        if (!blockedBaseRelocationPending)
+            return;
+
+        blockedBaseRelocationPending = false;
+
+        if (tileManager != null)
+            tileManager.SetBaseRelocationModeActive(false);
+
+        StartTimedBuildPhaseAfterBlockedEvent(pendingBaseRelocationBuildPhaseDuration);
+    }
+
+    public bool TryCreateBlockedTeleporterBase()
+    {
+        if (tileManager == null)
+            return false;
+
+        int radius = Mathf.Max(1, tileManager.teleporterSearchRadius);
+        bool success = tileManager.TryCreateTeleporterBase(radius);
+
+        if (success)
+            MarkBlockedEventChosenForCurrentPosition();
+
+        return success;
     }
 
     public void AddLives(int amount)
@@ -1144,8 +1307,12 @@ public class GameManager : MonoBehaviour
         currentPhase = GamePhase.Wave;
 
         if (tileManager != null)
+        {
             tileManager.SetCanBuild(false);
+            tileManager.SetBaseRelocationModeActive(false);
+        }
 
+        blockedBaseRelocationPending = false;
         StopBlockedBuildTimer();
         postBossChoicePending = false;
 
@@ -1227,7 +1394,7 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return false;
 
-        return startMenuOpen || IsChaosJusticeChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
+        return startMenuOpen || blockedBaseRelocationPending || IsChaosJusticeChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
     }
 
     public bool CanOpenAuxiliaryModalUI()
@@ -1235,7 +1402,7 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return true;
 
-        return !startMenuOpen && !IsChaosJusticeChoiceOpen() && !IsBlockedEventSelectionOpen();
+        return !startMenuOpen && !blockedBaseRelocationPending && !IsChaosJusticeChoiceOpen() && !IsBlockedEventSelectionOpen();
     }
 
     public bool IsPathInputLockedByModalUI()
@@ -1243,7 +1410,7 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return true;
 
-        return startMenuOpen || IsChaosJusticeChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
+        return startMenuOpen || blockedBaseRelocationPending || IsChaosJusticeChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
     }
 
     public void ClosePathAndBuildSelectionsForModal()
