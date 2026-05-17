@@ -8,7 +8,11 @@ public enum BlockedEventType
     Continue,
     GoldBonus,
     LifeBonus,
-    BuildTimeBonus
+    BuildTimeBonus,
+    PersistentRewardBonus,
+    EvolutionPoint,
+    LargeLifeBoost,
+    RaiseLowTowersToLevelFive
 }
 
 [System.Serializable]
@@ -106,8 +110,10 @@ public class BlockedEventManager : MonoBehaviour
 
         possibleEvents = new List<BlockedEventOption>();
 
-        possibleEvents.Add(CreateGoldReserveOption());
-        possibleEvents.Add(CreateLifeRepairOption());
+        possibleEvents.Add(CreatePersistentRewardBonusOption());
+        possibleEvents.Add(CreateEvolutionPointOption());
+        possibleEvents.Add(CreateLargeLifeBoostOption());
+        possibleEvents.Add(CreateRaiseLowTowersOption());
         possibleEvents.Add(CreateLongBuildPhaseOption());
     }
 
@@ -166,8 +172,17 @@ public class BlockedEventManager : MonoBehaviour
             }
         }
 
+        AddBuiltInBlockedRewardOptions(eventPool);
         AddFallbackOptionsUntilReady(eventPool);
         return eventPool;
+    }
+
+    private void AddBuiltInBlockedRewardOptions(List<BlockedEventOption> eventPool)
+    {
+        AddOptionIfUnique(eventPool, CreatePersistentRewardBonusOption());
+        AddOptionIfUnique(eventPool, CreateEvolutionPointOption());
+        AddOptionIfUnique(eventPool, CreateLargeLifeBoostOption());
+        AddOptionIfUnique(eventPool, CreateRaiseLowTowersOption());
     }
 
     private bool IsSelectableEventOption(BlockedEventOption option)
@@ -196,8 +211,8 @@ public class BlockedEventManager : MonoBehaviour
     {
         return new List<BlockedEventOption>
         {
-            CreateGoldReserveOption(),
-            CreateLifeRepairOption(),
+            CreatePersistentRewardBonusOption(),
+            CreateLargeLifeBoostOption(),
             CreateLongBuildPhaseOption()
         };
     }
@@ -238,6 +253,47 @@ public class BlockedEventManager : MonoBehaviour
         eventPool.RemoveAt(randomIndex);
 
         return option;
+    }
+
+    private BlockedEventOption CreatePersistentRewardBonusOption()
+    {
+        return new BlockedEventOption
+        {
+            displayName = "Weg-Kompensation",
+            description = "Ab jetzt geben Gold und XP dauerhaft +1%. Danach " + GetTimedBuildPhaseText() + ".",
+            eventType = BlockedEventType.PersistentRewardBonus
+        };
+    }
+
+    private BlockedEventOption CreateEvolutionPointOption()
+    {
+        return new BlockedEventOption
+        {
+            displayName = "Evolutionspunkt",
+            description = "Der nächste angeklickte Tower erhält +50% aktuelle Werte. Danach " + GetTimedBuildPhaseText() + ".",
+            eventType = BlockedEventType.EvolutionPoint
+        };
+    }
+
+    private BlockedEventOption CreateLargeLifeBoostOption()
+    {
+        return new BlockedEventOption
+        {
+            displayName = "Lebensreserve",
+            description = "Du erhältst +50 Leben. Danach " + GetTimedBuildPhaseText() + ".",
+            eventType = BlockedEventType.LargeLifeBoost,
+            lifeAmount = 50
+        };
+    }
+
+    private BlockedEventOption CreateRaiseLowTowersOption()
+    {
+        return new BlockedEventOption
+        {
+            displayName = "Nachschulung",
+            description = "Alle Tower unter Level 5 werden sofort Level 5. Danach " + GetTimedBuildPhaseText() + ".",
+            eventType = BlockedEventType.RaiseLowTowersToLevelFive
+        };
     }
 
     private BlockedEventOption CreateGoldReserveOption()
@@ -301,7 +357,7 @@ public class BlockedEventManager : MonoBehaviour
             titleText.text = "VERBAUT!";
 
         if (descriptionText != null)
-            descriptionText.text = "Du bist verbaut. Wähle eine von drei Hilfen.";
+            descriptionText.text = "Du bist verbaut. Wähle eine von drei zufälligen Optionen.";
 
         SetOptionText(optionText1, 0);
         SetOptionText(optionText2, 1);
@@ -378,6 +434,27 @@ public class BlockedEventManager : MonoBehaviour
 
             case BlockedEventType.BuildTimeBonus:
                 Debug.Log("Blocked Event gewählt: Bauzeit " + FormatBuildPhaseDurationFor(buildPhaseDuration));
+                break;
+
+            case BlockedEventType.PersistentRewardBonus:
+                gameManager.AddBlockedEventRewardBonusStack();
+                Debug.Log("Blocked Event gewählt: dauerhafter Gold/XP-Bonus +1%.");
+                break;
+
+            case BlockedEventType.EvolutionPoint:
+                gameManager.AddEvolutionTowerBoost();
+                Debug.Log("Blocked Event gewählt: Evolutionspunkt.");
+                break;
+
+            case BlockedEventType.LargeLifeBoost:
+                appliedLives = Mathf.Max(0, option.lifeAmount);
+                gameManager.AddLives(appliedLives);
+                Debug.Log("Blocked Event gewählt: Leben +" + appliedLives);
+                break;
+
+            case BlockedEventType.RaiseLowTowersToLevelFive:
+                gameManager.RaiseLowTowersToLevelFive();
+                Debug.Log("Blocked Event gewählt: Tower unter Level 5 angehoben.");
                 break;
 
             case BlockedEventType.Continue:

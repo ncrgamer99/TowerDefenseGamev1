@@ -230,6 +230,9 @@ public class TowerUI : MonoBehaviour
 
         selectedTower = tower;
 
+        if (gameManager != null)
+            gameManager.TryApplyPendingEvolutionToTower(selectedTower);
+
         if (panel != null)
         {
             panel.transform.SetSiblingIndex(Mathf.Max(0, towerPanelSiblingIndexWhenOpen));

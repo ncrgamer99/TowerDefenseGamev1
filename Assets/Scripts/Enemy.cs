@@ -1101,12 +1101,7 @@ public class Enemy : MonoBehaviour
             gameManager = FindObjectOfType<GameManager>();
 
         if (gameManager != null)
-        {
-            ChaosJusticeManager chaosJusticeManager = gameManager.GetChaosJusticeManager();
-
-            if (chaosJusticeManager != null)
-                finalAmount = chaosJusticeManager.ApplyXPRewardModifiers(amount);
-        }
+            finalAmount = gameManager.ApplyXPRewardModifiers(amount);
 
         if (finalAmount <= 0)
             return;

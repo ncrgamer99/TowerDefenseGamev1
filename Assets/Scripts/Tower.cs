@@ -55,6 +55,7 @@ public class Tower : MonoBehaviour
     public int currentXP = 0;
     public int xpToNextLevel = 30;
     public int upgradePoints = 0;
+    public float evolutionStatMultiplier = 1f;
 
     [Header("Combat Stats")]
     public int totalKills = 0;
@@ -192,6 +193,7 @@ public class Tower : MonoBehaviour
         currentXP = Mathf.Max(0, currentXP);
         xpToNextLevel = Mathf.Max(1, xpToNextLevel);
         upgradePoints = Mathf.Max(0, upgradePoints);
+        evolutionStatMultiplier = Mathf.Max(1f, evolutionStatMultiplier);
 
         baseXPToNextLevel = Mathf.Max(1, baseXPToNextLevel);
         xpGrowthMultiplier = Mathf.Max(1f, xpGrowthMultiplier);
@@ -1077,6 +1079,26 @@ public class Tower : MonoBehaviour
         }
     }
 
+    public void RaiseToMinimumLevel(int targetLevel)
+    {
+        int safeTargetLevel = Mathf.Max(1, targetLevel);
+
+        while (level < safeTargetLevel)
+            LevelUp();
+
+        currentXP = Mathf.Clamp(currentXP, 0, Mathf.Max(0, xpToNextLevel - 1));
+    }
+
+    public void ApplyEvolutionBoost(float bonusPercent)
+    {
+        float multiplier = 1f + Mathf.Max(0f, bonusPercent);
+        evolutionStatMultiplier = Mathf.Max(1f, evolutionStatMultiplier) * multiplier;
+        ApplyVisualTierStatBonusIfNeeded(true);
+        RefreshRangeIndicatorIfVisible();
+        RefreshUpgradePointAvailableVisual();
+        Debug.Log(towerName + " Evolution angewendet: +" + (Mathf.Max(0f, bonusPercent) * 100f).ToString("0") + "% aktuelle Werte.");
+    }
+
     public void AddXP(int amount)
     {
         if (amount <= 0)
@@ -1561,29 +1583,30 @@ public class Tower : MonoBehaviour
 
         visualTierStatsAppliedForTier = safeTier;
         float bonusMultiplier = Mathf.Max(0f, visualTierStatBonusPerTier) * safeTier;
+        float safeEvolutionMultiplier = Mathf.Max(1f, evolutionStatMultiplier);
 
         int damageFromGold = damageGoldUpgradeLevel * damageIncreasePerGoldUpgrade;
         int damageFromPoints = damagePointUpgradeLevel * GetPointDamageIncreasePreview();
-        damage = Mathf.Max(0, baseDamageBeforeVisualTier + damageFromGold + damageFromPoints + Mathf.RoundToInt(baseDamageBeforeVisualTier * bonusMultiplier));
+        damage = Mathf.Max(0, Mathf.RoundToInt((baseDamageBeforeVisualTier + damageFromGold + damageFromPoints + Mathf.RoundToInt(baseDamageBeforeVisualTier * bonusMultiplier)) * safeEvolutionMultiplier));
 
         float rangeFromGold = rangeGoldUpgradeLevel * rangeIncreasePerGoldUpgrade;
         float rangeFromPoints = rangePointUpgradeLevel * GetPointRangeIncreasePreview();
-        range = Mathf.Max(0f, baseRangeBeforeVisualTier + rangeFromGold + rangeFromPoints + baseRangeBeforeVisualTier * bonusMultiplier);
+        range = Mathf.Max(0f, (baseRangeBeforeVisualTier + rangeFromGold + rangeFromPoints + baseRangeBeforeVisualTier * bonusMultiplier) * safeEvolutionMultiplier);
 
         float fireRateFromGold = fireRateGoldUpgradeLevel * fireRateIncreasePerGoldUpgrade;
         float fireRateFromPoints = fireRatePointUpgradeLevel * GetPointFireRateIncreasePreview();
-        fireRate = Mathf.Max(0.01f, baseFireRateBeforeVisualTier + fireRateFromGold + fireRateFromPoints + baseFireRateBeforeVisualTier * bonusMultiplier);
+        fireRate = Mathf.Max(0.01f, (baseFireRateBeforeVisualTier + fireRateFromGold + fireRateFromPoints + baseFireRateBeforeVisualTier * bonusMultiplier) * safeEvolutionMultiplier);
 
         if (appliesBurn)
         {
-            burnDamage = Mathf.Max(0, baseBurnDamageBeforeVisualTier + effectGoldUpgradeLevel * burnDamageIncreasePerGoldUpgrade + effectPointUpgradeLevel * GetPointBurnDamageIncreasePreview() + Mathf.RoundToInt(baseBurnDamageBeforeVisualTier * bonusMultiplier));
-            burnDuration = Mathf.Max(0f, baseBurnDurationBeforeVisualTier + effectGoldUpgradeLevel * effectDurationIncreasePerGoldUpgrade + effectPointUpgradeLevel * GetPointEffectDurationIncreasePreview() + baseBurnDurationBeforeVisualTier * bonusMultiplier);
+            burnDamage = Mathf.Max(0, Mathf.RoundToInt((baseBurnDamageBeforeVisualTier + effectGoldUpgradeLevel * burnDamageIncreasePerGoldUpgrade + effectPointUpgradeLevel * GetPointBurnDamageIncreasePreview() + Mathf.RoundToInt(baseBurnDamageBeforeVisualTier * bonusMultiplier)) * safeEvolutionMultiplier));
+            burnDuration = Mathf.Max(0f, (baseBurnDurationBeforeVisualTier + effectGoldUpgradeLevel * effectDurationIncreasePerGoldUpgrade + effectPointUpgradeLevel * GetPointEffectDurationIncreasePreview() + baseBurnDurationBeforeVisualTier * bonusMultiplier) * safeEvolutionMultiplier);
         }
 
         if (appliesPoison)
         {
-            poisonDamage = Mathf.Max(0, basePoisonDamageBeforeVisualTier + effectGoldUpgradeLevel * poisonDamageIncreasePerGoldUpgrade + effectPointUpgradeLevel * GetPointPoisonDamageIncreasePreview() + Mathf.RoundToInt(basePoisonDamageBeforeVisualTier * bonusMultiplier));
-            poisonDuration = Mathf.Max(0f, basePoisonDurationBeforeVisualTier + effectGoldUpgradeLevel * effectDurationIncreasePerGoldUpgrade + effectPointUpgradeLevel * GetPointEffectDurationIncreasePreview() + basePoisonDurationBeforeVisualTier * bonusMultiplier);
+            poisonDamage = Mathf.Max(0, Mathf.RoundToInt((basePoisonDamageBeforeVisualTier + effectGoldUpgradeLevel * poisonDamageIncreasePerGoldUpgrade + effectPointUpgradeLevel * GetPointPoisonDamageIncreasePreview() + Mathf.RoundToInt(basePoisonDamageBeforeVisualTier * bonusMultiplier)) * safeEvolutionMultiplier));
+            poisonDuration = Mathf.Max(0f, (basePoisonDurationBeforeVisualTier + effectGoldUpgradeLevel * effectDurationIncreasePerGoldUpgrade + effectPointUpgradeLevel * GetPointEffectDurationIncreasePreview() + basePoisonDurationBeforeVisualTier * bonusMultiplier) * safeEvolutionMultiplier);
         }
 
         if (appliesSlow)
@@ -1597,12 +1620,13 @@ public class Tower : MonoBehaviour
                 upgradedSlowStrength += effectPointUpgradeLevel * GetPointSlowAmountIncreasePreview();
             }
 
+            upgradedSlowStrength *= safeEvolutionMultiplier;
             slowAmount = Mathf.Clamp(1f - upgradedSlowStrength, 0.1f, 1f);
 
             if (towerRole == TowerRole.Lightning)
-                slowDuration = Mathf.Max(0f, baseSlowDurationBeforeVisualTier + baseSlowDurationBeforeVisualTier * bonusMultiplier);
+                slowDuration = Mathf.Max(0f, (baseSlowDurationBeforeVisualTier + baseSlowDurationBeforeVisualTier * bonusMultiplier) * safeEvolutionMultiplier);
             else
-                slowDuration = Mathf.Max(0f, baseSlowDurationBeforeVisualTier + effectGoldUpgradeLevel * slowDurationIncreasePerGoldUpgrade + effectPointUpgradeLevel * GetPointSlowDurationIncreasePreview() + baseSlowDurationBeforeVisualTier * bonusMultiplier);
+                slowDuration = Mathf.Max(0f, (baseSlowDurationBeforeVisualTier + effectGoldUpgradeLevel * slowDurationIncreasePerGoldUpgrade + effectPointUpgradeLevel * GetPointSlowDurationIncreasePreview() + baseSlowDurationBeforeVisualTier * bonusMultiplier) * safeEvolutionMultiplier);
         }
     }
 

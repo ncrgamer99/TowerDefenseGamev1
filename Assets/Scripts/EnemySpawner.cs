@@ -1644,25 +1644,25 @@ public class EnemySpawner : MonoBehaviour
         switch (scenario)
         {
             case WaveScenario.StandardIntro:
-                AddEntry(entries, EnemyRole.Standard, 5, 0.55f);
+                AddEntry(entries, EnemyRole.Standard, 4, 0.55f);
                 return true;
             case WaveScenario.RunnerIntro:
-                AddEntry(entries, EnemyRole.Standard, 5, 0.55f);
+                AddEntry(entries, EnemyRole.Standard, 4, 0.55f);
                 AddEntry(entries, EnemyRole.Runner, 1, 0.38f);
                 return true;
             case WaveScenario.TankIntro:
-                AddEntry(entries, EnemyRole.Standard, 6, 0.5f);
+                AddEntry(entries, EnemyRole.Standard, 5, 0.5f);
                 AddEntry(entries, EnemyRole.Tank, 2, 0.9f);
                 return true;
             case WaveScenario.ArmorCheck:
-                AddEntry(entries, EnemyRole.Standard, 7, 0.42f);
+                AddEntry(entries, EnemyRole.Standard, 6, 0.42f);
                 AddEntry(entries, EnemyRole.Runner, 2, 0.3f);
                 AddEntry(entries, EnemyRole.Knight, 2, 0.75f);
                 return true;
             case WaveScenario.MiniBoss:
                 if (waveNumber == 5)
                 {
-                    AddEntry(entries, EnemyRole.Standard, 6, 0.45f);
+                    AddEntry(entries, EnemyRole.Standard, 5, 0.45f);
                     AddEntry(entries, EnemyRole.Tank, 2, 0.9f);
                     AddEntry(entries, EnemyRole.MiniBoss, 1, 1.5f);
                     AddEntry(entries, EnemyRole.Standard, 5, 0.42f);
@@ -1671,12 +1671,12 @@ public class EnemySpawner : MonoBehaviour
                 }
                 return false;
             case WaveScenario.MageIntro:
-                AddEntry(entries, EnemyRole.Standard, 8, 0.42f);
+                AddEntry(entries, EnemyRole.Standard, 7, 0.42f);
                 AddEntry(entries, EnemyRole.Runner, 2, 0.3f);
                 AddEntry(entries, EnemyRole.Mage, 2, 0.75f);
                 return true;
             case WaveScenario.EffectImmunity:
-                AddEntry(entries, EnemyRole.Standard, 9, 0.38f);
+                AddEntry(entries, EnemyRole.Standard, 8, 0.38f);
                 AddEntry(entries, EnemyRole.Tank, 3, 0.8f);
                 AddEntry(entries, EnemyRole.Learner, 3, 0.58f);
                 AddEntry(entries, EnemyRole.Runner, 3, 0.3f);
@@ -1684,7 +1684,7 @@ public class EnemySpawner : MonoBehaviour
             case WaveScenario.Mixed:
                 if (waveNumber == 8)
                 {
-                    AddEntry(entries, EnemyRole.Standard, 7, 0.36f);
+                    AddEntry(entries, EnemyRole.Standard, 6, 0.36f);
                     AddEntry(entries, EnemyRole.Runner, 4, 0.26f);
                     AddEntry(entries, EnemyRole.Tank, 3, 0.75f);
                     AddEntry(entries, EnemyRole.Mage, 3, 0.7f);
@@ -1693,7 +1693,7 @@ public class EnemySpawner : MonoBehaviour
                 }
                 return false;
             case WaveScenario.PreBoss:
-                AddEntry(entries, EnemyRole.Standard, 7, 0.36f);
+                AddEntry(entries, EnemyRole.Standard, 6, 0.36f);
                 AddEntry(entries, EnemyRole.Runner, 4, 0.26f);
                 AddEntry(entries, EnemyRole.Tank, 4, 0.75f);
                 AddEntry(entries, EnemyRole.Knight, 4, 0.7f);
@@ -1702,7 +1702,7 @@ public class EnemySpawner : MonoBehaviour
             case WaveScenario.Boss:
                 if (waveNumber == 10)
                 {
-                    AddEntry(entries, EnemyRole.Standard, 7, 0.38f);
+                    AddEntry(entries, EnemyRole.Standard, 6, 0.38f);
                     AddEntry(entries, EnemyRole.Tank, 2, 0.7f);
                     AddEntry(entries, EnemyRole.Knight, 3, 0.65f);
                     AddEntry(entries, EnemyRole.Mage, 2, 0.6f);
