@@ -1674,11 +1674,6 @@ public class Enemy : MonoBehaviour
         return isBleeding;
     }
 
-    public bool HasPoison()
-    {
-        return isPoisoned;
-    }
-
     public bool HasDarkness()
     {
         return isDarkened;
