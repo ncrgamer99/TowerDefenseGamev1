@@ -37,7 +37,7 @@ public class GameManager : MonoBehaviour
 
     [Header("Start Menu")]
     public bool showStartMenuOnStart = true;
-    public int normalStartGold = 100;
+    public int normalStartGold = 120;
     public int normalStartLives = 20;
     public int balancingStartGold = 999999;
     public int balancingStartLives = 999999;
@@ -79,6 +79,10 @@ public class GameManager : MonoBehaviour
     [Header("Wave History Debug")]
     public WaveHistory waveHistory = new WaveHistory();
 
+    [Header("Enemy Wave Debug Window")]
+    public bool autoCreateEnemyWaveDebugWindow = true;
+    public KeyCode enemyWaveDebugToggleKey = KeyCode.F3;
+
     [Header("Wave Backend Events")]
     public bool fireWaveBackendEvents = true;
 
@@ -95,14 +99,19 @@ public class GameManager : MonoBehaviour
     private Vector2Int blockedEventPosition;
 
     [Header("Gold")]
-    public int gold = 100;
+    public int gold = 120;
 
     [Header("Wave Completion Rewards")]
     public bool giveWaveCompletionGold = true;
-    public int baseWaveCompletionGold = 7;
+    public int baseWaveCompletionGold = 6;
     public int waveCompletionGoldPerWave = 1;
     public int miniBossWaveCompletionGoldBonus = 10;
-    public int bossWaveCompletionGoldBonus = 25;
+    public int bossWaveCompletionGoldBonus = 24;
+
+    [Header("Blocked Event Rewards V1")]
+    public float blockedEventRewardBonusPerStack = 0.01f;
+    public int blockedEventRewardBonusStacks = 0;
+    public int pendingEvolutionTowerBoosts = 0;
 
     private int lastWaveRewarded = 0;
     private int lastWaveCompletionGoldReward = 0;
@@ -120,6 +129,7 @@ public class GameManager : MonoBehaviour
         GetChaosJusticeManager();
         GetRunStatisticsTracker();
         GetChaosUnlockManager();
+        EnsureEnemyWaveDebugWindow();
 
         if (showStartMenuOnStart)
         {
@@ -130,6 +140,14 @@ public class GameManager : MonoBehaviour
         }
 
         StartSelectedGame(GameStartMode.Normal);
+    }
+
+    private void EnsureEnemyWaveDebugWindow()
+    {
+        if (!autoCreateEnemyWaveDebugWindow)
+            return;
+
+        EnemyWaveDebugWindow.EnsureExists(this, enemyWaveDebugToggleKey);
     }
 
     private void Update()
@@ -194,9 +212,9 @@ public class GameManager : MonoBehaviour
         currentWaveScenario = currentWaveData.scenario;
         currentWaveScenarioName = currentWaveData.scenarioName;
         CreateCurrentWaveResult(currentWaveData);
+        RaiseWaveStartedEvent(currentWaveData);
         enemySpawner.StartWave(currentWaveData, OnWaveFinished);
         RefreshNextWaveDataDebug();
-        RaiseWaveStartedEvent(currentWaveData);
 
         Debug.Log(
             "Wave " + waveNumber +
@@ -1083,9 +1101,68 @@ public class GameManager : MonoBehaviour
         ChaosJusticeManager manager = GetChaosJusticeManager();
 
         if (manager == null)
+            return ApplyBlockedEventRewardBonus(safeAmount);
+
+        int modifiedAmount = manager.ApplyGoldRewardModifiers(safeAmount);
+        return ApplyBlockedEventRewardBonus(modifiedAmount);
+    }
+
+    public int ApplyXPRewardModifiers(int baseAmount)
+    {
+        int safeAmount = Mathf.Max(0, baseAmount);
+
+        ChaosJusticeManager manager = GetChaosJusticeManager();
+
+        if (manager != null)
+            safeAmount = manager.ApplyXPRewardModifiers(safeAmount);
+
+        return ApplyBlockedEventRewardBonus(safeAmount);
+    }
+
+    private int ApplyBlockedEventRewardBonus(int amount)
+    {
+        int safeAmount = Mathf.Max(0, amount);
+
+        if (safeAmount <= 0 || blockedEventRewardBonusStacks <= 0)
             return safeAmount;
 
-        return manager.ApplyGoldRewardModifiers(safeAmount);
+        float multiplier = 1f + blockedEventRewardBonusStacks * Mathf.Max(0f, blockedEventRewardBonusPerStack);
+        return Mathf.Max(0, Mathf.RoundToInt(safeAmount * multiplier));
+    }
+
+    public void AddBlockedEventRewardBonusStack()
+    {
+        blockedEventRewardBonusStacks = Mathf.Max(0, blockedEventRewardBonusStacks + 1);
+        Debug.Log("Verbau-Bonus: Gold/XP-Rewards jetzt +" + (blockedEventRewardBonusStacks * blockedEventRewardBonusPerStack * 100f).ToString("0") + "%.");
+    }
+
+    public void AddEvolutionTowerBoost()
+    {
+        pendingEvolutionTowerBoosts = Mathf.Max(0, pendingEvolutionTowerBoosts + 1);
+        Debug.Log("Evolutionspunkt erhalten. Der nächste ausgewählte Tower erhält +50% aktuelle Werte.");
+    }
+
+    public bool TryApplyPendingEvolutionToTower(Tower tower)
+    {
+        if (tower == null || pendingEvolutionTowerBoosts <= 0)
+            return false;
+
+        pendingEvolutionTowerBoosts--;
+        tower.ApplyEvolutionBoost(0.5f);
+        return true;
+    }
+
+    public void RaiseLowTowersToLevelFive()
+    {
+        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+
+        foreach (Tower tower in towers)
+        {
+            if (tower == null)
+                continue;
+
+            tower.RaiseToMinimumLevel(5);
+        }
     }
 
     public void AddLives(int amount)

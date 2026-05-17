@@ -162,9 +162,9 @@ MonoBehaviour:
   towerName: Slow Tower
   towerRole: 4
   autoApplyTowerRoleStats: 1
-  damage: 2
-  range: 3.6
-  fireRate: 1.05
+  damage: 1
+  range: 2.6
+  fireRate: 0.95
   targetMode: 7
   level: 1
   currentXP: 0
@@ -188,18 +188,18 @@ MonoBehaviour:
   rangeUpgradeCost: 70
   fireRateUpgradeCost: 80
   effectUpgradeCost: 75
-  goldUpgradeCostIncrease: 20
+  goldUpgradeCostIncrease: 25
   goldUpgradeCostMultiplier: 1.25
   damageIncreasePerGoldUpgrade: 1
-  rangeIncreasePerGoldUpgrade: 0.5
+  rangeIncreasePerGoldUpgrade: 0.25
   fireRateIncreasePerGoldUpgrade: 0.25
   burnDamageIncreasePerGoldUpgrade: 1
   poisonDamageIncreasePerGoldUpgrade: 1
   effectDurationIncreasePerGoldUpgrade: 0.25
-  slowAmountIncreasePerGoldUpgrade: 0.02
-  slowDurationIncreasePerGoldUpgrade: 0.25
+  slowAmountIncreasePerGoldUpgrade: 0.015
+  slowDurationIncreasePerGoldUpgrade: 0.20
   upgradePointCostPerUpgrade: 1
-  pointUpgradePowerMultiplier: 5
+  pointUpgradePowerMultiplier: 3
   damageGoldUpgradeLevel: 0
   rangeGoldUpgradeLevel: 0
   fireRateGoldUpgradeLevel: 0
@@ -215,7 +215,7 @@ MonoBehaviour:
   poisonDamage: 1
   poisonDuration: 4
   appliesSlow: 1
-  slowAmount: 0.45
-  slowDuration: 2.5
+  slowAmount: 0.55
+  slowDuration: 2.2
   projectilePrefab: {fileID: 1169158669789981972, guid: 7ee81efd9e206544485c4f3ccc44816e, type: 3}
   firePoint: {fileID: 3505652619069901123}
