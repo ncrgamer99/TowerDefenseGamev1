@@ -101,12 +101,28 @@ public class PathTileRailingBuilder : MonoBehaviour
 
     private void ClearOldRailings()
     {
-        Transform existing = transform.Find("__AutoRailings");
+        for (int i = transform.childCount - 1; i >= 0; i--)
+        {
+            Transform child = transform.GetChild(i);
 
-        if (existing != null)
-            Destroy(existing.gameObject);
+            if (child == null || child.name != "__AutoRailings")
+                continue;
+
+            DestroyGeneratedRailingObject(child.gameObject);
+        }
 
         railingRoot = null;
+    }
+
+    private void DestroyGeneratedRailingObject(GameObject generatedObject)
+    {
+        if (generatedObject == null)
+            return;
+
+        if (Application.isPlaying)
+            Destroy(generatedObject);
+        else
+            DestroyImmediate(generatedObject);
     }
 
     private Material CreateMaterial(Color color)
