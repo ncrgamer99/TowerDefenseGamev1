@@ -66,7 +66,7 @@ public class EnemySpawner : MonoBehaviour
     [Header("Chaos Wave Blocks V1")]
     public bool enableChaosWaveBlocksV1 = true;
     public int chaosWaveBlocksStartLevel = 2;
-    public int forceChaosWaveBlockAtLevel = 3;
+    public int forceChaosWaveBlockAtLevel = 4;
     public int maxChaosWaveBlocksV1 = 3;
     public float chaosWaveBlockChanceAtStartLevel = 0.60f;
     public float chaosWaveBlockChancePerAdditionalLevel = 0.20f;
