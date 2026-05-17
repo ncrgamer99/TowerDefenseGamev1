@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public enum BlockedEventType
@@ -51,6 +52,18 @@ public class BlockedEventManager : MonoBehaviour
     public TextMeshProUGUI optionText2;
     public TextMeshProUGUI optionText3;
 
+    [Header("UI Layout Defaults")]
+    public bool applyChoiceUILayoutDefaults = true;
+    public Vector2 eventTopBarSize = new Vector2(0f, 88f);
+    public float eventTopBarTopOffset = 116f;
+    public float eventTopBarLeftInset = 360f;
+    public float eventTopBarRightInset = 220f;
+    public bool hideTitleTextForChoiceBar = true;
+    public bool hideUnusedTopBarTextLabels = true;
+    public Color choiceBarColor = new Color32(18, 22, 30, 245);
+    public Color choiceButtonColor = new Color32(65, 95, 145, 255);
+    public Color choiceDescriptionColor = new Color32(255, 220, 120, 255);
+
     [Header("Settings")]
     public float timedBuildPhaseDuration = 60f;
 
@@ -65,6 +78,7 @@ public class BlockedEventManager : MonoBehaviour
 
     private void Start()
     {
+        ApplyChoiceUILayoutDefaults();
         CloseSelection();
         SetupButtons();
         CreateDefaultEventsIfEmpty();
@@ -126,19 +140,117 @@ public class BlockedEventManager : MonoBehaviour
         {
             optionButton1.onClick.RemoveAllListeners();
             optionButton1.onClick.AddListener(() => ChooseCurrentButton(0));
+            SetupOptionHover(optionButton1, 0);
         }
 
         if (optionButton2 != null)
         {
             optionButton2.onClick.RemoveAllListeners();
             optionButton2.onClick.AddListener(() => ChooseCurrentButton(1));
+            SetupOptionHover(optionButton2, 1);
         }
 
         if (optionButton3 != null)
         {
             optionButton3.onClick.RemoveAllListeners();
             optionButton3.onClick.AddListener(() => ChooseCurrentButton(2));
+            SetupOptionHover(optionButton3, 2);
         }
+    }
+
+    private void ApplyChoiceUILayoutDefaults()
+    {
+        if (!applyChoiceUILayoutDefaults)
+            return;
+
+        if (eventTopBar != null)
+        {
+            RectTransform rect = eventTopBar.GetComponent<RectTransform>();
+            if (rect != null)
+            {
+                rect.anchorMin = new Vector2(0f, 1f);
+                rect.anchorMax = new Vector2(1f, 1f);
+                rect.pivot = new Vector2(0.5f, 1f);
+                rect.anchoredPosition = new Vector2((eventTopBarLeftInset - eventTopBarRightInset) * 0.5f, -eventTopBarTopOffset);
+                rect.sizeDelta = new Vector2(-(eventTopBarLeftInset + eventTopBarRightInset), eventTopBarSize.y);
+            }
+
+            Image image = eventTopBar.GetComponent<Image>();
+            if (image != null)
+                image.color = choiceBarColor;
+
+            HideUnusedTopBarTextLabels();
+        }
+
+        if (titleText != null && hideTitleTextForChoiceBar)
+            titleText.gameObject.SetActive(false);
+
+        StyleChoiceButton(optionButton1, optionText1);
+        StyleChoiceButton(optionButton2, optionText2);
+        StyleChoiceButton(optionButton3, optionText3);
+
+        if (descriptionText != null)
+        {
+            descriptionText.fontSize = Mathf.Max(descriptionText.fontSize, 16f);
+            descriptionText.color = choiceDescriptionColor;
+            descriptionText.alignment = TextAlignmentOptions.Center;
+            descriptionText.enableWordWrapping = true;
+        }
+    }
+
+    private void HideUnusedTopBarTextLabels()
+    {
+        if (!hideUnusedTopBarTextLabels || eventTopBar == null)
+            return;
+
+        TextMeshProUGUI[] labels = eventTopBar.GetComponentsInChildren<TextMeshProUGUI>(true);
+        foreach (TextMeshProUGUI label in labels)
+        {
+            if (label == null || label == optionText1 || label == optionText2 || label == optionText3 || label == descriptionText || label == titleText)
+                continue;
+
+            if (label.text == "New Text" || string.IsNullOrWhiteSpace(label.text))
+                label.gameObject.SetActive(false);
+        }
+    }
+
+    private void StyleChoiceButton(Button button, TextMeshProUGUI text)
+    {
+        if (button != null)
+        {
+            Image image = button.GetComponent<Image>();
+            if (image != null)
+                image.color = choiceButtonColor;
+
+            LayoutElement layout = button.GetComponent<LayoutElement>();
+            if (layout == null)
+                layout = button.gameObject.AddComponent<LayoutElement>();
+
+            layout.preferredHeight = 46f;
+            layout.minHeight = 42f;
+        }
+
+        if (text != null)
+        {
+            text.fontSize = Mathf.Max(text.fontSize, 17f);
+            text.fontStyle = FontStyles.Bold;
+            text.color = Color.white;
+            text.alignment = TextAlignmentOptions.Center;
+            text.enableWordWrapping = false;
+        }
+    }
+
+    private void SetupOptionHover(Button button, int optionIndex)
+    {
+        if (button == null)
+            return;
+
+        BlockedEventOptionHoverProxy hoverProxy = button.GetComponent<BlockedEventOptionHoverProxy>();
+
+        if (hoverProxy == null)
+            hoverProxy = button.gameObject.AddComponent<BlockedEventOptionHoverProxy>();
+
+        hoverProxy.Initialize(this, optionIndex);
     }
 
     private void CreateDefaultEventsIfEmpty()
@@ -169,6 +281,7 @@ public class BlockedEventManager : MonoBehaviour
         if (gameManager != null)
             gameManager.ClosePathAndBuildSelectionsForModal();
 
+        ApplyChoiceUILayoutDefaults();
         CreateDefaultEventsIfEmpty();
         GenerateOptions();
         UpdateUI();
@@ -434,10 +547,12 @@ public class BlockedEventManager : MonoBehaviour
     private void UpdateUI()
     {
         if (titleText != null)
+        {
             titleText.text = "VERBAUT!";
+            titleText.gameObject.SetActive(!hideTitleTextForChoiceBar);
+        }
 
-        if (descriptionText != null)
-            descriptionText.text = "Du bist verbaut. Wähle eine von drei zufälligen Optionen.";
+        ShowDefaultChoiceDescription();
 
         SetOptionText(optionText1, 0);
         SetOptionText(optionText2, 1);
@@ -455,9 +570,44 @@ public class BlockedEventManager : MonoBehaviour
             return;
         }
 
-        textField.text =
-            "[" + (index + 1) + "] " + currentOptions[index].displayName +
-            "\n" + currentOptions[index].description;
+        textField.text = "[" + (index + 1) + "] " + currentOptions[index].displayName;
+    }
+
+    public void ShowOptionDescription(int optionIndex)
+    {
+        if (descriptionText == null)
+            return;
+
+        if (riskKeepSelectionOpen)
+        {
+            ShowRiskKeepOptionDescription(optionIndex);
+            return;
+        }
+
+        if (!selectionOpen)
+            return;
+
+        if (optionIndex < 0 || optionIndex >= currentOptions.Length || currentOptions[optionIndex] == null)
+        {
+            ShowDefaultChoiceDescription();
+            return;
+        }
+
+        descriptionText.text = currentOptions[optionIndex].description;
+    }
+
+    public void ShowDefaultChoiceDescription()
+    {
+        if (descriptionText == null)
+            return;
+
+        if (riskKeepSelectionOpen)
+        {
+            descriptionText.text = BuildRiskKeepDescriptionText();
+            return;
+        }
+
+        descriptionText.text = "Wähle eine Verbau-Option. Hover zeigt den Effekt.";
     }
 
     private void ChooseOption(int index)
@@ -599,11 +749,15 @@ public class BlockedEventManager : MonoBehaviour
 
     private void UpdateRiskKeepUI()
     {
-        if (titleText != null)
-            titleText.text = "RISIKO BEHALTEN";
+        ApplyChoiceUILayoutDefaults();
 
-        if (descriptionText != null)
-            descriptionText.text = BuildRiskKeepDescriptionText();
+        if (titleText != null)
+        {
+            titleText.text = "RISIKO BEHALTEN";
+            titleText.gameObject.SetActive(!hideTitleTextForChoiceBar);
+        }
+
+        ShowDefaultChoiceDescription();
 
         SetRiskKeepText(optionText1, 0);
         SetRiskKeepText(optionText2, 1);
@@ -647,6 +801,20 @@ public class BlockedEventManager : MonoBehaviour
         textField.text = "[" + (index + 1) + "] " + currentRiskKeepOptions[index];
     }
 
+    private void ShowRiskKeepOptionDescription(int optionIndex)
+    {
+        if (descriptionText == null)
+            return;
+
+        if (currentRiskKeepOptions == null || optionIndex < 0 || optionIndex >= currentRiskKeepOptions.Count)
+        {
+            ShowDefaultChoiceDescription();
+            return;
+        }
+
+        descriptionText.text = currentRiskKeepOptions[optionIndex] + " bleibt aktiv. Chaos wird auf 1 gesetzt; alle anderen Risiko-Modifikatoren werden entfernt.";
+    }
+
     private void ChooseRiskKeepOption(int index)
     {
         if (!riskKeepSelectionOpen || gameManager == null)
@@ -671,4 +839,28 @@ public class BlockedEventManager : MonoBehaviour
         return timedBuildPhaseDuration;
     }
 
+}
+
+public class BlockedEventOptionHoverProxy : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+{
+    private BlockedEventManager owner;
+    private int optionIndex;
+
+    public void Initialize(BlockedEventManager newOwner, int newOptionIndex)
+    {
+        owner = newOwner;
+        optionIndex = newOptionIndex;
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (owner != null)
+            owner.ShowOptionDescription(optionIndex);
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        if (owner != null)
+            owner.ShowDefaultChoiceDescription();
+    }
 }
