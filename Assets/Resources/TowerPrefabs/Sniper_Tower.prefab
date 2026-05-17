@@ -162,9 +162,9 @@ MonoBehaviour:
   towerName: Sniper Tower
   towerRole: 6
   autoApplyTowerRoleStats: 1
-  damage: 24
-  range: 6.2
-  fireRate: 0.35
+  damage: 32
+  range: 5.2
+  fireRate: 0.30
   targetMode: 4
   level: 1
   currentXP: 0
@@ -180,22 +180,22 @@ MonoBehaviour:
   visualTierLevelInterval: 10
   metaProgressionPoints: 0
   visualTier: 0
-  damageUpgradeCost: 45
-  rangeUpgradeCost: 50
-  fireRateUpgradeCost: 60
+  damageUpgradeCost: 95
+  rangeUpgradeCost: 80
+  fireRateUpgradeCost: 90
   effectUpgradeCost: 999
-  goldUpgradeCostIncrease: 20
-  goldUpgradeCostMultiplier: 1.25
-  damageIncreasePerGoldUpgrade: 1
-  rangeIncreasePerGoldUpgrade: 0.5
-  fireRateIncreasePerGoldUpgrade: 0.25
+  goldUpgradeCostIncrease: 30
+  goldUpgradeCostMultiplier: 1.35
+  damageIncreasePerGoldUpgrade: 6
+  rangeIncreasePerGoldUpgrade: 0.35
+  fireRateIncreasePerGoldUpgrade: 0.05
   burnDamageIncreasePerGoldUpgrade: 1
   poisonDamageIncreasePerGoldUpgrade: 1
   effectDurationIncreasePerGoldUpgrade: 0.25
   slowAmountIncreasePerGoldUpgrade: 0.02
   slowDurationIncreasePerGoldUpgrade: 0.25
   upgradePointCostPerUpgrade: 1
-  pointUpgradePowerMultiplier: 5
+  pointUpgradePowerMultiplier: 3
   damageGoldUpgradeLevel: 0
   rangeGoldUpgradeLevel: 0
   fireRateGoldUpgradeLevel: 0

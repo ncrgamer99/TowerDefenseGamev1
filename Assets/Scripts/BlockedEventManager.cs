@@ -8,7 +8,14 @@ public enum BlockedEventType
     Continue,
     GoldBonus,
     LifeBonus,
-    BuildTimeBonus
+    BuildTimeBonus,
+    PersistentRewardBonus,
+    EvolutionPoint,
+    LargeLifeBoost,
+    RaiseLowTowersToLevelFive,
+    ChaosResetKeepOneRisk,
+    RelocateBaseTile,
+    TeleporterBase
 }
 
 [System.Serializable]
@@ -52,6 +59,9 @@ public class BlockedEventManager : MonoBehaviour
 
     private BlockedEventOption[] currentOptions = new BlockedEventOption[3];
     private bool selectionOpen = false;
+    private bool riskKeepSelectionOpen = false;
+    private float pendingRiskKeepBuildPhaseDuration = 0f;
+    private List<string> currentRiskKeepOptions = new List<string>();
 
     private void Start()
     {
@@ -62,11 +72,43 @@ public class BlockedEventManager : MonoBehaviour
 
     private void Update()
     {
-        if (!selectionOpen)
+        if (!selectionOpen && !riskKeepSelectionOpen)
             return;
 
         if (gameManager != null && gameManager.IsChaosJusticeChoiceOpen())
             return;
+
+        if (riskKeepSelectionOpen)
+        {
+            if (Input.GetKeyDown(KeyCode.Alpha1))
+                ChooseRiskKeepOption(0);
+
+            if (Input.GetKeyDown(KeyCode.Alpha2))
+                ChooseRiskKeepOption(1);
+
+            if (Input.GetKeyDown(KeyCode.Alpha3))
+                ChooseRiskKeepOption(2);
+
+            if (Input.GetKeyDown(KeyCode.Alpha4))
+                ChooseRiskKeepOption(3);
+
+            if (Input.GetKeyDown(KeyCode.Alpha5))
+                ChooseRiskKeepOption(4);
+
+            if (Input.GetKeyDown(KeyCode.Alpha6))
+                ChooseRiskKeepOption(5);
+
+            if (Input.GetKeyDown(KeyCode.Alpha7))
+                ChooseRiskKeepOption(6);
+
+            if (Input.GetKeyDown(KeyCode.Alpha8))
+                ChooseRiskKeepOption(7);
+
+            if (Input.GetKeyDown(KeyCode.Alpha9))
+                ChooseRiskKeepOption(8);
+
+            return;
+        }
 
         if (Input.GetKeyDown(KeyCode.Alpha1))
             ChooseOption(0);
@@ -83,19 +125,19 @@ public class BlockedEventManager : MonoBehaviour
         if (optionButton1 != null)
         {
             optionButton1.onClick.RemoveAllListeners();
-            optionButton1.onClick.AddListener(() => ChooseOption(0));
+            optionButton1.onClick.AddListener(() => ChooseCurrentButton(0));
         }
 
         if (optionButton2 != null)
         {
             optionButton2.onClick.RemoveAllListeners();
-            optionButton2.onClick.AddListener(() => ChooseOption(1));
+            optionButton2.onClick.AddListener(() => ChooseCurrentButton(1));
         }
 
         if (optionButton3 != null)
         {
             optionButton3.onClick.RemoveAllListeners();
-            optionButton3.onClick.AddListener(() => ChooseOption(2));
+            optionButton3.onClick.AddListener(() => ChooseCurrentButton(2));
         }
     }
 
@@ -106,8 +148,10 @@ public class BlockedEventManager : MonoBehaviour
 
         possibleEvents = new List<BlockedEventOption>();
 
-        possibleEvents.Add(CreateGoldReserveOption());
-        possibleEvents.Add(CreateLifeRepairOption());
+        possibleEvents.Add(CreatePersistentRewardBonusOption());
+        possibleEvents.Add(CreateEvolutionPointOption());
+        possibleEvents.Add(CreateLargeLifeBoostOption());
+        possibleEvents.Add(CreateRaiseLowTowersOption());
         possibleEvents.Add(CreateLongBuildPhaseOption());
     }
 
@@ -138,9 +182,18 @@ public class BlockedEventManager : MonoBehaviour
     public void CloseSelection()
     {
         selectionOpen = false;
+        riskKeepSelectionOpen = false;
 
         if (eventTopBar != null)
             eventTopBar.SetActive(false);
+    }
+
+    private void ChooseCurrentButton(int index)
+    {
+        if (riskKeepSelectionOpen)
+            ChooseRiskKeepOption(index);
+        else
+            ChooseOption(index);
     }
 
     private void GenerateOptions()
@@ -166,8 +219,20 @@ public class BlockedEventManager : MonoBehaviour
             }
         }
 
+        AddBuiltInBlockedRewardOptions(eventPool);
         AddFallbackOptionsUntilReady(eventPool);
         return eventPool;
+    }
+
+    private void AddBuiltInBlockedRewardOptions(List<BlockedEventOption> eventPool)
+    {
+        AddOptionIfUnique(eventPool, CreatePersistentRewardBonusOption());
+        AddOptionIfUnique(eventPool, CreateEvolutionPointOption());
+        AddOptionIfUnique(eventPool, CreateLargeLifeBoostOption());
+        AddOptionIfUnique(eventPool, CreateRaiseLowTowersOption());
+        AddOptionIfUnique(eventPool, CreateChaosResetKeepOneRiskOption());
+        AddOptionIfUnique(eventPool, CreateRelocateBaseTileOption());
+        AddOptionIfUnique(eventPool, CreateTeleporterBaseOption());
     }
 
     private bool IsSelectableEventOption(BlockedEventOption option)
@@ -196,8 +261,8 @@ public class BlockedEventManager : MonoBehaviour
     {
         return new List<BlockedEventOption>
         {
-            CreateGoldReserveOption(),
-            CreateLifeRepairOption(),
+            CreatePersistentRewardBonusOption(),
+            CreateRelocateBaseTileOption(),
             CreateLongBuildPhaseOption()
         };
     }
@@ -238,6 +303,77 @@ public class BlockedEventManager : MonoBehaviour
         eventPool.RemoveAt(randomIndex);
 
         return option;
+    }
+
+    private BlockedEventOption CreatePersistentRewardBonusOption()
+    {
+        return new BlockedEventOption
+        {
+            displayName = "Weg-Kompensation",
+            description = "Ab jetzt geben Gold und XP dauerhaft +1%. Danach " + GetTimedBuildPhaseText() + ".",
+            eventType = BlockedEventType.PersistentRewardBonus
+        };
+    }
+
+    private BlockedEventOption CreateEvolutionPointOption()
+    {
+        return new BlockedEventOption
+        {
+            displayName = "Evolutionspunkt",
+            description = "Der nächste angeklickte Tower erhält +50% aktuelle Werte. Danach " + GetTimedBuildPhaseText() + ".",
+            eventType = BlockedEventType.EvolutionPoint
+        };
+    }
+
+    private BlockedEventOption CreateLargeLifeBoostOption()
+    {
+        return new BlockedEventOption
+        {
+            displayName = "Lebensreserve",
+            description = "Du erhältst +50 Leben. Danach " + GetTimedBuildPhaseText() + ".",
+            eventType = BlockedEventType.LargeLifeBoost,
+            lifeAmount = 50
+        };
+    }
+
+    private BlockedEventOption CreateRaiseLowTowersOption()
+    {
+        return new BlockedEventOption
+        {
+            displayName = "Nachschulung",
+            description = "Alle Tower unter Level 5 werden sofort Level 5. Danach " + GetTimedBuildPhaseText() + ".",
+            eventType = BlockedEventType.RaiseLowTowersToLevelFive
+        };
+    }
+
+    private BlockedEventOption CreateChaosResetKeepOneRiskOption()
+    {
+        return new BlockedEventOption
+        {
+            displayName = "Chaos ordnen",
+            description = "Chaos wird auf 1 gesetzt. Du behältst genau einen aktiven Risiko-Modifikator.",
+            eventType = BlockedEventType.ChaosResetKeepOneRisk
+        };
+    }
+
+    private BlockedEventOption CreateRelocateBaseTileOption()
+    {
+        return new BlockedEventOption
+        {
+            displayName = "Neue Basis",
+            description = "Setze die Basis auf ein gültiges Build-Feld am Weg. Der alte Wegschwanz samt nahen Towern wird entfernt.",
+            eventType = BlockedEventType.RelocateBaseTile
+        };
+    }
+
+    private BlockedEventOption CreateTeleporterBaseOption()
+    {
+        return new BlockedEventOption
+        {
+            displayName = "Teleporter",
+            description = "Eine neue Basis erscheint zufällig nahe am Weg. Ein Teleporter verbindet alte und neue Basis dauerhaft.",
+            eventType = BlockedEventType.TeleporterBase
+        };
     }
 
     private BlockedEventOption CreateGoldReserveOption()
@@ -301,7 +437,7 @@ public class BlockedEventManager : MonoBehaviour
             titleText.text = "VERBAUT!";
 
         if (descriptionText != null)
-            descriptionText.text = "Du bist verbaut. Wähle eine von drei Hilfen.";
+            descriptionText.text = "Du bist verbaut. Wähle eine von drei zufälligen Optionen.";
 
         SetOptionText(optionText1, 0);
         SetOptionText(optionText2, 1);
@@ -347,7 +483,7 @@ public class BlockedEventManager : MonoBehaviour
 
     public bool IsSelectionOpen()
     {
-        return selectionOpen;
+        return selectionOpen || riskKeepSelectionOpen;
     }
 
     private void ApplyEvent(BlockedEventOption option)
@@ -380,6 +516,51 @@ public class BlockedEventManager : MonoBehaviour
                 Debug.Log("Blocked Event gewählt: Bauzeit " + FormatBuildPhaseDurationFor(buildPhaseDuration));
                 break;
 
+            case BlockedEventType.PersistentRewardBonus:
+                gameManager.AddBlockedEventRewardBonusStack();
+                Debug.Log("Blocked Event gewählt: dauerhafter Gold/XP-Bonus +1%.");
+                break;
+
+            case BlockedEventType.EvolutionPoint:
+                gameManager.AddEvolutionTowerBoost();
+                Debug.Log("Blocked Event gewählt: Evolutionspunkt.");
+                break;
+
+            case BlockedEventType.LargeLifeBoost:
+                appliedLives = Mathf.Max(0, option.lifeAmount);
+                gameManager.AddLives(appliedLives);
+                Debug.Log("Blocked Event gewählt: Leben +" + appliedLives);
+                break;
+
+            case BlockedEventType.RaiseLowTowersToLevelFive:
+                gameManager.RaiseLowTowersToLevelFive();
+                Debug.Log("Blocked Event gewählt: Tower unter Level 5 angehoben.");
+                break;
+
+            case BlockedEventType.ChaosResetKeepOneRisk:
+                OpenRiskKeepSelection(option, buildPhaseDuration);
+                return;
+
+            case BlockedEventType.RelocateBaseTile:
+                gameManager.RegisterBlockedEventChoice(option.displayName, option.eventType.ToString(), appliedGold, appliedLives, buildPhaseDuration);
+                gameManager.MarkBlockedEventChosenForCurrentPosition();
+                gameManager.BeginBlockedBaseRelocation(buildPhaseDuration);
+                Debug.Log("Blocked Event gewählt: Neue Basis platzieren.");
+                return;
+
+            case BlockedEventType.TeleporterBase:
+                if (!gameManager.TryCreateBlockedTeleporterBase())
+                {
+                    gameManager.AddLives(10);
+                    appliedLives = 10;
+                    Debug.LogWarning("Teleporter fehlgeschlagen; sichere Ersatzbelohnung +10 Leben.");
+                }
+                else
+                {
+                    Debug.Log("Blocked Event gewählt: Teleporter-Basis erstellt.");
+                }
+                break;
+
             case BlockedEventType.Continue:
                 Debug.LogWarning("BlockedEventManager: Continue ist keine auswählbare Verbau-Option mehr und wurde nur als Fallback verarbeitet.");
                 break;
@@ -390,6 +571,97 @@ public class BlockedEventManager : MonoBehaviour
         gameManager.StartTimedBuildPhaseAfterBlockedEvent(buildPhaseDuration);
     }
 
+
+    private void OpenRiskKeepSelection(BlockedEventOption sourceOption, float buildPhaseDuration)
+    {
+        if (gameManager == null)
+            return;
+
+        currentRiskKeepOptions = gameManager.GetActiveRiskModifierDisplayNames();
+
+        if (currentRiskKeepOptions == null || currentRiskKeepOptions.Count == 0)
+        {
+            gameManager.ResetChaosToOneKeepingRiskModifier(-1);
+            gameManager.RegisterBlockedEventChoice(sourceOption.displayName, sourceOption.eventType.ToString(), 0, 0, buildPhaseDuration);
+            gameManager.MarkBlockedEventChosenForCurrentPosition();
+            gameManager.StartTimedBuildPhaseAfterBlockedEvent(buildPhaseDuration);
+            return;
+        }
+
+        pendingRiskKeepBuildPhaseDuration = buildPhaseDuration;
+        riskKeepSelectionOpen = true;
+        selectionOpen = false;
+        UpdateRiskKeepUI();
+
+        if (eventTopBar != null)
+            eventTopBar.SetActive(true);
+    }
+
+    private void UpdateRiskKeepUI()
+    {
+        if (titleText != null)
+            titleText.text = "RISIKO BEHALTEN";
+
+        if (descriptionText != null)
+            descriptionText.text = BuildRiskKeepDescriptionText();
+
+        SetRiskKeepText(optionText1, 0);
+        SetRiskKeepText(optionText2, 1);
+        SetRiskKeepText(optionText3, 2);
+    }
+
+    private string BuildRiskKeepDescriptionText()
+    {
+        string text = "Wähle, welcher Risiko-Modifikator aktiv bleibt. Chaos wird auf 1 gesetzt.";
+
+        if (currentRiskKeepOptions == null || currentRiskKeepOptions.Count == 0)
+            return text;
+
+        text += "\n";
+
+        for (int i = 0; i < currentRiskKeepOptions.Count; i++)
+        {
+            if (i >= 9)
+            {
+                text += "\nWeitere Risiken werden entfernt.";
+                break;
+            }
+
+            text += "\n[" + (i + 1) + "] " + currentRiskKeepOptions[i];
+        }
+
+        return text;
+    }
+
+    private void SetRiskKeepText(TextMeshProUGUI textField, int index)
+    {
+        if (textField == null)
+            return;
+
+        if (currentRiskKeepOptions == null || index >= currentRiskKeepOptions.Count)
+        {
+            textField.text = "[" + (index + 1) + "] Keine weitere Auswahl";
+            return;
+        }
+
+        textField.text = "[" + (index + 1) + "] " + currentRiskKeepOptions[index];
+    }
+
+    private void ChooseRiskKeepOption(int index)
+    {
+        if (!riskKeepSelectionOpen || gameManager == null)
+            return;
+
+        if (currentRiskKeepOptions == null || index < 0 || index >= currentRiskKeepOptions.Count)
+            return;
+
+        riskKeepSelectionOpen = false;
+        CloseSelection();
+        gameManager.ResetChaosToOneKeepingRiskModifier(index);
+        gameManager.RegisterBlockedEventChoice("Chaos ordnen", BlockedEventType.ChaosResetKeepOneRisk.ToString(), 0, 0, pendingRiskKeepBuildPhaseDuration);
+        gameManager.MarkBlockedEventChosenForCurrentPosition();
+        gameManager.StartTimedBuildPhaseAfterBlockedEvent(pendingRiskKeepBuildPhaseDuration);
+    }
 
     private float GetBuildPhaseDurationForOption(BlockedEventOption option)
     {
