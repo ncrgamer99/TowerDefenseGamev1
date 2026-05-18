@@ -3,7 +3,27 @@ guid: fb87c0da856425a439d3facb8ceb03d6
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: TD_Mat_Barrel_DarkMetal
+    second: {fileID: 2100000, guid: 4ed5678bbf8b4994ba959cfd79d2bda7, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: TD_Mat_Base_Grey
+    second: {fileID: 2100000, guid: 2cc0564dddad690419c0f7b6260d0d1a, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: TD_Mat_Energy_Cyan
+    second: {fileID: 2100000, guid: 8f5809e76a3ea774ca629531e3fcc099, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: TD_Mat_Tower_Blue
+    second: {fileID: 2100000, guid: b67b205d748579045b4b6791973fab00, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
