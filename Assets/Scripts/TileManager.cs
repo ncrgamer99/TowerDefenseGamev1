@@ -43,6 +43,11 @@ public class TileManager : MonoBehaviour
     public Color xpTileColor = new Color32(155, 105, 255, 255);
     public Color upgradeTileColor = new Color32(255, 245, 120, 255);
 
+    [Header("Blocked Event Base Tools V1")]
+    public Color relocationGhostValidColor = new Color32(80, 220, 140, 190);
+    public Color teleporterColor = new Color32(80, 210, 255, 255);
+    public int teleporterSearchRadius = 5;
+
     private bool canBuild = true;
     private bool buildTilesVisible = false;
 
@@ -63,6 +68,11 @@ public class TileManager : MonoBehaviour
     private bool hasReservedPathExtension = false;
     private Vector2Int reservedPathExtensionPosition;
     private float reservedPathExtensionWarningTimer = 0f;
+
+    private bool baseRelocationModeActive = false;
+    private readonly List<Vector2Int> teleporterEntryPositions = new List<Vector2Int>();
+    private readonly List<Vector2Int> teleporterExitPositions = new List<Vector2Int>();
+    private readonly List<GameObject> teleporterObjects = new List<GameObject>();
 
     private void Start()
     {
@@ -169,6 +179,73 @@ public class TileManager : MonoBehaviour
             return false;
 
         return IsValidBasePosition(targetPosition);
+    }
+
+    public bool IsBaseRelocationModeActive()
+    {
+        return baseRelocationModeActive;
+    }
+
+    public void SetBaseRelocationModeActive(bool active)
+    {
+        baseRelocationModeActive = active;
+        SetBuildTilesVisible(active);
+    }
+
+    public bool CanRelocateBaseTo(Vector2Int targetPosition)
+    {
+        if (!baseRelocationModeActive)
+            return false;
+
+        return IsValidBaseRelocationPosition(targetPosition);
+    }
+
+    public bool TryRelocateBaseTo(Vector2Int newBasePosition)
+    {
+        if (!CanRelocateBaseTo(newBasePosition))
+        {
+            ShowBuildWarning("Neue Basis kann nur auf ein gültiges Build-Feld neben bestehendem Weg gesetzt werden.");
+            return false;
+        }
+
+        if (!TryFindBestNeighborPathIndex(newBasePosition, out int anchorIndex))
+        {
+            ShowBuildWarning("Neue Basis braucht Anschluss an einen bestehenden Weg.");
+            return false;
+        }
+
+        RelocateBaseToAnchor(newBasePosition, anchorIndex, true);
+        baseRelocationModeActive = false;
+        return true;
+    }
+
+    public bool TryCreateTeleporterBase(int searchRadius)
+    {
+        int safeRadius = Mathf.Max(1, searchRadius);
+        List<Vector2Int> candidates = GetTeleporterBaseCandidates(safeRadius);
+
+        if (candidates.Count == 0)
+        {
+            Debug.LogWarning("Teleporter: Keine sichere Position gefunden.");
+            return false;
+        }
+
+        Vector2Int oldBasePosition = basePosition;
+        Vector2Int newBasePosition = candidates[Random.Range(0, candidates.Count)];
+
+        if (!TryFindNearestPathIndex(newBasePosition, out int anchorIndex))
+            anchorIndex = Mathf.Max(0, pathPositions.Count - 1);
+
+        teleporterEntryPositions.Add(oldBasePosition);
+        teleporterExitPositions.Add(newBasePosition);
+        CreateTeleporterVisual(oldBasePosition, newBasePosition);
+
+        basePosition = newBasePosition;
+        currentDirection = GetSafeDirectionFromAnchor(anchorIndex, newBasePosition);
+        PlaceBaseTile();
+        RefreshPathRailings();
+        RefreshBuildTiles();
+        return true;
     }
 
     public bool TryExtendPathTo(Vector2Int newBasePosition)
@@ -418,6 +495,69 @@ public class TileManager : MonoBehaviour
         ShowBuildRestrictionWarning();
     }
 
+    private bool IsValidBaseRelocationPosition(Vector2Int position)
+    {
+        if (position == basePosition || position == startPosition)
+            return false;
+
+        if (!buildTilePositions.Contains(position))
+            return false;
+
+        if (towerPositions.Contains(position) || specialBlockedPositions.Contains(position) || pathPositions.Contains(position))
+            return false;
+
+        return HasNeighborPath(position);
+    }
+
+    private bool HasNeighborPath(Vector2Int position)
+    {
+        return TryFindBestNeighborPathIndex(position, out _);
+    }
+
+    private bool TryFindBestNeighborPathIndex(Vector2Int position, out int pathIndex)
+    {
+        pathIndex = -1;
+
+        if (pathPositions == null)
+            return false;
+
+        Vector2Int[] directions = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+
+        for (int i = 0; i < pathPositions.Count; i++)
+        {
+            foreach (Vector2Int direction in directions)
+            {
+                if (pathPositions[i] + direction == position && i > pathIndex)
+                    pathIndex = i;
+            }
+        }
+
+        return pathIndex >= 0;
+    }
+
+    private bool TryFindNearestPathIndex(Vector2Int position, out int pathIndex)
+    {
+        pathIndex = -1;
+
+        if (pathPositions == null || pathPositions.Count == 0)
+            return false;
+
+        int bestDistance = int.MaxValue;
+
+        for (int i = 0; i < pathPositions.Count; i++)
+        {
+            int distance = Mathf.Abs(pathPositions[i].x - position.x) + Mathf.Abs(pathPositions[i].y - position.y);
+
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                pathIndex = i;
+            }
+        }
+
+        return pathIndex >= 0;
+    }
+
     private bool IsValidBasePosition(Vector2Int position)
     {
         if (position == basePosition)
@@ -450,6 +590,172 @@ public class TileManager : MonoBehaviour
         }
 
         return false;
+    }
+
+    private void RelocateBaseToAnchor(Vector2Int newBasePosition, int anchorIndex, bool destroyOldRouteTail)
+    {
+        int safeAnchorIndex = Mathf.Clamp(anchorIndex, 0, Mathf.Max(0, pathPositions.Count - 1));
+        List<Vector2Int> removedPathPositions = new List<Vector2Int>();
+
+        if (destroyOldRouteTail)
+        {
+            for (int i = pathPositions.Count - 1; i > safeAnchorIndex; i--)
+            {
+                Vector2Int removedPosition = pathPositions[i];
+                removedPathPositions.Add(removedPosition);
+                pathPositions.RemoveAt(i);
+
+                if (pathTileObjects.TryGetValue(removedPosition, out GameObject pathObject) && pathObject != null)
+                    Destroy(pathObject);
+
+                pathTileObjects.Remove(removedPosition);
+            }
+
+            DestroyTowersAroundRemovedPath(removedPathPositions);
+            RemoveSpecialBlocksAroundRemovedPath(removedPathPositions);
+        }
+
+        basePosition = newBasePosition;
+        currentDirection = GetSafeDirectionFromAnchor(safeAnchorIndex, newBasePosition);
+        PlaceBaseTile();
+        RefreshPathRailings();
+        RefreshBuildTiles();
+    }
+
+    private Vector2Int GetSafeDirectionFromAnchor(int anchorIndex, Vector2Int targetPosition)
+    {
+        if (pathPositions == null || pathPositions.Count == 0)
+            return Vector2Int.right;
+
+        int safeAnchorIndex = Mathf.Clamp(anchorIndex, 0, pathPositions.Count - 1);
+        Vector2Int direction = targetPosition - pathPositions[safeAnchorIndex];
+
+        if (Mathf.Abs(direction.x) > Mathf.Abs(direction.y))
+            return new Vector2Int(direction.x > 0 ? 1 : -1, 0);
+
+        if (direction.y != 0)
+            return new Vector2Int(0, direction.y > 0 ? 1 : -1);
+
+        return currentDirection == Vector2Int.zero ? Vector2Int.right : currentDirection;
+    }
+
+    private void DestroyTowersAroundRemovedPath(List<Vector2Int> removedPathPositions)
+    {
+        if (removedPathPositions == null || removedPathPositions.Count == 0)
+            return;
+
+        HashSet<Vector2Int> affectedBuildPositions = GetBuildPositionsAround(removedPathPositions);
+        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+
+        foreach (Tower tower in towers)
+        {
+            if (tower == null)
+                continue;
+
+            Vector2Int towerGridPosition = WorldToGrid(tower.transform.position);
+
+            if (!affectedBuildPositions.Contains(towerGridPosition))
+                continue;
+
+            towerPositions.Remove(towerGridPosition);
+            Destroy(tower.gameObject);
+        }
+    }
+
+    private void RemoveSpecialBlocksAroundRemovedPath(List<Vector2Int> removedPathPositions)
+    {
+        if (removedPathPositions == null || removedPathPositions.Count == 0)
+            return;
+
+        HashSet<Vector2Int> affectedBuildPositions = GetBuildPositionsAround(removedPathPositions);
+
+        foreach (Vector2Int position in affectedBuildPositions)
+            specialBlockedPositions.Remove(position);
+
+        for (int i = specialTileObjects.Count - 1; i >= 0; i--)
+        {
+            GameObject specialTileObject = specialTileObjects[i];
+
+            if (specialTileObject == null)
+            {
+                specialTileObjects.RemoveAt(i);
+                continue;
+            }
+
+            Vector2Int specialTilePosition = WorldToGrid(specialTileObject.transform.position);
+
+            if (!affectedBuildPositions.Contains(specialTilePosition))
+                continue;
+
+            Destroy(specialTileObject);
+            specialTileObjects.RemoveAt(i);
+        }
+    }
+
+    private HashSet<Vector2Int> GetBuildPositionsAround(List<Vector2Int> pathTiles)
+    {
+        HashSet<Vector2Int> positions = new HashSet<Vector2Int>();
+        Vector2Int[] directions = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+
+        foreach (Vector2Int pathTile in pathTiles)
+        {
+            foreach (Vector2Int direction in directions)
+                positions.Add(pathTile + direction);
+        }
+
+        return positions;
+    }
+
+    private List<Vector2Int> GetTeleporterBaseCandidates(int radius)
+    {
+        List<Vector2Int> candidates = new List<Vector2Int>();
+
+        if (pathPositions == null)
+            return candidates;
+
+        foreach (Vector2Int pathPosition in pathPositions)
+        {
+            if (pathPosition == startPosition)
+                continue;
+
+            for (int x = -radius; x <= radius; x++)
+            {
+                for (int y = -radius; y <= radius; y++)
+                {
+                    Vector2Int candidate = pathPosition + new Vector2Int(x, y);
+
+                    if (Mathf.Abs(x) + Mathf.Abs(y) > radius)
+                        continue;
+
+                    if (candidate == basePosition || IsPositionBlocked(candidate))
+                        continue;
+
+                    if (!HasNeighborPath(candidate) && Mathf.Abs(x) + Mathf.Abs(y) <= 1)
+                        continue;
+
+                    if (!candidates.Contains(candidate))
+                        candidates.Add(candidate);
+                }
+            }
+        }
+
+        return candidates;
+    }
+
+    private void CreateTeleporterVisual(Vector2Int entryPosition, Vector2Int exitPosition)
+    {
+        CreateTeleporterMarker(entryPosition, "Teleporter Eingang");
+        CreateTeleporterMarker(exitPosition, "Teleporter Ausgang");
+    }
+
+    private void CreateTeleporterMarker(Vector2Int gridPosition, string objectName)
+    {
+        GameObject marker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        marker.name = objectName;
+        marker.transform.position = GridToWorld(gridPosition) + Vector3.up * 0.25f;
+        marker.transform.localScale = new Vector3(tileSize * 0.45f, 0.18f, tileSize * 0.45f);
+        ColorTile(marker, teleporterColor);
+        teleporterObjects.Add(marker);
     }
 
     private void AddPathTile(Vector2Int gridPosition)
@@ -787,6 +1093,10 @@ public class TileManager : MonoBehaviour
         {
             worldPath.Add(GridToWorld(gridPos));
         }
+
+        int teleporterIndex = teleporterExitPositions.LastIndexOf(basePosition);
+        if (teleporterIndex >= 0 && teleporterIndex < teleporterEntryPositions.Count)
+            worldPath.Add(GridToWorld(teleporterEntryPositions[teleporterIndex]));
 
         worldPath.Add(GridToWorld(basePosition));
 

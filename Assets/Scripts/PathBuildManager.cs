@@ -80,6 +80,12 @@ public class PathBuildManager : MonoBehaviour
     {
         ResolveGameManagerReference();
 
+        if (tileManager != null && tileManager.IsBaseRelocationModeActive())
+        {
+            HandleBaseRelocationPlacement();
+            return;
+        }
+
         if (IsInputLockedByModalUI())
         {
             CancelChoice();
@@ -312,37 +318,61 @@ public class PathBuildManager : MonoBehaviour
             descriptionText.text = "Wähle ein Tile, bevor die nächste Wave startet. Hover zeigt den Effekt.";
     }
 
-    private void SetupOptionHover(Button button, int optionIndex)
+    private void HandleBaseRelocationPlacement()
     {
-        if (button == null)
+        if (tileManager == null || mainCamera == null)
             return;
 
-        PathBuildOptionHoverProxy hoverProxy = button.GetComponent<PathBuildOptionHoverProxy>();
+        choiceOpen = false;
 
-        if (hoverProxy == null)
-            hoverProxy = button.gameObject.AddComponent<PathBuildOptionHoverProxy>();
+        if (pathTopBar != null)
+            pathTopBar.SetActive(false);
 
-        hoverProxy.Initialize(this, optionIndex);
-    }
-
-    public void ShowOptionDescription(int optionIndex)
-    {
-        if (!choiceOpen || descriptionText == null)
-            return;
-
-        if (optionIndex < 0 || optionIndex >= currentOptions.Length || currentOptions[optionIndex] == null)
+        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetMouseButtonDown(1))
         {
-            ShowDefaultChoiceDescription();
+            tileManager.SetBaseRelocationModeActive(false);
+
+            if (gameManager != null)
+                gameManager.CancelBlockedBaseRelocation();
+
+            HideGhostOnly();
             return;
         }
 
-        descriptionText.text = currentOptions[optionIndex].description;
-    }
+        Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
 
-    public void ShowDefaultChoiceDescription()
-    {
-        if (descriptionText != null)
-            descriptionText.text = "Wähle ein Tile, bevor die nächste Wave startet. Hover zeigt den Effekt.";
+        if (!Physics.Raycast(ray, out RaycastHit hit))
+        {
+            HideGhostOnly();
+            return;
+        }
+
+        Vector2Int gridPos = tileManager.WorldToGridPublic(hit.point);
+
+        if (!tileManager.CanRelocateBaseTo(gridPos))
+        {
+            HideGhostOnly();
+            return;
+        }
+
+        hoveredGridPosition = gridPos;
+        hasValidHover = true;
+
+        if (currentGhost != null)
+        {
+            currentGhost.transform.position = tileManager.GridToWorldPublic(gridPos);
+            currentGhost.SetActive(true);
+        }
+
+        if (Input.GetMouseButtonDown(0))
+        {
+            bool success = tileManager.TryRelocateBaseTo(gridPos);
+
+            if (success && gameManager != null)
+                gameManager.CompleteBlockedBaseRelocation();
+
+            HideGhostOnly();
+        }
     }
 
     private void UpdateGhost()
