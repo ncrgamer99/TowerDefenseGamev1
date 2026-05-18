@@ -26,7 +26,7 @@ public class SpikeTrapEffect : MonoBehaviour
 
         Renderer spikeRenderer = spikeObject.GetComponent<Renderer>();
         if (spikeRenderer != null)
-            spikeRenderer.sharedMaterial = CreateSolidMaterial(new Color32(125, 125, 135, 255));
+            spikeRenderer.material.color = new Color32(125, 125, 135, 255);
 
         SpikeTrapEffect spike = spikeObject.AddComponent<SpikeTrapEffect>();
         spike.worldPosition = spikeObject.transform.position;
@@ -84,78 +84,5 @@ public class SpikeTrapEffect : MonoBehaviour
             Destroy(spike.gameObject);
             return;
         }
-    }
-
-    private static Material CreateSolidMaterial(Color color)
-    {
-        Material template = Resources.Load<Material>("Materials/FX_Unlit_Transparent");
-        Material material = null;
-
-        if (template != null && !IsMissingOrErrorMaterial(template))
-            material = new Material(template);
-
-        if (material == null)
-        {
-            Shader shader = FindBuildSafeShader();
-            if (shader == null)
-                return null;
-
-            material = new Material(shader);
-        }
-
-        ApplyMaterialColor(material, color);
-        return material;
-    }
-
-    private static Shader FindBuildSafeShader()
-    {
-        string[] candidates =
-        {
-            "Universal Render Pipeline/Lit",
-            "Standard",
-            "Universal Render Pipeline/Unlit",
-            "Sprites/Default",
-            "UI/Default",
-            "Unlit/Color"
-        };
-
-        foreach (string shaderName in candidates)
-        {
-            Shader shader = Shader.Find(shaderName);
-            if (shader != null)
-                return shader;
-        }
-
-        return null;
-    }
-
-    private static bool IsMissingOrErrorMaterial(Material material)
-    {
-        if (material == null)
-            return true;
-
-        Shader shader = material.shader;
-        if (shader == null)
-            return true;
-
-        string shaderName = shader.name;
-        return string.IsNullOrEmpty(shaderName) || shaderName == "Hidden/InternalErrorShader";
-    }
-
-    private static void ApplyMaterialColor(Material material, Color color)
-    {
-        if (material == null)
-            return;
-
-        material.color = color;
-
-        if (material.HasProperty("_BaseColor"))
-            material.SetColor("_BaseColor", color);
-
-        if (material.HasProperty("_Color"))
-            material.SetColor("_Color", color);
-
-        if (material.HasProperty("_TintColor"))
-            material.SetColor("_TintColor", color);
     }
 }

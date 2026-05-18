@@ -14,10 +14,6 @@ public class TowerRangeIndicator : MonoBehaviour
     public int circleSegments = 96;
     public float outlineWidth = 0.045f;
 
-    [Header("Build-Safe FX Material")]
-    public Material transparentFxMaterial;
-    public string fallbackFxMaterialResourcePath = BuildSafeFxMaterialUtility.DefaultTransparentResourcePath;
-
     private GameObject fillObject;
     private MeshRenderer fillRenderer;
     private MeshFilter fillFilter;
@@ -70,8 +66,9 @@ public class TowerRangeIndicator : MonoBehaviour
             return;
 
         EnsureVisuals();
+        RefreshVisualRootScale();
 
-        float range = Mathf.Max(0.05f, tower.range);
+        float range = Mathf.Max(0.05f, tower.GetEffectiveRange());
 
         if (!force && Mathf.Abs(range - lastRange) < 0.001f)
             return;
@@ -92,6 +89,7 @@ public class TowerRangeIndicator : MonoBehaviour
             fillObject.transform.SetParent(transform, false);
             fillObject.transform.localPosition = Vector3.up * yOffset;
             fillObject.transform.localRotation = Quaternion.identity;
+            fillObject.transform.localScale = GetInverseLocalScale(transform.localScale);
 
             fillFilter = fillObject.AddComponent<MeshFilter>();
             fillRenderer = fillObject.AddComponent<MeshRenderer>();
@@ -106,6 +104,7 @@ public class TowerRangeIndicator : MonoBehaviour
             outlineObject.transform.SetParent(transform, false);
             outlineObject.transform.localPosition = Vector3.up * (yOffset + 0.006f);
             outlineObject.transform.localRotation = Quaternion.identity;
+            outlineObject.transform.localScale = GetInverseLocalScale(transform.localScale);
 
             outlineRenderer = outlineObject.AddComponent<LineRenderer>();
             outlineRenderer.loop = true;
@@ -120,9 +119,58 @@ public class TowerRangeIndicator : MonoBehaviour
         }
     }
 
+    private void RefreshVisualRootScale()
+    {
+        Vector3 inverseScale = GetInverseLocalScale(transform.localScale);
+
+        if (fillObject != null)
+            fillObject.transform.localScale = inverseScale;
+
+        if (outlineRenderer != null)
+            outlineRenderer.transform.localScale = inverseScale;
+    }
+
+    private Vector3 GetInverseLocalScale(Vector3 localScale)
+    {
+        return new Vector3(
+            GetSafeInverseScaleAxis(localScale.x),
+            GetSafeInverseScaleAxis(localScale.y),
+            GetSafeInverseScaleAxis(localScale.z)
+        );
+    }
+
+    private float GetSafeInverseScaleAxis(float scaleAxis)
+    {
+        if (Mathf.Abs(scaleAxis) < 0.001f)
+            return 1f;
+
+        return 1f / scaleAxis;
+    }
+
     private Material CreateTransparentMaterial(Color color)
     {
-        return BuildSafeFxMaterialUtility.CreateTransparentMaterial(color, transparentFxMaterial, fallbackFxMaterialResourcePath);
+        Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+
+        if (shader == null)
+            shader = Shader.Find("Unlit/Color");
+
+        if (shader == null)
+            shader = Shader.Find("Sprites/Default");
+
+        Material material = new Material(shader);
+        material.color = color;
+
+        if (material.HasProperty("_BaseColor"))
+            material.SetColor("_BaseColor", color);
+
+        material.SetFloat("_Surface", 1f);
+        material.SetFloat("_Blend", 0f);
+        material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        material.SetFloat("_ZWrite", 0f);
+        material.renderQueue = 3000;
+        material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        return material;
     }
 
     private void SetVisualsActive(bool active)

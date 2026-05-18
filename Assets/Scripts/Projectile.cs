@@ -15,16 +15,6 @@ public class Projectile : MonoBehaviour
     public int damage = 1;
     public ProjectileBehavior behavior = ProjectileBehavior.Direct;
 
-    [Header("Lifetime Safety")]
-    public float maxLifetime = 6f;
-    public bool clearTrailsOnHit = true;
-
-    [Header("Build-Safe FX Material")]
-    public bool repairMissingFxMaterialsOnAwake = true;
-    public Material projectileFxMaterial;
-    public Color fallbackFxColor = Color.white;
-    public string fallbackFxMaterialResourcePath = "Materials/FX_Unlit_Transparent";
-
     [Header("Status Effects")]
     public bool appliesBurn = false;
     public int burnDamage = 1;
@@ -60,19 +50,6 @@ public class Projectile : MonoBehaviour
     private Tower ownerTower;
     private Vector3 mortarImpactPosition;
     private bool hasMortarImpactPosition = false;
-    private float lifetimeTimer = 0f;
-    private Material runtimeFallbackFxMaterial;
-
-    private void Awake()
-    {
-        RepairFxMaterialsIfNeeded();
-    }
-
-    private void OnEnable()
-    {
-        lifetimeTimer = 0f;
-        RepairFxMaterialsIfNeeded();
-    }
 
     public void SetTarget(Enemy newTarget, Tower tower)
     {
@@ -91,15 +68,6 @@ public class Projectile : MonoBehaviour
 
     private void Update()
     {
-        lifetimeTimer += Time.deltaTime;
-
-        if (lifetimeTimer >= Mathf.Max(0.1f, maxLifetime))
-        {
-            ClearTransientFx();
-            Destroy(gameObject);
-            return;
-        }
-
         if (behavior == ProjectileBehavior.MortarAOE)
         {
             UpdateMortarProjectile();
@@ -108,7 +76,6 @@ public class Projectile : MonoBehaviour
 
         if (target == null)
         {
-            ClearTransientFx();
             Destroy(gameObject);
             return;
         }
@@ -131,7 +98,6 @@ public class Projectile : MonoBehaviour
     {
         if (!hasMortarImpactPosition)
         {
-            ClearTransientFx();
             Destroy(gameObject);
             return;
         }
@@ -146,7 +112,6 @@ public class Projectile : MonoBehaviour
     {
         if (target == null)
         {
-            ClearTransientFx();
             Destroy(gameObject);
             return;
         }
@@ -165,7 +130,6 @@ public class Projectile : MonoBehaviour
                 break;
         }
 
-        ClearTransientFx();
         Destroy(gameObject);
     }
 
@@ -274,7 +238,6 @@ public class Projectile : MonoBehaviour
         }
 
         CreateMortarImpactVisual(mortarImpactPosition, radius);
-        ClearTransientFx();
         Destroy(gameObject);
     }
 
@@ -291,11 +254,7 @@ public class Projectile : MonoBehaviour
 
         Renderer renderer = impactObject.GetComponent<Renderer>();
         if (renderer != null)
-        {
-            Color finalColor = mortarImpactColor;
-            renderer.sharedMaterial = CreateBuildSafeTransparentMaterial(finalColor);
-            renderer.material.color = finalColor;
-        }
+            renderer.material.color = mortarImpactColor;
 
         Destroy(impactObject, 0.25f);
     }
@@ -309,210 +268,25 @@ public class Projectile : MonoBehaviour
         line.SetPosition(1, end);
         line.startWidth = 0.055f;
         line.endWidth = 0.02f;
-        line.material = CreateBuildSafeTransparentMaterial(color);
+        line.material = CreateLineMaterial(color);
         line.startColor = color;
         line.endColor = color;
-        line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        line.receiveShadows = false;
         Destroy(lineObject, Mathf.Max(0.02f, duration));
     }
 
-    private void RepairFxMaterialsIfNeeded()
+    private Material CreateLineMaterial(Color color)
     {
-        if (!repairMissingFxMaterialsOnAwake)
-            return;
+        Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
 
-        LineRenderer[] lineRenderers = GetComponentsInChildren<LineRenderer>(true);
-        foreach (LineRenderer lineRenderer in lineRenderers)
-        {
-            if (lineRenderer == null)
-                continue;
-
-            if (IsMissingOrErrorMaterial(lineRenderer.sharedMaterial))
-                lineRenderer.sharedMaterial = GetRuntimeFallbackFxMaterial();
-        }
-
-        TrailRenderer[] trailRenderers = GetComponentsInChildren<TrailRenderer>(true);
-        foreach (TrailRenderer trailRenderer in trailRenderers)
-        {
-            if (trailRenderer == null)
-                continue;
-
-            if (IsMissingOrErrorMaterial(trailRenderer.sharedMaterial))
-                trailRenderer.sharedMaterial = GetRuntimeFallbackFxMaterial();
-        }
-
-        ParticleSystemRenderer[] particleRenderers = GetComponentsInChildren<ParticleSystemRenderer>(true);
-        foreach (ParticleSystemRenderer particleRenderer in particleRenderers)
-        {
-            if (particleRenderer == null)
-                continue;
-
-            if (IsMissingOrErrorMaterial(particleRenderer.sharedMaterial))
-                particleRenderer.sharedMaterial = GetRuntimeFallbackFxMaterial();
-        }
-
-        MeshRenderer[] meshRenderers = GetComponentsInChildren<MeshRenderer>(true);
-        foreach (MeshRenderer meshRenderer in meshRenderers)
-        {
-            if (meshRenderer == null)
-                continue;
-
-            if (IsMissingOrErrorMaterial(meshRenderer.sharedMaterial))
-                meshRenderer.sharedMaterial = GetRuntimeFallbackFxMaterial();
-        }
-    }
-
-    private Material GetRuntimeFallbackFxMaterial()
-    {
-        if (runtimeFallbackFxMaterial != null)
-            return runtimeFallbackFxMaterial;
-
-        runtimeFallbackFxMaterial = CreateBuildSafeTransparentMaterial(fallbackFxColor);
-        return runtimeFallbackFxMaterial;
-    }
-
-    private void ClearTransientFx()
-    {
-        if (!clearTrailsOnHit)
-            return;
-
-        TrailRenderer[] trailRenderers = GetComponentsInChildren<TrailRenderer>(true);
-        foreach (TrailRenderer trailRenderer in trailRenderers)
-        {
-            if (trailRenderer != null)
-                trailRenderer.Clear();
-        }
-
-        LineRenderer[] lineRenderers = GetComponentsInChildren<LineRenderer>(true);
-        foreach (LineRenderer lineRenderer in lineRenderers)
-        {
-            if (lineRenderer != null)
-                lineRenderer.enabled = false;
-        }
-
-        ParticleSystem[] particleSystems = GetComponentsInChildren<ParticleSystem>(true);
-        foreach (ParticleSystem particleSystem in particleSystems)
-        {
-            if (particleSystem != null)
-                particleSystem.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-        }
-    }
-
-    private Material CreateBuildSafeTransparentMaterial(Color color)
-    {
-        Material template = projectileFxMaterial;
-
-        if (template == null && !string.IsNullOrEmpty(fallbackFxMaterialResourcePath))
-            template = Resources.Load<Material>(fallbackFxMaterialResourcePath);
-
-        Material material = null;
-
-        if (template != null && !IsMissingOrErrorMaterial(template))
-            material = new Material(template);
-
-        if (material == null)
-        {
-            Shader shader = FindBuildSafeShader(true);
-            if (shader == null)
-                return null;
-
-            material = new Material(shader);
-        }
-
-        ApplyMaterialColor(material, color);
-        ApplyTransparentSettings(material);
-        return material;
-    }
-
-    private static Shader FindBuildSafeShader(bool preferUnlit)
-    {
-        string[] unlitCandidates =
-        {
-            "Universal Render Pipeline/Unlit",
-            "Sprites/Default",
-            "UI/Default",
-            "Unlit/Color",
-            "Unlit/Transparent",
-            "Universal Render Pipeline/Lit",
-            "Standard"
-        };
-
-        string[] litCandidates =
-        {
-            "Universal Render Pipeline/Lit",
-            "Standard",
-            "Universal Render Pipeline/Unlit",
-            "Sprites/Default",
-            "UI/Default",
-            "Unlit/Color"
-        };
-
-        string[] candidates = preferUnlit ? unlitCandidates : litCandidates;
-
-        foreach (string shaderName in candidates)
-        {
-            Shader shader = Shader.Find(shaderName);
-            if (shader != null)
-                return shader;
-        }
-
-        return null;
-    }
-
-    private static bool IsMissingOrErrorMaterial(Material material)
-    {
-        if (material == null)
-            return true;
-
-        Shader shader = material.shader;
         if (shader == null)
-            return true;
+            shader = Shader.Find("Unlit/Color");
 
-        string shaderName = shader.name;
-        return string.IsNullOrEmpty(shaderName) || shaderName == "Hidden/InternalErrorShader";
-    }
-
-    private static void ApplyMaterialColor(Material material, Color color)
-    {
-        if (material == null)
-            return;
-
+        Material material = new Material(shader);
         material.color = color;
 
         if (material.HasProperty("_BaseColor"))
             material.SetColor("_BaseColor", color);
 
-        if (material.HasProperty("_Color"))
-            material.SetColor("_Color", color);
-
-        if (material.HasProperty("_TintColor"))
-            material.SetColor("_TintColor", color);
-    }
-
-    private static void ApplyTransparentSettings(Material material)
-    {
-        if (material == null)
-            return;
-
-        if (material.HasProperty("_Surface"))
-            material.SetFloat("_Surface", 1f);
-
-        if (material.HasProperty("_Blend"))
-            material.SetFloat("_Blend", 0f);
-
-        if (material.HasProperty("_SrcBlend"))
-            material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-
-        if (material.HasProperty("_DstBlend"))
-            material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-
-        if (material.HasProperty("_ZWrite"))
-            material.SetFloat("_ZWrite", 0f);
-
-        material.renderQueue = 3000;
-        material.SetOverrideTag("RenderType", "Transparent");
-        material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-        material.EnableKeyword("_ALPHABLEND_ON");
+        return material;
     }
 }

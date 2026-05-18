@@ -40,10 +40,23 @@ public class TowerUI : MonoBehaviour
 
     [Header("Stats UI")]
     public TextMeshProUGUI statsText;
+    public TextMeshProUGUI totalStatsText;
+    public bool autoCreateTotalStatsText = true;
 
     [Header("Targeting UI")]
     public Button targetModeButton;
     public TextMeshProUGUI targetModeButtonText;
+
+    [Header("Sell UI")]
+    public Button sellButton;
+    public TextMeshProUGUI sellButtonText;
+    public bool autoCreateSellButton = true;
+    public bool hideCloseButtonBecauseRightClickCloses = true;
+    public bool hideMetaAndVisualTierText = true;
+    public float sellButtonBottomBarHeight = 52f;
+    public Color sellButtonColor = new Color32(200, 75, 75, 255);
+    public Vector2 sellButtonTopRightSize = new Vector2(150f, 34f);
+    public int towerPanelSiblingIndexWhenOpen = 2;
 
     [Header("Menu Tabs")]
     public Button goldUpgradeTabButton;
@@ -54,13 +67,6 @@ public class TowerUI : MonoBehaviour
     [Header("Menu Panels")]
     public GameObject goldUpgradePanel;
     public GameObject pointUpgradePanel;
-
-    [Header("Upgrade Button Auto Layout")]
-    public bool autoRepairUpgradeButtonLayoutOnStart = true;
-    public Vector2 upgradeButtonSize = new Vector2(178f, 80f);
-    public Vector2 upgradeButtonSpacing = new Vector2(10f, 10f);
-    public float upgradeButtonFontSize = 16f;
-    public float upgradeButtonMinFontSize = 11f;
 
     [Header("Gold Upgrade UI")]
     public TextMeshProUGUI goldUpgradeInfoText;
@@ -104,9 +110,10 @@ public class TowerUI : MonoBehaviour
 
     private void Start()
     {
+        CreateSellButtonIfNeeded();
+        CreateTotalStatsTextIfNeeded();
         SetupButtons();
         ApplyStaticTheme();
-        RepairUpgradeButtonLayoutsIfNeeded();
 
         if (panel != null)
             panel.SetActive(false);
@@ -129,16 +136,30 @@ public class TowerUI : MonoBehaviour
 
     private void SetupButtons()
     {
-        if (closeButton != null)
+        if (closeButton != null && closeButton != sellButton)
         {
             closeButton.onClick.RemoveAllListeners();
             closeButton.onClick.AddListener(Close);
+
+            if (hideCloseButtonBecauseRightClickCloses)
+                closeButton.gameObject.SetActive(false);
+        }
+        else if (closeButton != null)
+        {
+            closeButton.gameObject.SetActive(true);
         }
 
         if (targetModeButton != null)
         {
             targetModeButton.onClick.RemoveAllListeners();
             targetModeButton.onClick.AddListener(CycleTargetMode);
+        }
+
+        if (sellButton != null)
+        {
+            ApplySellButtonBottomBarLayout();
+            sellButton.onClick.RemoveAllListeners();
+            sellButton.onClick.AddListener(SellSelectedTower);
         }
 
         if (goldUpgradeTabButton != null)
@@ -209,8 +230,14 @@ public class TowerUI : MonoBehaviour
 
         selectedTower = tower;
 
+        if (gameManager != null)
+            gameManager.TryApplyPendingEvolutionToTower(selectedTower);
+
         if (panel != null)
+        {
+            panel.transform.SetSiblingIndex(Mathf.Max(0, towerPanelSiblingIndexWhenOpen));
             panel.SetActive(true);
+        }
 
         currentMenu = TowerUIMenu.GoldUpgrades;
         ApplyCurrentMenuVisibility();
@@ -274,9 +301,12 @@ public class TowerUI : MonoBehaviour
         SetTextColor(metaPointText, textSecondaryColor);
         SetTextColor(visualTierText, textSecondaryColor);
         SetTextColor(statsText, textPrimaryColor);
+        SetTextColor(totalStatsText, textPrimaryColor);
 
         if (xpFillImage != null)
             xpFillImage.color = new Color32(70, 220, 120, 255);
+
+        ApplySellButtonVisualStyle();
     }
 
     private void UpdateUI()
@@ -319,10 +349,16 @@ public class TowerUI : MonoBehaviour
             upgradePointText.text = "Upgrade Points: " + selectedTower.upgradePoints;
 
         if (metaPointText != null)
-            metaPointText.text = "Meta vorbereitet: " + selectedTower.metaProgressionPoints;
+        {
+            metaPointText.text = hideMetaAndVisualTierText ? "" : "Meta vorbereitet: " + selectedTower.metaProgressionPoints;
+            metaPointText.gameObject.SetActive(!hideMetaAndVisualTierText);
+        }
 
         if (visualTierText != null)
-            visualTierText.text = "Visual Tier: " + selectedTower.visualTier;
+        {
+            visualTierText.text = hideMetaAndVisualTierText ? "" : "Visual Tier: " + selectedTower.visualTier;
+            visualTierText.gameObject.SetActive(!hideMetaAndVisualTierText);
+        }
     }
 
     private void UpdateStatsUI()
@@ -332,19 +368,42 @@ public class TowerUI : MonoBehaviour
 
         statsText.text =
             "Stats" +
-            "\nDMG: " + selectedTower.damage +
-            " | RNG: " + selectedTower.range.ToString("0.0") +
-            " | FR: " + selectedTower.fireRate.ToString("0.00") +
-            "\nTarget: " + selectedTower.GetTargetModeName() +
-            GetEffectStatsText() +
-            "\n\nWave" +
-            "\nKills: " + selectedTower.currentWaveKills +
-            " | Assists: " + selectedTower.currentWaveAssists +
-            "\nDamage: " + selectedTower.currentWaveDamageDealt.ToString("0") +
-            "\n\nTotal" +
-            "\nKills: " + selectedTower.totalKills +
-            " | Assists: " + selectedTower.totalAssists +
-            "\nDamage: " + selectedTower.totalDamageDealt.ToString("0");
+            "\nDMG: " + BuildEffectiveStatText(selectedTower.damage.ToString(), selectedTower.GetEffectiveDamage().ToString()) +
+            "\nRNG: " + BuildEffectiveStatText(selectedTower.range.ToString("0.0"), selectedTower.GetEffectiveRange().ToString("0.0")) +
+            "\nFR: " + BuildEffectiveStatText(selectedTower.fireRate.ToString("0.00"), selectedTower.GetEffectiveFireRate().ToString("0.00")) +
+            GetLightningStatsText() +
+            GetEffectStatsText();
+
+        if (totalStatsText != null)
+        {
+            totalStatsText.text =
+                "Total" +
+                "\nKills: " + selectedTower.totalKills +
+                "\nAssists: " + selectedTower.totalAssists +
+                "\nDamage: " + selectedTower.totalDamageDealt.ToString("0");
+        }
+    }
+
+    private string BuildEffectiveStatText(string baseValue, string effectiveValue)
+    {
+        if (baseValue == effectiveValue)
+            return baseValue;
+
+        return baseValue + " > " + effectiveValue;
+    }
+
+    private string GetLightningStatsText()
+    {
+        if (selectedTower == null || selectedTower.towerRole != TowerRole.Lightning)
+            return "";
+
+        string text = "\nChain Targets: " + selectedTower.GetLightningGuaranteedChainTargetCount();
+        float bonusChance = selectedTower.GetLightningBonusChainRemainderChance();
+
+        if (bonusChance > 0f)
+            text += " + " + (bonusChance * 100f).ToString("0") + "% Bonus";
+
+        return text;
     }
 
     private string GetEffectStatsText()
@@ -356,7 +415,7 @@ public class TowerUI : MonoBehaviour
 
         if (selectedTower.appliesBurn)
         {
-            text += "\nBurn: " + selectedTower.burnDamage + " / " + selectedTower.burnDuration.ToString("0.0") + "s";
+            text += "\nBurn: " + selectedTower.burnDamage + " / " + selectedTower.burnDuration.ToString("0.0") + "s | max 3 Stacks";
         }
 
         if (selectedTower.appliesPoison)
@@ -390,7 +449,7 @@ public class TowerUI : MonoBehaviour
             goldDamageButtonText.text = BuildUpgradeButtonText("Damage", "+" + selectedTower.damageIncreasePerGoldUpgrade, selectedTower.damageUpgradeCost + " Gold");
 
         if (goldRangeButtonText != null)
-            goldRangeButtonText.text = BuildUpgradeButtonText("Range", "+" + selectedTower.rangeIncreasePerGoldUpgrade.ToString("0.0"), selectedTower.rangeUpgradeCost + " Gold");
+            goldRangeButtonText.text = BuildUpgradeButtonText("Range", "+" + selectedTower.rangeIncreasePerGoldUpgrade.ToString("0.00"), selectedTower.rangeUpgradeCost + " Gold");
 
         if (goldFireRateButtonText != null)
             goldFireRateButtonText.text = BuildUpgradeButtonText("Fire Rate", "+" + selectedTower.fireRateIncreasePerGoldUpgrade.ToString("0.00"), selectedTower.fireRateUpgradeCost + " Gold");
@@ -416,7 +475,7 @@ public class TowerUI : MonoBehaviour
             pointDamageButtonText.text = BuildUpgradeButtonText("Damage", "+" + selectedTower.GetPointDamageIncreasePreview(), selectedTower.GetUpgradePointCost() + " Point");
 
         if (pointRangeButtonText != null)
-            pointRangeButtonText.text = BuildUpgradeButtonText("Range", "+" + selectedTower.GetPointRangeIncreasePreview().ToString("0.0"), selectedTower.GetUpgradePointCost() + " Point");
+            pointRangeButtonText.text = BuildUpgradeButtonText("Range", "+" + selectedTower.GetPointRangeIncreasePreview().ToString("0.00"), selectedTower.GetUpgradePointCost() + " Point");
 
         if (pointFireRateButtonText != null)
             pointFireRateButtonText.text = BuildUpgradeButtonText("Fire Rate", "+" + selectedTower.GetPointFireRateIncreasePreview().ToString("0.00"), selectedTower.GetUpgradePointCost() + " Point");
@@ -436,13 +495,19 @@ public class TowerUI : MonoBehaviour
             return "";
 
         if (selectedTower.appliesBurn)
-            return "+" + selectedTower.burnDamageIncreasePerGoldUpgrade;
+            return "+" + selectedTower.burnDamageIncreasePerGoldUpgrade + " Burn / +" + selectedTower.effectDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
 
         if (selectedTower.appliesPoison)
-            return "+" + selectedTower.poisonDamageIncreasePerGoldUpgrade;
+            return "+" + selectedTower.poisonDamageIncreasePerGoldUpgrade + " Poison / +" + selectedTower.effectDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
+
+        if (selectedTower.towerRole == TowerRole.Lightning)
+            return "+" + (selectedTower.GetLightningBonusChainChanceIncreasePerGoldUpgrade() * 100f).ToString("0") + "% Bonus-Chain";
 
         if (selectedTower.appliesSlow)
             return "-" + selectedTower.slowAmountIncreasePerGoldUpgrade.ToString("0.00") + " Slow / +" + selectedTower.slowDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
+
+        if (selectedTower.towerRole == TowerRole.Spike)
+            return "+1 Bleed / +" + selectedTower.effectDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
 
         return "+0";
     }
@@ -453,91 +518,26 @@ public class TowerUI : MonoBehaviour
             return "";
 
         if (selectedTower.appliesBurn)
-            return "+" + selectedTower.GetPointBurnDamageIncreasePreview();
+            return "+" + selectedTower.GetPointBurnDamageIncreasePreview() + " Burn / +" + selectedTower.GetPointEffectDurationIncreasePreview().ToString("0.00") + "s";
 
         if (selectedTower.appliesPoison)
-            return "+" + selectedTower.GetPointPoisonDamageIncreasePreview();
+            return "+" + selectedTower.GetPointPoisonDamageIncreasePreview() + " Poison / +" + selectedTower.GetPointEffectDurationIncreasePreview().ToString("0.00") + "s";
+
+        if (selectedTower.towerRole == TowerRole.Lightning)
+            return "+" + (selectedTower.GetPointLightningBonusChainChanceIncreasePreview() * 100f).ToString("0") + "% Bonus-Chain";
 
         if (selectedTower.appliesSlow)
             return "-" + selectedTower.GetPointSlowAmountIncreasePreview().ToString("0.00") + " Slow / +" + selectedTower.GetPointSlowDurationIncreasePreview().ToString("0.00") + "s";
+
+        if (selectedTower.towerRole == TowerRole.Spike)
+            return "+" + selectedTower.GetPointSpikeBleedDamageIncreasePreview() + " Bleed / +" + selectedTower.GetPointSpikeBleedDurationIncreasePreview().ToString("0.00") + "s";
 
         return "+0";
     }
 
     private string BuildUpgradeButtonText(string title, string valueText, string costText)
     {
-        return
-            "<b>" + title + "</b>" +
-            "\n<size=86%>" + valueText + "</size>" +
-            "\n<size=86%>" + costText + "</size>";
-    }
-
-    private void RepairUpgradeButtonLayoutsIfNeeded()
-    {
-        if (!autoRepairUpgradeButtonLayoutOnStart)
-            return;
-
-        ConfigureUpgradeGrid(goldUpgradePanel);
-        ConfigureUpgradeGrid(pointUpgradePanel);
-
-        ApplyUpgradeButtonLayout(goldDamageButton, goldDamageButtonText);
-        ApplyUpgradeButtonLayout(goldRangeButton, goldRangeButtonText);
-        ApplyUpgradeButtonLayout(goldFireRateButton, goldFireRateButtonText);
-        ApplyUpgradeButtonLayout(goldEffectButton, goldEffectButtonText);
-        ApplyUpgradeButtonLayout(pointDamageButton, pointDamageButtonText);
-        ApplyUpgradeButtonLayout(pointRangeButton, pointRangeButtonText);
-        ApplyUpgradeButtonLayout(pointFireRateButton, pointFireRateButtonText);
-        ApplyUpgradeButtonLayout(pointEffectButton, pointEffectButtonText);
-    }
-
-    private void ConfigureUpgradeGrid(GameObject targetPanel)
-    {
-        if (targetPanel == null)
-            return;
-
-        GridLayoutGroup grid = targetPanel.GetComponent<GridLayoutGroup>();
-        if (grid == null)
-            return;
-
-        grid.cellSize = upgradeButtonSize;
-        grid.spacing = upgradeButtonSpacing;
-        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        grid.constraintCount = 2;
-        grid.childAlignment = TextAnchor.UpperCenter;
-    }
-
-    private void ApplyUpgradeButtonLayout(Button button, TextMeshProUGUI label)
-    {
-        if (button != null)
-        {
-            LayoutElement layoutElement = button.GetComponent<LayoutElement>();
-            if (layoutElement == null)
-                layoutElement = button.gameObject.AddComponent<LayoutElement>();
-
-            layoutElement.preferredWidth = upgradeButtonSize.x;
-            layoutElement.preferredHeight = upgradeButtonSize.y;
-            layoutElement.minWidth = upgradeButtonSize.x;
-            layoutElement.minHeight = upgradeButtonSize.y;
-        }
-
-        ApplyUpgradeButtonTextStyle(label);
-    }
-
-    private void ApplyUpgradeButtonTextStyle(TextMeshProUGUI label)
-    {
-        if (label == null)
-            return;
-
-        label.richText = true;
-        label.enableWordWrapping = true;
-        label.overflowMode = TextOverflowModes.Overflow;
-        label.alignment = TextAlignmentOptions.Center;
-        label.fontSize = upgradeButtonFontSize;
-        label.enableAutoSizing = true;
-        label.fontSizeMin = upgradeButtonMinFontSize;
-        label.fontSizeMax = upgradeButtonFontSize;
-        label.lineSpacing = -9f;
-        label.margin = new Vector4(5f, 3f, 5f, 3f);
+        return title + "\n" + valueText + "\n" + costText;
     }
 
     private void UpdateDynamicTheme()
@@ -545,6 +545,7 @@ public class TowerUI : MonoBehaviour
         SetTabButtonStyle(goldUpgradeTabButton, goldUpgradeTabText, currentMenu == TowerUIMenu.GoldUpgrades, goldAccentColor);
         SetTabButtonStyle(pointUpgradeTabButton, pointUpgradeTabText, currentMenu == TowerUIMenu.PointUpgrades, pointAccentColor);
         SetActionButtonStyle(targetModeButton, targetModeButtonText, true, targetButtonColor);
+        ApplySellButtonVisualStyle();
         SetCloseButtonStyle();
     }
 
@@ -561,6 +562,17 @@ public class TowerUI : MonoBehaviour
         bool canBuyGoldEffect = hasGameManager && selectedTower.HasAnyEffect() && currentGold >= selectedTower.effectUpgradeCost;
         bool hasEnoughPoints = selectedTower.upgradePoints >= selectedTower.GetUpgradePointCost();
         bool canBuyPointEffect = hasEnoughPoints && selectedTower.HasAnyEffect();
+
+        if (sellButtonText != null)
+        {
+            sellButtonText.text = "Verkaufen für: " + selectedTower.GetSellRefundAmount() + " Gold";
+            sellButtonText.fontSize = 16f;
+            sellButtonText.fontStyle = FontStyles.Bold;
+            sellButtonText.alignment = TextAlignmentOptions.Center;
+            sellButtonText.color = Color.white;
+        }
+
+        ApplySellButtonVisualStyle();
 
         SetActionButtonStyle(goldDamageButton, goldDamageButtonText, canBuyGoldDamage, goldAccentColor);
         SetActionButtonStyle(goldRangeButton, goldRangeButtonText, canBuyGoldRange, goldAccentColor);
@@ -593,10 +605,7 @@ public class TowerUI : MonoBehaviour
         }
 
         if (label != null)
-        {
             label.color = interactable ? Color.white : new Color32(165, 174, 190, 255);
-            ApplyUpgradeButtonTextStyle(label);
-        }
     }
 
     private Color LightenColor(Color color, float factor)
@@ -624,7 +633,7 @@ public class TowerUI : MonoBehaviour
 
     private void SetCloseButtonStyle()
     {
-        if (closeButton == null)
+        if (closeButton == null || hideCloseButtonBecauseRightClickCloses)
             return;
 
         Image img = closeButton.GetComponent<Image>();
@@ -649,6 +658,220 @@ public class TowerUI : MonoBehaviour
         }
     }
 
+    private void CreateTotalStatsTextIfNeeded()
+    {
+        if (!autoCreateTotalStatsText || totalStatsText != null || statsText == null)
+            return;
+
+        Transform parent = statsBackground != null ? statsBackground.transform : statsText.transform.parent;
+
+        if (parent == null)
+            return;
+
+        GameObject textObject = new GameObject("TotalStatsText_Auto", typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(parent, false);
+
+        RectTransform totalRect = textObject.GetComponent<RectTransform>();
+        totalRect.anchorMin = new Vector2(0.55f, 0f);
+        totalRect.anchorMax = new Vector2(1f, 1f);
+        totalRect.offsetMin = new Vector2(8f, 8f);
+        totalRect.offsetMax = new Vector2(-12f, -8f);
+
+        RectTransform statsRect = statsText.GetComponent<RectTransform>();
+        if (statsRect != null && statsRect.parent == parent)
+        {
+            statsRect.anchorMin = new Vector2(0f, 0f);
+            statsRect.anchorMax = new Vector2(0.55f, 1f);
+            statsRect.offsetMin = new Vector2(12f, 8f);
+            statsRect.offsetMax = new Vector2(-8f, -8f);
+        }
+
+        totalStatsText = textObject.GetComponent<TextMeshProUGUI>();
+        totalStatsText.font = statsText.font;
+        totalStatsText.fontSize = statsText.fontSize;
+        totalStatsText.enableAutoSizing = statsText.enableAutoSizing;
+        totalStatsText.fontSizeMin = statsText.fontSizeMin;
+        totalStatsText.fontSizeMax = statsText.fontSizeMax;
+        totalStatsText.alignment = TextAlignmentOptions.TopRight;
+        totalStatsText.raycastTarget = false;
+        totalStatsText.color = textPrimaryColor;
+    }
+
+    private void CreateSellButtonIfNeeded()
+    {
+        if (!autoCreateSellButton || sellButton != null || panel == null)
+            return;
+
+        Transform sellButtonParent = panel.transform;
+
+        if (closeButton != null && closeButton.transform.parent != null)
+        {
+            sellButtonParent = closeButton.transform.parent;
+            closeButton.gameObject.SetActive(false);
+        }
+
+        GameObject buttonObject = new GameObject("SellButton_Auto", typeof(RectTransform), typeof(Image), typeof(Button));
+        buttonObject.transform.SetParent(sellButtonParent, false);
+
+        RectTransform rectTransform = buttonObject.GetComponent<RectTransform>();
+        ApplySellButtonBottomBarLayout(rectTransform);
+
+        Image image = buttonObject.GetComponent<Image>();
+        image.color = closeButtonColor;
+
+        sellButton = buttonObject.GetComponent<Button>();
+
+        GameObject textObject = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(buttonObject.transform, false);
+
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+
+        sellButtonText = textObject.GetComponent<TextMeshProUGUI>();
+        sellButtonText.alignment = TextAlignmentOptions.Center;
+        sellButtonText.fontSize = 16f;
+        sellButtonText.enableAutoSizing = true;
+        sellButtonText.fontSizeMin = 10f;
+        sellButtonText.fontSizeMax = 16f;
+        sellButtonText.color = Color.white;
+    }
+
+    private void ApplySellButtonVisualStyle()
+    {
+        if (sellButton == null)
+            return;
+
+        sellButton.interactable = selectedTower != null;
+        Image buttonImage = sellButton.GetComponent<Image>();
+        if (buttonImage != null)
+        {
+            buttonImage.color = sellButtonColor;
+            buttonImage.raycastTarget = true;
+        }
+
+        Image parentImage = sellButton.transform.parent != null ? sellButton.transform.parent.GetComponent<Image>() : null;
+        if (parentImage != null)
+        {
+            parentImage.color = sellButtonColor;
+            parentImage.raycastTarget = false;
+        }
+
+        Image[] childImages = sellButton.GetComponentsInChildren<Image>(true);
+        foreach (Image image in childImages)
+        {
+            if (image == null)
+                continue;
+
+            image.color = sellButtonColor;
+            image.raycastTarget = image == buttonImage;
+        }
+
+        Graphic[] childGraphics = sellButton.GetComponentsInChildren<Graphic>(true);
+        foreach (Graphic graphic in childGraphics)
+        {
+            if (graphic == null || graphic == buttonImage || graphic is TextMeshProUGUI || graphic is Image)
+                continue;
+
+            graphic.color = sellButtonColor;
+            graphic.raycastTarget = false;
+        }
+
+        ColorBlock colors = sellButton.colors;
+        colors.normalColor = sellButtonColor;
+        colors.highlightedColor = new Color32(225, 95, 95, 255);
+        colors.pressedColor = new Color32(160, 45, 45, 255);
+        colors.selectedColor = sellButtonColor;
+        colors.disabledColor = new Color32(90, 55, 60, 255);
+        sellButton.colors = colors;
+
+        if (sellButtonText == null)
+            sellButtonText = sellButton.GetComponentInChildren<TextMeshProUGUI>(true);
+
+        if (sellButtonText != null)
+        {
+            RectTransform textRect = sellButtonText.GetComponent<RectTransform>();
+            if (textRect != null)
+            {
+                textRect.anchorMin = Vector2.zero;
+                textRect.anchorMax = Vector2.one;
+                textRect.offsetMin = new Vector2(10f, 2f);
+                textRect.offsetMax = new Vector2(-10f, -2f);
+            }
+
+            sellButtonText.alignment = TextAlignmentOptions.Center;
+            sellButtonText.fontSize = 16f;
+            sellButtonText.fontStyle = FontStyles.Bold;
+            sellButtonText.enableAutoSizing = true;
+            sellButtonText.fontSizeMin = 12f;
+            sellButtonText.fontSizeMax = 18f;
+            sellButtonText.color = Color.white;
+            sellButtonText.transform.SetAsLastSibling();
+        }
+    }
+
+    private void ApplySellButtonBottomBarLayout()
+    {
+        if (sellButton == null)
+            return;
+
+        ApplySellButtonBottomBarLayout(sellButton.GetComponent<RectTransform>());
+    }
+
+    private void ApplySellButtonBottomBarLayout(RectTransform rectTransform)
+    {
+        if (rectTransform == null)
+            return;
+
+        bool useExistingBottomRow = rectTransform.parent is RectTransform && panel != null && rectTransform.parent != panel.transform;
+
+        if (useExistingBottomRow)
+        {
+            RectTransform rowRect = (RectTransform)rectTransform.parent;
+
+            if (panel != null && rowRect.parent != panel.transform)
+                rowRect.SetParent(panel.transform, false);
+
+            LayoutGroup rowLayout = rowRect.GetComponent<LayoutGroup>();
+            if (rowLayout != null)
+                rowLayout.enabled = false;
+
+            ApplyBottomBarRect(rowRect);
+            rowRect.SetAsLastSibling();
+
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.anchoredPosition = Vector2.zero;
+            rectTransform.sizeDelta = Vector2.zero;
+            rectTransform.offsetMin = Vector2.zero;
+            rectTransform.offsetMax = Vector2.zero;
+            return;
+        }
+
+        if (panel != null && rectTransform.parent != panel.transform)
+            rectTransform.SetParent(panel.transform, false);
+
+        ApplyBottomBarRect(rectTransform);
+        rectTransform.SetAsLastSibling();
+    }
+
+    private void ApplyBottomBarRect(RectTransform rectTransform)
+    {
+        if (rectTransform == null)
+            return;
+
+        rectTransform.anchorMin = new Vector2(0f, 0f);
+        rectTransform.anchorMax = new Vector2(1f, 0f);
+        rectTransform.pivot = new Vector2(0.5f, 0f);
+        rectTransform.anchoredPosition = Vector2.zero;
+        rectTransform.sizeDelta = new Vector2(0f, sellButtonBottomBarHeight);
+        rectTransform.offsetMin = new Vector2(0f, 0f);
+        rectTransform.offsetMax = new Vector2(0f, sellButtonBottomBarHeight);
+    }
+
     private void SetImageColor(Image img, Color color)
     {
         if (img != null)
@@ -668,6 +891,31 @@ public class TowerUI : MonoBehaviour
 
         selectedTower.CycleTargetMode();
         UpdateUI();
+    }
+
+    public void SellSelectedTower()
+    {
+        if (selectedTower == null || gameManager == null)
+            return;
+
+        Tower towerToSell = selectedTower;
+        int refund = towerToSell.GetSellRefundAmount();
+        TileManager tileManager = gameManager.tileManager != null ? gameManager.tileManager : FindObjectOfType<TileManager>();
+
+        if (refund > 0)
+            gameManager.AddGold(refund, false, RunGoldSource.Other);
+
+        if (tileManager != null)
+        {
+            if (towerToSell.hasBuildGridPosition)
+                tileManager.UnregisterTowerPosition(towerToSell.builtGridPosition);
+            else
+                tileManager.UnregisterTowerPosition(towerToSell.transform.position);
+        }
+
+        Close();
+        Destroy(towerToSell.gameObject);
+        Debug.Log("Tower verkauft: +" + refund + " Gold");
     }
 
     public void UpgradeDamage()

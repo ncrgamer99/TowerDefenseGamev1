@@ -41,13 +41,10 @@ public class GameUI : MonoBehaviour
     public bool showChaosJusticeOnlyDuringBossChoice = true;
     public bool appendChaosJusticeToStatsWhenNoSeparateText = true;
     public bool showChaosBalanceBarInStats = true;
-    public bool showRiskGroupsInCompactSummary = false;
+    public bool showRiskGroupsInCompactSummary = true;
     public bool showDetailedRiskListInStats = false;
     public int maxHudRiskDetails = 3;
     public float chaosJusticeHudFontSize = 16f;
-    public bool applyChaosJusticeHudRectDefaultsOnStart = true;
-    public Vector2 chaosJusticeHudAnchoredPosition = new Vector2(12f, -112f);
-    public Vector2 chaosJusticeHudSize = new Vector2(420f, 62f);
     public bool showFullChaosJusticeDebug = false;
     public bool showChaosChoiceOptionsInStatsText = false;
 
@@ -58,7 +55,15 @@ public class GameUI : MonoBehaviour
     public bool showNextWavePreviewInSeparateText = true;
     public bool showBlockedInfoInPreview = true;
     public bool showBuildWarningsInPreview = true;
+    public bool hideNextWavePreviewDuringPathChoice = true;
     public float nextWavePreviewFontSize = 15f;
+    public Vector2 nextWavePreviewPanelSize = new Vector2(390f, 250f);
+    public bool autoCompactNextWavePreviewPanel = true;
+    public bool autoResizeNextWavePreviewHeight = true;
+    public Vector2 compactNextWavePreviewPanelSize = new Vector2(320f, 140f);
+    public float nextWavePreviewMinHeight = 120f;
+    public float nextWavePreviewMaxHeight = 420f;
+    public float nextWavePreviewHeightPadding = 28f;
 
     [Header("Wave Messages")]
     public float waveMessageDuration = 3f;
@@ -165,7 +170,7 @@ public class GameUI : MonoBehaviour
 
         if (autoCreateChaosJusticeHudPanel && chaosJusticeHudText == null)
         {
-            GameObject panel = CreateHudPanel(parent, "ChaosJusticeMiniPanel", chaosJusticeHudAnchoredPosition, chaosJusticeHudSize, hudPanelColor);
+            GameObject panel = CreateHudPanel(parent, "ChaosJusticeMiniPanel", new Vector2(12f, -112f), new Vector2(460f, 190f), hudPanelColor);
             TextMeshProUGUI text = CreateHudText(panel.transform, "ChaosJusticeMiniText", chaosJusticeHudFontSize);
             chaosJusticeHudPanel = panel;
             chaosJusticeHudText = text;
@@ -173,7 +178,7 @@ public class GameUI : MonoBehaviour
 
         if (autoCreateNextWavePreviewPanel && nextWavePreviewText == null)
         {
-            GameObject panel = CreateHudPanel(parent, "NextWavePreviewPanel", new Vector2(12f, -112f), new Vector2(460f, 340f), previewPanelColor);
+            GameObject panel = CreateHudPanel(parent, "NextWavePreviewPanel", new Vector2(12f, -112f), nextWavePreviewPanelSize, previewPanelColor);
             TextMeshProUGUI text = CreateHudText(panel.transform, "NextWavePreviewText", nextWavePreviewFontSize);
             nextWavePreviewPanel = panel;
             nextWavePreviewText = text;
@@ -226,20 +231,20 @@ public class GameUI : MonoBehaviour
 
     private void ApplyOptionalHudTextDefaults()
     {
+        ApplyNextWavePreviewPanelLayout();
+        DisableRaycastBlocking(nextWavePreviewPanel);
+
         if (chaosJusticeHudText != null)
         {
             chaosJusticeHudText.richText = true;
-            chaosJusticeHudText.enableWordWrapping = false;
+            chaosJusticeHudText.enableWordWrapping = true;
             chaosJusticeHudText.overflowMode = TextOverflowModes.Overflow;
             chaosJusticeHudText.fontSize = chaosJusticeHudFontSize;
-            chaosJusticeHudText.alignment = TextAlignmentOptions.MidlineLeft;
+            chaosJusticeHudText.alignment = TextAlignmentOptions.TopLeft;
             chaosJusticeHudText.color = Color.white;
-            chaosJusticeHudText.margin = new Vector4(10f, 6f, 10f, 6f);
+            chaosJusticeHudText.margin = new Vector4(10f, 8f, 10f, 8f);
             chaosJusticeHudText.raycastTarget = false;
         }
-
-        if (applyChaosJusticeHudRectDefaultsOnStart && chaosJusticeHudPanel != null)
-            ApplyTopLeftRectDefaults(chaosJusticeHudPanel.GetComponent<RectTransform>(), chaosJusticeHudAnchoredPosition, chaosJusticeHudSize);
 
         if (nextWavePreviewText != null)
         {
@@ -277,9 +282,37 @@ public class GameUI : MonoBehaviour
     private void SetOptionalPanelVisible(GameObject panel, TextMeshProUGUI fallbackText, bool visible)
     {
         if (panel != null)
+        {
+            DisableRaycastBlocking(panel);
             panel.SetActive(visible);
+        }
         else if (fallbackText != null)
+        {
+            fallbackText.raycastTarget = false;
             fallbackText.gameObject.SetActive(visible);
+        }
+    }
+
+    private void DisableRaycastBlocking(GameObject rootObject)
+    {
+        if (rootObject == null)
+            return;
+
+        Graphic[] graphics = rootObject.GetComponentsInChildren<Graphic>(true);
+
+        foreach (Graphic graphic in graphics)
+        {
+            if (graphic != null)
+                graphic.raycastTarget = false;
+        }
+
+        CanvasGroup canvasGroup = rootObject.GetComponent<CanvasGroup>();
+
+        if (canvasGroup == null)
+            canvasGroup = rootObject.AddComponent<CanvasGroup>();
+
+        canvasGroup.blocksRaycasts = false;
+        canvasGroup.interactable = false;
     }
 
     private void DetectWaveStateChanges()
@@ -473,6 +506,13 @@ public class GameUI : MonoBehaviour
         SetOptionalPanelVisible(chaosJusticeHudPanel, chaosJusticeHudText, shouldShow && chaosJusticeHudText != null);
     }
 
+    private void ApplyNextWavePreviewPanelLayout()
+    {
+        RectTransform rect = nextWavePreviewPanel != null ? nextWavePreviewPanel.GetComponent<RectTransform>() : null;
+        if (rect != null)
+            rect.sizeDelta = autoCompactNextWavePreviewPanel ? compactNextWavePreviewPanelSize : nextWavePreviewPanelSize;
+    }
+
     private bool ShouldShowChaosJusticeHud(ChaosJusticeManager currentChaosJusticeManager, bool chaosChoiceOpen)
     {
         if (currentChaosJusticeManager == null)
@@ -492,12 +532,31 @@ public class GameUI : MonoBehaviour
         if (nextWavePreviewText != null)
             nextWavePreviewText.text = shouldShow ? BuildNextWavePreviewHudText() : "";
 
+        ApplyNextWavePreviewDynamicHeight(shouldShow);
         SetOptionalPanelVisible(nextWavePreviewPanel, nextWavePreviewText, shouldShow && nextWavePreviewText != null);
+    }
+
+    private void ApplyNextWavePreviewDynamicHeight(bool shouldShow)
+    {
+        if (!autoResizeNextWavePreviewHeight || !shouldShow || nextWavePreviewPanel == null || nextWavePreviewText == null)
+            return;
+
+        RectTransform rect = nextWavePreviewPanel.GetComponent<RectTransform>();
+        if (rect == null)
+            return;
+
+        Vector2 baseSize = autoCompactNextWavePreviewPanel ? compactNextWavePreviewPanelSize : nextWavePreviewPanelSize;
+        Vector2 preferred = nextWavePreviewText.GetPreferredValues(nextWavePreviewText.text, baseSize.x - 20f, 0f);
+        float height = Mathf.Clamp(preferred.y + nextWavePreviewHeightPadding, nextWavePreviewMinHeight, nextWavePreviewMaxHeight);
+        rect.sizeDelta = new Vector2(baseSize.x, height);
     }
 
     private bool ShouldShowNextWavePreview(bool chaosChoiceOpen)
     {
-        return gameManager != null && gameManager.currentPhase == GamePhase.Build && !gameManager.isGameOver && !chaosChoiceOpen;
+        if (gameManager == null || gameManager.currentPhase != GamePhase.Build || gameManager.isGameOver || chaosChoiceOpen)
+            return false;
+
+        return !hideNextWavePreviewDuringPathChoice || !gameManager.IsPathBuildChoiceOpen();
     }
 
     private string BuildNextWavePreviewHudText()
@@ -526,13 +585,35 @@ public class GameUI : MonoBehaviour
         if (currentChaosJusticeManager == null || currentChaosJusticeManager.runData == null)
             return "";
 
-        ChaosJusticeBalanceSnapshot balance = currentChaosJusticeManager.GetBalanceSnapshot();
-        string text = includeHeader ? "<b>Balance</b>\n" : "";
+        ChaosJusticeRunData data = currentChaosJusticeManager.runData;
+        string text = includeHeader ? "<b>Chaos / Gerechtigkeit</b>" : "";
+
+        if (showChaosBalanceBarInStats)
+        {
+            if (!string.IsNullOrEmpty(text))
+                text += "\n";
+
+            text += currentChaosJusticeManager.GetBalanceStatusLine();
+        }
+
+        if (!string.IsNullOrEmpty(text))
+            text += "\n";
+
+        int generalJustice = Mathf.Max(0, data.goldJusticeLevel + data.xpJusticeLevel);
 
         text +=
-            "Gerechtigkeit " +
-            balance.barText +
-            " Chaos";
+            "Chaos " + data.chaosLevel + "/" + data.maxChaosLevel +
+            " | Gerechtigkeit " + generalJustice +
+            "\nGold x" + currentChaosJusticeManager.GetGoldRewardMultiplier().ToString("0.00") +
+            " | XP x" + currentChaosJusticeManager.GetXPRewardMultiplier().ToString("0.00");
+
+        if (showRiskGroupsInCompactSummary)
+            text += "\nRisiko-Gruppen:\n" + currentChaosJusticeManager.GetGroupedRiskModifierSummary();
+        else
+            text += "\nRisiken: " + currentChaosJusticeManager.GetActiveRiskModifierCount() + " aktiv";
+
+        if (showDetailedRiskListInStats)
+            text += "\nAktive Risiken:\n" + currentChaosJusticeManager.GetDetailedRiskModifierText(maxHudRiskDetails);
 
         return text;
     }

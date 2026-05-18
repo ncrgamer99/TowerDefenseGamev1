@@ -179,18 +179,45 @@ public class TowerVisualTierController : MonoBehaviour
 
     private Material CreateMaterial(Color color, float emissionStrength, bool transparent)
     {
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+
+        if (shader == null)
+            shader = Shader.Find("Standard");
+
+        Material material = new Material(shader);
         Color finalColor = color;
         finalColor.a = transparent ? 0.38f : color.a;
+        material.color = finalColor;
 
-        Material material = transparent
-            ? BuildSafeFxMaterialUtility.CreateTransparentMaterial(finalColor)
-            : BuildSafeFxMaterialUtility.CreateSolidMaterial(finalColor);
+        if (material.HasProperty("_BaseColor"))
+            material.SetColor("_BaseColor", finalColor);
 
-        if (material == null)
-            return null;
+        if (material.HasProperty("_EmissionColor"))
+        {
+            material.EnableKeyword("_EMISSION");
+            material.SetColor("_EmissionColor", color * Mathf.Max(0f, emissionStrength));
+        }
 
-        BuildSafeFxMaterialUtility.ApplyEmission(material, color, emissionStrength);
+        if (transparent)
+            ConfigureTransparentMaterial(material);
+
         return material;
     }
 
+    private void ConfigureTransparentMaterial(Material material)
+    {
+        if (material == null)
+            return;
+
+        if (material.HasProperty("_Surface"))
+            material.SetFloat("_Surface", 1f);
+
+        if (material.HasProperty("_Blend"))
+            material.SetFloat("_Blend", 0f);
+
+        material.renderQueue = 3000;
+        material.SetOverrideTag("RenderType", "Transparent");
+        material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        material.EnableKeyword("_ALPHABLEND_ON");
+    }
 }

@@ -22,10 +22,6 @@ public class TowerVisualFeedback : MonoBehaviour
     public float idleRingRadius = 0.72f;
     public float idleRingYOffset = 1.05f;
 
-    [Header("Build-Safe FX Material")]
-    public Material transparentFxMaterial;
-    public string fallbackFxMaterialResourcePath = BuildSafeFxMaterialUtility.DefaultTransparentResourcePath;
-
     private Vector3 baseScale;
     private Coroutine levelUpRoutine;
     private LineRenderer upgradePointRing;
@@ -172,6 +168,26 @@ public class TowerVisualFeedback : MonoBehaviour
 
     private Material CreateTransparentMaterial(Color color)
     {
-        return BuildSafeFxMaterialUtility.CreateTransparentMaterial(color, transparentFxMaterial, fallbackFxMaterialResourcePath);
+        Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+
+        if (shader == null)
+            shader = Shader.Find("Unlit/Color");
+
+        if (shader == null)
+            shader = Shader.Find("Sprites/Default");
+
+        Material material = new Material(shader);
+        material.color = color;
+
+        if (material.HasProperty("_BaseColor"))
+            material.SetColor("_BaseColor", color);
+
+        material.SetFloat("_Surface", 1f);
+        material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        material.SetFloat("_ZWrite", 0f);
+        material.renderQueue = 3000;
+        material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        return material;
     }
 }
