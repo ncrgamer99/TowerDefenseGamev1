@@ -40,7 +40,7 @@ public class BlockedEventManager : MonoBehaviour
     public GameManager gameManager;
     public PathBuildManager pathBuildManagerStyleSource;
 
-    [Header("UI - Same Style As PathBuildManager")]
+    [Header("UI - Mirrors PathBuildManager")]
     public GameObject eventTopBar;
     public TextMeshProUGUI titleText;
     public TextMeshProUGUI descriptionText;
