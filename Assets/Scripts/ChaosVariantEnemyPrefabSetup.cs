@@ -91,12 +91,8 @@ public class ChaosVariantEnemyPrefabSetup : MonoBehaviour
             if (auraTransform != null && cachedRenderers[i].transform.IsChildOf(auraTransform))
                 continue;
 
-            Material sharedMaterial = cachedRenderers[i].sharedMaterial;
-            if (!CanTintMaterial(sharedMaterial))
-                continue;
-
             runtimeMaterials[i] = cachedRenderers[i].material;
-            baseColors[i] = GetMaterialBaseColor(runtimeMaterials[i]);
+            baseColors[i] = runtimeMaterials[i] != null ? GetMaterialBaseColor(runtimeMaterials[i]) : Color.white;
         }
     }
 
@@ -131,26 +127,6 @@ public class ChaosVariantEnemyPrefabSetup : MonoBehaviour
         }
     }
 
-    private bool CanTintMaterial(Material material)
-    {
-        if (material == null)
-            return false;
-
-        if (IsTextMeshProMaterial(material))
-            return false;
-
-        return material.HasProperty("_BaseColor") || material.HasProperty("_Color");
-    }
-
-    private bool IsTextMeshProMaterial(Material material)
-    {
-        if (material == null || material.shader == null)
-            return false;
-
-        string shaderName = material.shader.name;
-        return !string.IsNullOrEmpty(shaderName) && shaderName.Contains("TextMeshPro");
-    }
-
     private Color GetMaterialBaseColor(Material material)
     {
         if (material == null)
@@ -159,10 +135,7 @@ public class ChaosVariantEnemyPrefabSetup : MonoBehaviour
         if (material.HasProperty("_BaseColor"))
             return material.GetColor("_BaseColor");
 
-        if (material.HasProperty("_Color"))
-            return material.GetColor("_Color");
-
-        return Color.white;
+        return material.color;
     }
 
     private void SetMaterialBaseColor(Material material, Color color)
@@ -170,11 +143,10 @@ public class ChaosVariantEnemyPrefabSetup : MonoBehaviour
         if (material == null)
             return;
 
+        material.color = color;
+
         if (material.HasProperty("_BaseColor"))
             material.SetColor("_BaseColor", color);
-
-        if (material.HasProperty("_Color"))
-            material.SetColor("_Color", color);
     }
 
     private void BuildAuraVisualsIfNeeded()
@@ -263,31 +235,16 @@ public class ChaosVariantEnemyPrefabSetup : MonoBehaviour
 
     private Material CreateTransparentMaterial(Color color, float alpha, float emission)
     {
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-        if (shader == null)
-            shader = Shader.Find("Standard");
-
-        Material material = new Material(shader);
         Color finalColor = color;
         finalColor.a = Mathf.Clamp01(alpha);
-        SetMaterialBaseColor(material, finalColor);
 
-        if (material.HasProperty("_EmissionColor"))
-        {
-            material.EnableKeyword("_EMISSION");
-            material.SetColor("_EmissionColor", color * Mathf.Max(0f, emission));
-        }
+        Material material = BuildSafeFxMaterialUtility.CreateTransparentMaterial(finalColor);
 
-        if (material.HasProperty("_Surface"))
-            material.SetFloat("_Surface", 1f);
+        if (material == null)
+            return null;
 
-        if (material.HasProperty("_Blend"))
-            material.SetFloat("_Blend", 0f);
-
-        material.renderQueue = 3000;
-        material.SetOverrideTag("RenderType", "Transparent");
-        material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-        material.EnableKeyword("_ALPHABLEND_ON");
+        BuildSafeFxMaterialUtility.ApplyEmission(material, color, emission);
         return material;
     }
+
 }
