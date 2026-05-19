@@ -4,6 +4,7 @@ using UnityEngine;
 public class SpikeTrapEffect : MonoBehaviour
 {
     private static readonly List<SpikeTrapEffect> activeSpikes = new List<SpikeTrapEffect>();
+    private static readonly Color SpikeVisualColor = new Color32(125, 125, 135, 255);
 
     public Vector3 worldPosition;
     public float triggerRadius = 0.35f;
@@ -26,7 +27,7 @@ public class SpikeTrapEffect : MonoBehaviour
 
         Renderer spikeRenderer = spikeObject.GetComponent<Renderer>();
         if (spikeRenderer != null)
-            spikeRenderer.material.color = new Color32(125, 125, 135, 255);
+            spikeRenderer.sharedMaterial = CreateBuildSafeMaterial(SpikeVisualColor);
 
         SpikeTrapEffect spike = spikeObject.AddComponent<SpikeTrapEffect>();
         spike.worldPosition = spikeObject.transform.position;
@@ -84,5 +85,27 @@ public class SpikeTrapEffect : MonoBehaviour
             Destroy(spike.gameObject);
             return;
         }
+    }
+
+    private static Material CreateBuildSafeMaterial(Color color)
+    {
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+
+        if (shader == null)
+            shader = Shader.Find("Sprites/Default");
+
+        if (shader == null)
+            shader = Shader.Find("Standard");
+
+        if (shader == null)
+            shader = Shader.Find("Hidden/InternalErrorShader");
+
+        Material material = new Material(shader);
+        material.color = color;
+
+        if (material.HasProperty("_BaseColor"))
+            material.SetColor("_BaseColor", color);
+
+        return material;
     }
 }

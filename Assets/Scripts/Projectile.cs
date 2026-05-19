@@ -14,6 +14,10 @@ public class Projectile : MonoBehaviour
     public float speed = 40f;
     public int damage = 1;
     public ProjectileBehavior behavior = ProjectileBehavior.Direct;
+    public Color directProjectileColor = new Color32(255, 230, 90, 255);
+    public Color lightningProjectileColor = new Color32(125, 220, 255, 255);
+    public Color mortarProjectileColor = new Color32(255, 150, 45, 255);
+    public Color spikeProjectileColor = new Color32(125, 125, 135, 255);
 
     [Header("Status Effects")]
     public bool appliesBurn = false;
@@ -51,10 +55,16 @@ public class Projectile : MonoBehaviour
     private Vector3 mortarImpactPosition;
     private bool hasMortarImpactPosition = false;
 
+    private void Awake()
+    {
+        ApplyProjectileVisualMaterial();
+    }
+
     public void SetTarget(Enemy newTarget, Tower tower)
     {
         target = newTarget;
         ownerTower = tower;
+        ApplyProjectileVisualMaterial();
 
         if (behavior == ProjectileBehavior.MortarAOE && target != null)
             SetMortarImpactPosition(target.transform.position);
@@ -254,9 +264,33 @@ public class Projectile : MonoBehaviour
 
         Renderer renderer = impactObject.GetComponent<Renderer>();
         if (renderer != null)
-            renderer.material.color = mortarImpactColor;
+            renderer.sharedMaterial = CreateBuildSafeMaterial(mortarImpactColor, false);
 
         Destroy(impactObject, 0.25f);
+    }
+
+    private void ApplyProjectileVisualMaterial()
+    {
+        Renderer renderer = GetComponentInChildren<Renderer>();
+        if (renderer == null)
+            return;
+
+        renderer.sharedMaterial = CreateBuildSafeMaterial(GetProjectileColor(), false);
+    }
+
+    private Color GetProjectileColor()
+    {
+        switch (behavior)
+        {
+            case ProjectileBehavior.LightningChain:
+                return lightningProjectileColor;
+            case ProjectileBehavior.MortarAOE:
+                return mortarProjectileColor;
+            case ProjectileBehavior.SpikeTrap:
+                return spikeProjectileColor;
+            default:
+                return directProjectileColor;
+        }
     }
 
     private void DrawTemporaryLine(Vector3 start, Vector3 end, Color color, float duration)
@@ -276,11 +310,12 @@ public class Projectile : MonoBehaviour
 
     private Material CreateLineMaterial(Color color)
     {
-        Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
+        return CreateBuildSafeMaterial(color, true);
+    }
 
-        if (shader == null)
-            shader = Shader.Find("Unlit/Color");
-
+    private Material CreateBuildSafeMaterial(Color color, bool unlit)
+    {
+        Shader shader = FindBuildSafeShader(unlit);
         Material material = new Material(shader);
         material.color = color;
 
@@ -288,5 +323,26 @@ public class Projectile : MonoBehaviour
             material.SetColor("_BaseColor", color);
 
         return material;
+    }
+
+    private Shader FindBuildSafeShader(bool unlit)
+    {
+        Shader shader = null;
+
+        if (unlit)
+            shader = Shader.Find("Universal Render Pipeline/Unlit");
+        else
+            shader = Shader.Find("Universal Render Pipeline/Lit");
+
+        if (shader == null)
+            shader = Shader.Find("Sprites/Default");
+
+        if (shader == null && unlit)
+            shader = Shader.Find("Unlit/Color");
+
+        if (shader == null)
+            shader = Shader.Find("Standard");
+
+        return shader != null ? shader : Shader.Find("Hidden/InternalErrorShader");
     }
 }

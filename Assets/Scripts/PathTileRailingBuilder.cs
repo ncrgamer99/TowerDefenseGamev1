@@ -49,18 +49,32 @@ public class PathTileRailingBuilder : MonoBehaviour
 
         float halfTile = tileSize * 0.5f;
         float inset = railingThickness * 0.5f;
+        float railLength = Mathf.Max(railingThickness, tileSize - railingThickness);
 
         if (northClosed)
-            CreateRail("Rail_North", new Vector3(0f, railingYOffset, halfTile - inset), new Vector3(tileSize, railingHeight, railingThickness), material);
+            CreateRail("Rail_North", new Vector3(0f, railingYOffset, halfTile - inset), new Vector3(railLength, railingHeight, railingThickness), material);
 
         if (southClosed)
-            CreateRail("Rail_South", new Vector3(0f, railingYOffset, -halfTile + inset), new Vector3(tileSize, railingHeight, railingThickness), material);
+            CreateRail("Rail_South", new Vector3(0f, railingYOffset, -halfTile + inset), new Vector3(railLength, railingHeight, railingThickness), material);
 
         if (eastClosed)
-            CreateRail("Rail_East", new Vector3(halfTile - inset, railingYOffset, 0f), new Vector3(railingThickness, railingHeight, tileSize), material);
+            CreateRail("Rail_East", new Vector3(halfTile - inset, railingYOffset, 0f), new Vector3(railingThickness, railingHeight, railLength), material);
 
         if (westClosed)
-            CreateRail("Rail_West", new Vector3(-halfTile + inset, railingYOffset, 0f), new Vector3(railingThickness, railingHeight, tileSize), material);
+            CreateRail("Rail_West", new Vector3(-halfTile + inset, railingYOffset, 0f), new Vector3(railingThickness, railingHeight, railLength), material);
+
+        CreateCornerPostIfNeeded("RailCorner_NE", northClosed || eastClosed, new Vector3(halfTile - inset, railingYOffset, halfTile - inset), material);
+        CreateCornerPostIfNeeded("RailCorner_NW", northClosed || westClosed, new Vector3(-halfTile + inset, railingYOffset, halfTile - inset), material);
+        CreateCornerPostIfNeeded("RailCorner_SE", southClosed || eastClosed, new Vector3(halfTile - inset, railingYOffset, -halfTile + inset), material);
+        CreateCornerPostIfNeeded("RailCorner_SW", southClosed || westClosed, new Vector3(-halfTile + inset, railingYOffset, -halfTile + inset), material);
+    }
+
+    private void CreateCornerPostIfNeeded(string objectName, bool shouldCreate, Vector3 localPosition, Material material)
+    {
+        if (!shouldCreate)
+            return;
+
+        CreateRail(objectName, localPosition, new Vector3(railingThickness, railingHeight, railingThickness), material);
     }
 
     private void CreateRail(string objectName, Vector3 localPosition, Vector3 localScale, Material material)

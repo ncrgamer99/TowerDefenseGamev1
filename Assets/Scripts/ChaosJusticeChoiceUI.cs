@@ -26,6 +26,7 @@ public class ChaosJusticeChoiceUI : MonoBehaviour
     [Header("Dynamic Layout")]
     public bool hideUnusedOptionButtons = true;
     public bool applyModalLayoutDefaults = true;
+    public bool showOnlyOptionTitlesInButtons = true;
     public Vector2 choiceTitlePosition = new Vector2(0f, -58f);
     public Vector2 choiceDescriptionPosition = new Vector2(0f, -108f);
     public Vector2 choiceButtonSize = new Vector2(270f, 250f);
@@ -214,13 +215,36 @@ public class ChaosJusticeChoiceUI : MonoBehaviour
         }
 
         string disabledSuffix = option.isEnabled ? "" : "\n<size=14><color=#B0B8C8>Nicht verfügbar</color></size>";
-        string optionTitle = "[" + (index + 1) + "] " + option.displayName.ToUpperInvariant();
+        string optionTitle = "[" + (index + 1) + "] " + GetCompactOptionTitle(option);
+
+        if (showOnlyOptionTitlesInButtons)
+        {
+            textField.text = "<size=" + Mathf.RoundToInt(optionTitleFontSize) + "><b>" + optionTitle + "</b></size>" + disabledSuffix;
+            return;
+        }
+
         string safeDescription = string.IsNullOrEmpty(option.description) ? "Keine Beschreibung gesetzt." : option.description;
 
         textField.text =
             "<size=" + Mathf.RoundToInt(optionTitleFontSize) + "><b>" + optionTitle + "</b></size>" +
             "\n<size=" + Mathf.RoundToInt(optionFontSize) + "><color=#" + ColorUtility.ToHtmlStringRGB(optionDescriptionColor) + ">" + safeDescription + "</color></size>" +
             disabledSuffix;
+    }
+
+    private string GetCompactOptionTitle(ChaosJusticeChoiceOption option)
+    {
+        if (option == null)
+            return "Keine Option";
+
+        switch (option.choiceType)
+        {
+            case ChaosJusticeChoiceType.OpenJusticeSubChoice:
+                return "Gerechtigkeit";
+            case ChaosJusticeChoiceType.OpenChaosSubChoice:
+                return "Chaos";
+            default:
+                return string.IsNullOrWhiteSpace(option.displayName) ? "Option" : option.displayName;
+        }
     }
 
     private ChaosJusticeChoiceOption GetOption(int index)
@@ -331,8 +355,8 @@ public class ChaosJusticeChoiceUI : MonoBehaviour
         textField.overflowMode = TextOverflowModes.Overflow;
         textField.fontSize = optionFontSize;
         textField.color = optionTextColor;
-        textField.alignment = TextAlignmentOptions.TopLeft;
-        textField.margin = new Vector4(18f, 14f, 18f, 10f);
+        textField.alignment = showOnlyOptionTitlesInButtons ? TextAlignmentOptions.Center : TextAlignmentOptions.TopLeft;
+        textField.margin = showOnlyOptionTitlesInButtons ? new Vector4(10f, 8f, 10f, 8f) : new Vector4(18f, 14f, 18f, 10f);
     }
 
     private void ApplyButtonStyle(Button button, Color baseColor, bool interactable)

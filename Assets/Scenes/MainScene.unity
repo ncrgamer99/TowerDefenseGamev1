@@ -1246,6 +1246,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BlockedEventManager
   gameManager: {fileID: 652380030}
+  pathBuildManagerStyleSource: {fileID: 0}
   eventTopBar: {fileID: 19743576}
   titleText: {fileID: 835345766}
   descriptionText: {fileID: 1391300496}
@@ -1255,6 +1256,17 @@ MonoBehaviour:
   optionText1: {fileID: 1381829498}
   optionText2: {fileID: 768732214}
   optionText3: {fileID: 258321598}
+  applyChoiceUILayoutDefaults: 1
+  eventTopBarSize: {x: 1160, y: 96}
+  eventTopBarTopOffset: 116
+  eventTopBarLeftInset: 360
+  eventTopBarRightInset: 220
+  hideTitleTextForChoiceBar: 1
+  hideUnusedTopBarTextLabels: 1
+  choiceBarColor: {r: 0.07058824, g: 0.08627451, b: 0.11764706, a: 0.9607843}
+  choiceButtonColor: {r: 0.25490198, g: 0.37254903, b: 0.5686275, a: 1}
+  choiceDescriptionColor: {r: 1, g: 0.8627451, b: 0.47058824, a: 1}
+  mirrorPathBuildManagerLayout: 1
   timedBuildPhaseDuration: 10
   possibleEvents: []
 --- !u!4 &142758914
@@ -4755,6 +4767,7 @@ MonoBehaviour:
   usePersistentUnlocks: 1
   playerPrefsPrefix: TD_ChaosUnlock_
   autoCreateOpenButton: 1
+  showGameplayOpenButton: 0
   openButton: {fileID: 0}
   openButtonText: {fileID: 0}
   openButtonLabel: Freischaltungen (F2)
@@ -5558,6 +5571,8 @@ MonoBehaviour:
   lockedEntryButtonColor: {r: 0.21568628, g: 0.2509804, b: 0.3137255, a: 1}
   closeButtonColor: {r: 0.78431374, g: 0.29411766, b: 0.29411766, a: 1}
   refreshButtonColor: {r: 0.25490198, g: 0.49019608, b: 0.9607843, a: 1}
+  hideRefreshButton: 1
+  closeButtonReadableSize: {x: 132, y: 48}
   textPrimaryColor: {r: 0.9411765, g: 0.95686275, b: 0.98039216, a: 1}
   textSecondaryColor: {r: 0.7254902, g: 0.7607843, b: 0.8156863, a: 1}
   titleFontSize: 27
@@ -5585,6 +5600,7 @@ MonoBehaviour:
   lexiconUI: {fileID: 504844866}
   targetCanvas: {fileID: 183924302}
   autoCreateOpenButton: 1
+  showGameplayOpenButton: 0
   openButton: {fileID: 0}
   openButtonText: {fileID: 0}
   openButtonLabel: Lexikon (F1)
@@ -7495,6 +7511,26 @@ MonoBehaviour:
   buildSelectionUI: {fileID: 1157879198}
   pathBuildManager: {fileID: 1677539941}
   towerUI: {fileID: 900815697}
+  showStartMenuOnStart: 1
+  normalStartGold: 120
+  normalStartLives: 20
+  balancingStartGold: 999999
+  balancingStartLives: 999999
+  gameStarted: 0
+  startMenuOpen: 0
+  currentStartMode: 0
+  startMenuCanvas: {fileID: 0}
+  startMenuRoot: {fileID: 0}
+  startMenuTitleText: {fileID: 0}
+  startMenuDescriptionText: {fileID: 0}
+  startGameButton: {fileID: 0}
+  startBalancingGameButton: {fileID: 0}
+  quitGameButton: {fileID: 0}
+  startUnlocksButton: {fileID: 0}
+  startLexiconButton: {fileID: 0}
+  startStatsButton: {fileID: 0}
+  startOptionsButton: {fileID: 0}
+  startResetButton: {fileID: 0}
   waveNumber: 0
   baseEnemyCount: 5
   delayBeforeWave: 1
@@ -7626,6 +7662,8 @@ MonoBehaviour:
     maxStoredResults: 30
     keepFullRunHistoryForResultScreen: 1
     completedWaves: []
+  autoCreateEnemyWaveDebugWindow: 1
+  enemyWaveDebugToggleKey: 284
   fireWaveBackendEvents: 1
   postBossChoicePending: 0
   isBaseBlocked: 0
@@ -7637,6 +7675,9 @@ MonoBehaviour:
   waveCompletionGoldPerWave: 1
   miniBossWaveCompletionGoldBonus: 10
   bossWaveCompletionGoldBonus: 24
+  blockedEventRewardBonusPerStack: 0.01
+  blockedEventRewardBonusStacks: 0
+  pendingEvolutionTowerBoosts: 0
   lives: 999999
   isGameOver: 0
 --- !u!4 &652380031
@@ -9355,10 +9396,12 @@ MonoBehaviour:
     spawnEntries: []
   usePreparedWaveModifiers: 0
   activeWaveModifiers: []
+  useWaveRiskPressureBudget: 1
+  maxWaveRiskPressureBudget: 24
   enableChaosVariantsV1: 1
   chaosVariantsStartLevel: 3
-  chaosVariantChanceAtStartLevel: 0.70
-  chaosVariantChancePerAdditionalLevel: 0.30
+  chaosVariantChanceAtStartLevel: 0.7
+  chaosVariantChancePerAdditionalLevel: 0.3
   maxChaosVariantChance: 1
   maxChaosVariantsAtStartLevel: 2
   maxChaosVariantsPerAdditionalLevel: 1
@@ -9370,8 +9413,8 @@ MonoBehaviour:
   chaosWaveBlocksStartLevel: 2
   forceChaosWaveBlockAtLevel: 4
   maxChaosWaveBlocksV1: 3
-  chaosWaveBlockChanceAtStartLevel: 0.60
-  chaosWaveBlockChancePerAdditionalLevel: 0.20
+  chaosWaveBlockChanceAtStartLevel: 0.6
+  chaosWaveBlockChancePerAdditionalLevel: 0.2
   chaosWaveBlockSeedSalt: 44117
   allowRolePressureBlock: 1
   allowDensityBlock: 1
@@ -9447,8 +9490,19 @@ MonoBehaviour:
   metaPointText: {fileID: 198200000}
   visualTierText: {fileID: 1226223046}
   statsText: {fileID: 1102863120}
+  totalStatsText: {fileID: 0}
+  autoCreateTotalStatsText: 1
   targetModeButton: {fileID: 1416704440}
   targetModeButtonText: {fileID: 1767209505}
+  sellButton: {fileID: 0}
+  sellButtonText: {fileID: 0}
+  autoCreateSellButton: 1
+  hideCloseButtonBecauseRightClickCloses: 1
+  hideMetaAndVisualTierText: 1
+  sellButtonBottomBarHeight: 52
+  sellButtonColor: {r: 0.78431374, g: 0.29411766, b: 0.29411766, a: 1}
+  sellButtonTopRightSize: {x: 150, y: 34}
+  towerPanelSiblingIndexWhenOpen: 2
   goldUpgradeTabButton: {fileID: 215981078}
   pointUpgradeTabButton: {fileID: 1247470599}
   goldUpgradeTabText: {fileID: 917681094}
@@ -10039,7 +10093,16 @@ MonoBehaviour:
   trapTileColor: {r: 0.5882353, g: 0.09803922, b: 0.09803922, a: 1}
   slowTileColor: {r: 0.27450982, g: 0.7058824, b: 1, a: 1}
   knockTileColor: {r: 1, g: 0.6666667, b: 0.1764706, a: 1}
+  comboTileColor: {r: 0.8235294, g: 0.3137255, b: 0.9019608, a: 1}
   goldTileColor: {r: 1, g: 0.8235294, b: 0.1764706, a: 1}
+  rangeTileColor: {r: 0.25490198, g: 0.60784316, b: 1, a: 1}
+  damageTileColor: {r: 0.92156863, g: 0.27450982, b: 0.27450982, a: 1}
+  rateTileColor: {r: 0.29411766, g: 0.92156863, b: 0.50980395, a: 1}
+  xpTileColor: {r: 0.60784316, g: 0.4117647, b: 1, a: 1}
+  upgradeTileColor: {r: 1, g: 0.9607843, b: 0.47058824, a: 1}
+  relocationGhostValidColor: {r: 0.3137255, g: 0.8627451, b: 0.54901963, a: 0.74509805}
+  teleporterColor: {r: 0.3137255, g: 0.8235294, b: 1, a: 1}
+  teleporterSearchRadius: 5
 --- !u!1 &1009315211
 GameObject:
   m_ObjectHideFlags: 0
@@ -12022,6 +12085,9 @@ MonoBehaviour:
   tooltipPanel: {fileID: 1103063770}
   tooltipTitleText: {fileID: 286472462}
   tooltipDescriptionText: {fileID: 565944949}
+  autoPlaceTooltipRightOfSelectionPanel: 1
+  tooltipRightOffset: {x: 18, y: 0}
+  tooltipSize: {x: 360, y: 176}
   towerSlots:
   - option:
       displayName: Basic
@@ -12122,6 +12188,24 @@ MonoBehaviour:
     prefab: {fileID: 0}
     cost: 0
     placementType: 0
+  sniperTower:
+    displayName: 
+    description: 
+    icon: {fileID: 0}
+    prefab: {fileID: 0}
+    cost: 0
+    placementType: 0
+  alchemistTower:
+    displayName: 
+    description: 
+    icon: {fileID: 0}
+    prefab: {fileID: 0}
+    cost: 0
+    placementType: 0
+  autoAddNewTowerSlots: 1
+  autoCreateMissingSlotButtons: 1
+  autoCreatedSlotParent: {fileID: 0}
+  slotButtonPrefab: {fileID: 0}
   closeWithRightClick: 1
   rightClickAlsoClearsCurrentBuildSelection: 1
   closeWithEscape: 1
@@ -12131,6 +12215,7 @@ MonoBehaviour:
   createSlotNameLabels: 1
   showSlotCostLabels: 1
   hideSelectionTitleAndCloseButton: 1
+  hideSelectionPanelBackground: 1
   autoRepairSlotGridLayout: 1
   slotGridColumns: 6
   slotGridSpacing: {x: 5, y: 4}
@@ -12142,6 +12227,18 @@ MonoBehaviour:
   costLabelYOffset: -27
   slotIconYOffset: 11
   preserveIconAspect: 1
+  enforceReadableSlotLayout: 1
+  readableSlotGridColumns: 2
+  readableSlotGridColumnsWhenTall: 3
+  maxSlotsBeforeThirdColumn: 8
+  readableSlotSize: {x: 88, y: 92}
+  readableIconSize: {x: 42, y: 42}
+  readableLabelSize: {x: 92, y: 20}
+  readableCostLabelSize: {x: 92, y: 18}
+  liftSelectionPanelFromBottom: 1
+  forceSelectionPanelBottomLeft: 1
+  keepOpenSelectionButtonAlwaysVisible: 1
+  selectionPanelBottomSafeOffset: 86
   autoPlaceSelectedWindowBelowUtilityButtons: 1
   selectedWindowTopRightPosition: {x: -170, y: -215}
   panelColor: {r: 0.078431375, g: 0.09411765, b: 0.12156863, a: 0.9607843}
@@ -12607,7 +12704,15 @@ MonoBehaviour:
   showNextWavePreviewInSeparateText: 1
   showBlockedInfoInPreview: 1
   showBuildWarningsInPreview: 1
+  hideNextWavePreviewDuringPathChoice: 1
   nextWavePreviewFontSize: 15
+  nextWavePreviewPanelSize: {x: 390, y: 250}
+  autoCompactNextWavePreviewPanel: 1
+  autoResizeNextWavePreviewHeight: 1
+  compactNextWavePreviewPanelSize: {x: 320, y: 140}
+  nextWavePreviewMinHeight: 120
+  nextWavePreviewMaxHeight: 420
+  nextWavePreviewHeightPadding: 28
   waveMessageDuration: 3
   specialWaveMessageDuration: 5
   waveAlertPanel: {fileID: 0}
@@ -17105,6 +17210,12 @@ MonoBehaviour:
   optionText3: {fileID: 2084756547}
   optionText4: {fileID: 1038107878}
   hideUnusedOptionButtons: 1
+  applyModalLayoutDefaults: 1
+  choiceTitlePosition: {x: 0, y: -58}
+  choiceDescriptionPosition: {x: 0, y: -108}
+  choiceButtonSize: {x: 270, y: 250}
+  choiceButtonY: -98
+  choiceButtonSpacing: 24
   applyThemeOnStart: 0
   overlayColor: {r: 0, g: 0, b: 0, a: 0.47058824}
   windowColor: {r: 0.078431375, g: 0.09411765, b: 0.12156863, a: 0.9607843}
@@ -17588,6 +17699,15 @@ MonoBehaviour:
   optionText2: {fileID: 518732602}
   optionText3: {fileID: 1050643197}
   descriptionText: {fileID: 397357521}
+  applyChoiceUILayoutDefaults: 1
+  pathTopBarSize: {x: 0, y: 88}
+  pathTopBarTopOffset: 116
+  pathTopBarLeftInset: 360
+  pathTopBarRightInset: 220
+  hideUnusedTopBarTextLabels: 1
+  choiceBarColor: {r: 0.07058824, g: 0.08627451, b: 0.11764706, a: 0.9607843}
+  choiceButtonColor: {r: 0.25490198, g: 0.37254903, b: 0.5686275, a: 1}
+  choiceDescriptionColor: {r: 1, g: 0.8627451, b: 0.47058824, a: 1}
   randomOptions:
   - displayName: Trap Tile
     description: "Platzhalter f\xFCr eine sp\xE4tere Falle."
@@ -18439,10 +18559,15 @@ MonoBehaviour:
   allowDuplicateRiskCardsInSameOffer: 0
   showNoModifierOption: 1
   allowNoModifierAtMaxChaos: 1
+  balanceRiskOffersByCategory: 1
+  preferDifferentRiskCategoriesPerOffer: 1
   useRewardRiskDiminishingReturns: 1
-  rewardRiskDiminishingFactor: 0.6
-  maxChaosRewardBonus: 0.6
-  maxSingleRiskRewardBonus: 0.2
+  rewardRiskDiminishingFactor: 0.8
+  maxChaosRewardBonus: 1.5
+  maxSingleRiskRewardBonus: 0.45
+  enforceTotalRiskPressureBudget: 1
+  maxTotalRiskPressureBudget: 36
+  maxWaveRiskPressureBudget: 24
   maxEnemyCountMultiplierPerRisk: 1.65
   maxFlatEnemyBonusPerRisk: 12
   maxExtraRoleAmountPerRisk: 10
@@ -18476,6 +18601,7 @@ MonoBehaviour:
   closeBuildSelectionPanelWhenOpening: 1
   closeTowerUIWhenOpening: 1
   refreshPreviewAfterChoice: 1
+  currentModalLockOwner: 0
   baseSafetyScore: 6
   justiceScorePerLevel: 2
   chaosScorePerLevel: 2
@@ -18484,6 +18610,9 @@ MonoBehaviour:
   riskScorePerExtraHeavyEnemy: 2
   balanceBarWidth: 18
   maxRiskDetailsInHud: 5
+  useDeterministicRiskSeed: 1
+  defaultRiskSeed: 0
+  riskSeedSalt: 73013
   runData:
     chaosLevel: 0
     highestChaosLevel: 0
@@ -18494,6 +18623,10 @@ MonoBehaviour:
     justiceSelectionHistory: 
     selectedRiskModifiers: []
     selectedRiskModifierNames: []
+    selectedRiskModifierKeys: []
+    riskSeed: 0
+    riskOfferRolls: 0
+    safeChaosHoldChoices: 0
     bossChoicesOpened: 0
     bossChoicesResolved: 0
     chaosWavesSurvived: 0

@@ -105,6 +105,13 @@ public class TowerUI : MonoBehaviour
     public Color textSecondaryColor = new Color32(185, 194, 208, 255);
     public Color textDisabledColor = new Color32(120, 128, 140, 255);
 
+    [Header("Upgrade Button Layout")]
+    public bool applyUpgradeButtonLayoutDefaults = true;
+    public Vector2 upgradeButtonCellSize = new Vector2(150f, 72f);
+    public Vector2 upgradeButtonSpacing = new Vector2(10f, 10f);
+    public float upgradeButtonFontSizeMax = 16f;
+    public float upgradeButtonFontSizeMin = 10f;
+
     private Tower selectedTower;
     private TowerUIMenu currentMenu = TowerUIMenu.GoldUpgrades;
 
@@ -113,6 +120,7 @@ public class TowerUI : MonoBehaviour
         CreateSellButtonIfNeeded();
         CreateTotalStatsTextIfNeeded();
         SetupButtons();
+        ApplyUpgradeButtonLayoutDefaults();
         ApplyStaticTheme();
 
         if (panel != null)
@@ -284,6 +292,8 @@ public class TowerUI : MonoBehaviour
 
     private void ApplyStaticTheme()
     {
+        ApplyUpgradeButtonLayoutDefaults();
+
         SetImageColor(panelBackground, panelColor);
         SetImageColor(headerBackground, headerColor);
         SetImageColor(progressBackground, cardColor);
@@ -606,6 +616,77 @@ public class TowerUI : MonoBehaviour
 
         if (label != null)
             label.color = interactable ? Color.white : new Color32(165, 174, 190, 255);
+    }
+
+    private void ApplyUpgradeButtonLayoutDefaults()
+    {
+        if (!applyUpgradeButtonLayoutDefaults)
+            return;
+
+        ConfigureUpgradeGrid(goldDamageButton);
+        ConfigureUpgradeGrid(pointDamageButton);
+
+        StyleUpgradeButton(goldDamageButton, goldDamageButtonText);
+        StyleUpgradeButton(goldRangeButton, goldRangeButtonText);
+        StyleUpgradeButton(goldFireRateButton, goldFireRateButtonText);
+        StyleUpgradeButton(goldEffectButton, goldEffectButtonText);
+        StyleUpgradeButton(pointDamageButton, pointDamageButtonText);
+        StyleUpgradeButton(pointRangeButton, pointRangeButtonText);
+        StyleUpgradeButton(pointFireRateButton, pointFireRateButtonText);
+        StyleUpgradeButton(pointEffectButton, pointEffectButtonText);
+    }
+
+    private void ConfigureUpgradeGrid(Button sampleButton)
+    {
+        if (sampleButton == null || sampleButton.transform.parent == null)
+            return;
+
+        GridLayoutGroup grid = sampleButton.transform.parent.GetComponent<GridLayoutGroup>();
+
+        if (grid == null)
+            return;
+
+        grid.cellSize = upgradeButtonCellSize;
+        grid.spacing = upgradeButtonSpacing;
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = 2;
+        grid.childAlignment = TextAnchor.UpperCenter;
+    }
+
+    private void StyleUpgradeButton(Button button, TextMeshProUGUI label)
+    {
+        if (button != null)
+        {
+            LayoutElement layout = button.GetComponent<LayoutElement>();
+
+            if (layout == null)
+                layout = button.gameObject.AddComponent<LayoutElement>();
+
+            layout.minWidth = upgradeButtonCellSize.x;
+            layout.minHeight = upgradeButtonCellSize.y;
+            layout.preferredWidth = upgradeButtonCellSize.x;
+            layout.preferredHeight = upgradeButtonCellSize.y;
+        }
+
+        if (label == null)
+            return;
+
+        RectTransform rect = label.GetComponent<RectTransform>();
+        if (rect != null)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = new Vector2(8f, 4f);
+            rect.offsetMax = new Vector2(-8f, -4f);
+        }
+
+        label.enableAutoSizing = true;
+        label.fontSizeMin = upgradeButtonFontSizeMin;
+        label.fontSizeMax = upgradeButtonFontSizeMax;
+        label.enableWordWrapping = true;
+        label.overflowMode = TextOverflowModes.Ellipsis;
+        label.alignment = TextAlignmentOptions.Center;
+        label.margin = Vector4.zero;
     }
 
     private Color LightenColor(Color color, float factor)

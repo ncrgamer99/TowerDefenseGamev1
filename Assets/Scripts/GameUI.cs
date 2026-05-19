@@ -37,14 +37,22 @@ public class GameUI : MonoBehaviour
     [Header("Chaos/Gerechtigkeit HUD - Optional Separate Section")]
     public GameObject chaosJusticeHudPanel;
     public TextMeshProUGUI chaosJusticeHudText;
+    public Image chaosJusticeBalanceBarBackground;
+    public Image chaosJusticeBalanceSafetyFill;
+    public Image chaosJusticeBalanceChaosFill;
     public bool showCompactChaosJusticeSummary = true;
     public bool showChaosJusticeOnlyDuringBossChoice = true;
     public bool appendChaosJusticeToStatsWhenNoSeparateText = true;
     public bool showChaosBalanceBarInStats = true;
+    public bool showOnlyChaosBalanceBarInCompactHud = true;
     public bool showRiskGroupsInCompactSummary = true;
     public bool showDetailedRiskListInStats = false;
     public int maxHudRiskDetails = 3;
     public float chaosJusticeHudFontSize = 16f;
+    public Vector2 compactChaosJusticeHudPanelSize = new Vector2(300f, 44f);
+    public Color chaosJusticeBalanceBarBackgroundColor = new Color32(35, 45, 64, 255);
+    public Color chaosJusticeBalanceSafetyColor = new Color32(214, 164, 65, 255);
+    public Color chaosJusticeBalanceChaosColor = new Color32(185, 70, 95, 255);
     public bool showFullChaosJusticeDebug = false;
     public bool showChaosChoiceOptionsInStatsText = false;
 
@@ -170,7 +178,7 @@ public class GameUI : MonoBehaviour
 
         if (autoCreateChaosJusticeHudPanel && chaosJusticeHudText == null)
         {
-            GameObject panel = CreateHudPanel(parent, "ChaosJusticeMiniPanel", new Vector2(12f, -112f), new Vector2(460f, 190f), hudPanelColor);
+            GameObject panel = CreateHudPanel(parent, "ChaosJusticeMiniPanel", new Vector2(12f, -112f), compactChaosJusticeHudPanelSize, hudPanelColor);
             TextMeshProUGUI text = CreateHudText(panel.transform, "ChaosJusticeMiniText", chaosJusticeHudFontSize);
             chaosJusticeHudPanel = panel;
             chaosJusticeHudText = text;
@@ -231,6 +239,8 @@ public class GameUI : MonoBehaviour
 
     private void ApplyOptionalHudTextDefaults()
     {
+        ApplyChaosJusticeHudPanelLayout();
+        CreateChaosJusticeBalanceBarIfNeeded();
         ApplyNextWavePreviewPanelLayout();
         DisableRaycastBlocking(nextWavePreviewPanel);
 
@@ -240,10 +250,11 @@ public class GameUI : MonoBehaviour
             chaosJusticeHudText.enableWordWrapping = true;
             chaosJusticeHudText.overflowMode = TextOverflowModes.Overflow;
             chaosJusticeHudText.fontSize = chaosJusticeHudFontSize;
-            chaosJusticeHudText.alignment = TextAlignmentOptions.TopLeft;
+            chaosJusticeHudText.alignment = showOnlyChaosBalanceBarInCompactHud ? TextAlignmentOptions.Center : TextAlignmentOptions.TopLeft;
             chaosJusticeHudText.color = Color.white;
-            chaosJusticeHudText.margin = new Vector4(10f, 8f, 10f, 8f);
+            chaosJusticeHudText.margin = showOnlyChaosBalanceBarInCompactHud ? new Vector4(8f, 10f, 8f, 8f) : new Vector4(10f, 8f, 10f, 8f);
             chaosJusticeHudText.raycastTarget = false;
+            chaosJusticeHudText.gameObject.SetActive(!showOnlyChaosBalanceBarInCompactHud);
         }
 
         if (nextWavePreviewText != null)
@@ -501,9 +512,99 @@ public class GameUI : MonoBehaviour
         bool shouldShow = currentChaosJusticeManager != null && showCompactChaosJusticeSummary && ShouldShowChaosJusticeHud(currentChaosJusticeManager, chaosChoiceOpen);
 
         if (chaosJusticeHudText != null)
-            chaosJusticeHudText.text = shouldShow ? BuildCompactChaosJusticeSummary(currentChaosJusticeManager, true) : "";
+        {
+            chaosJusticeHudText.gameObject.SetActive(!showOnlyChaosBalanceBarInCompactHud);
+            chaosJusticeHudText.text = shouldShow && !showOnlyChaosBalanceBarInCompactHud ? BuildCompactChaosJusticeSummary(currentChaosJusticeManager, true) : "";
+        }
+
+        UpdateChaosJusticeBalanceBar(currentChaosJusticeManager, shouldShow);
 
         SetOptionalPanelVisible(chaosJusticeHudPanel, chaosJusticeHudText, shouldShow && chaosJusticeHudText != null);
+    }
+
+    private void ApplyChaosJusticeHudPanelLayout()
+    {
+        if (!showOnlyChaosBalanceBarInCompactHud || chaosJusticeHudPanel == null)
+            return;
+
+        RectTransform rect = chaosJusticeHudPanel.GetComponent<RectTransform>();
+        if (rect != null)
+            rect.sizeDelta = compactChaosJusticeHudPanelSize;
+    }
+
+    private void CreateChaosJusticeBalanceBarIfNeeded()
+    {
+        if (!showOnlyChaosBalanceBarInCompactHud || chaosJusticeHudPanel == null || chaosJusticeBalanceBarBackground != null)
+            return;
+
+        GameObject backgroundObject = new GameObject("ChaosJusticeBalanceBar", typeof(RectTransform), typeof(Image));
+        backgroundObject.transform.SetParent(chaosJusticeHudPanel.transform, false);
+
+        RectTransform backgroundRect = backgroundObject.GetComponent<RectTransform>();
+        backgroundRect.anchorMin = new Vector2(0f, 0.5f);
+        backgroundRect.anchorMax = new Vector2(1f, 0.5f);
+        backgroundRect.pivot = new Vector2(0.5f, 0.5f);
+        backgroundRect.anchoredPosition = Vector2.zero;
+        backgroundRect.sizeDelta = new Vector2(-24f, 16f);
+
+        chaosJusticeBalanceBarBackground = backgroundObject.GetComponent<Image>();
+        chaosJusticeBalanceBarBackground.color = chaosJusticeBalanceBarBackgroundColor;
+        chaosJusticeBalanceBarBackground.raycastTarget = false;
+
+        chaosJusticeBalanceSafetyFill = CreateChaosJusticeBalanceFill(backgroundObject.transform, "GerechtigkeitFill", chaosJusticeBalanceSafetyColor);
+        chaosJusticeBalanceChaosFill = CreateChaosJusticeBalanceFill(backgroundObject.transform, "ChaosFill", chaosJusticeBalanceChaosColor);
+    }
+
+    private Image CreateChaosJusticeBalanceFill(Transform parent, string objectName, Color color)
+    {
+        GameObject fillObject = new GameObject(objectName, typeof(RectTransform), typeof(Image));
+        fillObject.transform.SetParent(parent, false);
+
+        RectTransform rect = fillObject.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+
+        Image image = fillObject.GetComponent<Image>();
+        image.color = color;
+        image.raycastTarget = false;
+        return image;
+    }
+
+    private void UpdateChaosJusticeBalanceBar(ChaosJusticeManager currentChaosJusticeManager, bool shouldShow)
+    {
+        if (!showOnlyChaosBalanceBarInCompactHud)
+            return;
+
+        bool visible = shouldShow && currentChaosJusticeManager != null && chaosJusticeBalanceBarBackground != null;
+
+        if (chaosJusticeBalanceBarBackground != null)
+            chaosJusticeBalanceBarBackground.gameObject.SetActive(visible);
+
+        if (!visible)
+            return;
+
+        ChaosJusticeBalanceSnapshot balance = currentChaosJusticeManager.GetBalanceSnapshot();
+        float safety = Mathf.Clamp01(balance.safetyPercent / 100f);
+
+        SetFillAnchors(chaosJusticeBalanceSafetyFill, 0f, safety);
+        SetFillAnchors(chaosJusticeBalanceChaosFill, safety, 1f);
+    }
+
+    private void SetFillAnchors(Image image, float minX, float maxX)
+    {
+        if (image == null)
+            return;
+
+        RectTransform rect = image.GetComponent<RectTransform>();
+        if (rect == null)
+            return;
+
+        rect.anchorMin = new Vector2(Mathf.Clamp01(minX), 0f);
+        rect.anchorMax = new Vector2(Mathf.Clamp01(maxX), 1f);
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
     }
 
     private void ApplyNextWavePreviewPanelLayout()
@@ -586,6 +687,11 @@ public class GameUI : MonoBehaviour
             return "";
 
         ChaosJusticeRunData data = currentChaosJusticeManager.runData;
+        ChaosJusticeBalanceSnapshot balance = currentChaosJusticeManager.GetBalanceSnapshot();
+
+        if (showOnlyChaosBalanceBarInCompactHud)
+            return balance.barText;
+
         string text = includeHeader ? "<b>Chaos / Gerechtigkeit</b>" : "";
 
         if (showChaosBalanceBarInStats)

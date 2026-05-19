@@ -64,6 +64,13 @@ public class BlockedEventManager : MonoBehaviour
     public Color choiceBarColor = new Color32(18, 22, 30, 245);
     public Color choiceButtonColor = new Color32(65, 95, 145, 255);
     public Color choiceDescriptionColor = new Color32(255, 220, 120, 255);
+    public float choiceButtonRowSpacing = 14f;
+    public bool forceChoiceButtonRectLayout = true;
+    public float choiceButtonTopPadding = 6f;
+    public float choiceButtonHeight = 46f;
+    public float choiceDescriptionHeight = 30f;
+    public float choiceDescriptionBottomPadding = 4f;
+    public float choiceDescriptionFontSize = 16f;
 
     [Header("PathBuildManager Mirror")]
     public bool mirrorPathBuildManagerLayout = true;
@@ -191,13 +198,15 @@ public class BlockedEventManager : MonoBehaviour
         if (titleText != null && hideTitleTextForChoiceBar)
             titleText.gameObject.SetActive(false);
 
+        ConfigureChoiceButtonRowLayout();
+        ApplyChoiceButtonRectLayout();
         StyleChoiceButton(optionButton1, optionText1);
         StyleChoiceButton(optionButton2, optionText2);
         StyleChoiceButton(optionButton3, optionText3);
 
         if (descriptionText != null)
         {
-            descriptionText.fontSize = Mathf.Max(descriptionText.fontSize, 16f);
+            descriptionText.fontSize = choiceDescriptionFontSize;
             descriptionText.color = choiceDescriptionColor;
             descriptionText.alignment = TextAlignmentOptions.Center;
         }
@@ -223,6 +232,134 @@ public class BlockedEventManager : MonoBehaviour
         choiceBarColor = pathBuildManagerStyleSource.choiceBarColor;
         choiceButtonColor = pathBuildManagerStyleSource.choiceButtonColor;
         choiceDescriptionColor = pathBuildManagerStyleSource.choiceDescriptionColor;
+        choiceButtonRowSpacing = pathBuildManagerStyleSource.choiceButtonRowSpacing;
+        forceChoiceButtonRectLayout = pathBuildManagerStyleSource.forceChoiceButtonRectLayout;
+        choiceButtonTopPadding = pathBuildManagerStyleSource.choiceButtonTopPadding;
+        choiceButtonHeight = pathBuildManagerStyleSource.choiceButtonHeight;
+        choiceDescriptionHeight = pathBuildManagerStyleSource.choiceDescriptionHeight;
+        choiceDescriptionBottomPadding = pathBuildManagerStyleSource.choiceDescriptionBottomPadding;
+        choiceDescriptionFontSize = pathBuildManagerStyleSource.choiceDescriptionFontSize;
+    }
+
+    private void ConfigureChoiceButtonRowLayout()
+    {
+        Transform row = GetChoiceButtonRowTransform();
+        if (row == null)
+            return;
+
+        HorizontalLayoutGroup horizontalLayout = row.GetComponent<HorizontalLayoutGroup>();
+        if (horizontalLayout == null)
+            horizontalLayout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+
+        if (horizontalLayout == null)
+            return;
+
+        horizontalLayout.spacing = choiceButtonRowSpacing;
+        horizontalLayout.padding = new RectOffset(0, 0, 0, 0);
+        horizontalLayout.childAlignment = TextAnchor.UpperCenter;
+        horizontalLayout.childControlWidth = true;
+        horizontalLayout.childControlHeight = true;
+        horizontalLayout.childForceExpandWidth = true;
+        horizontalLayout.childForceExpandHeight = false;
+
+        VerticalLayoutGroup verticalLayout = row.GetComponent<VerticalLayoutGroup>();
+        if (verticalLayout != null)
+            verticalLayout.enabled = false;
+    }
+
+    private Transform GetChoiceButtonRowTransform()
+    {
+        if (optionButton1 == null || optionButton2 == null || optionButton3 == null)
+            return null;
+
+        Transform parent = optionButton1.transform.parent;
+
+        if (parent != null && optionButton2.transform.parent == parent && optionButton3.transform.parent == parent)
+            return parent;
+
+        return null;
+    }
+
+    private void ApplyChoiceButtonRectLayout()
+    {
+        if (!forceChoiceButtonRectLayout || eventTopBar == null)
+            return;
+
+        DisableChoiceBarLayoutGroups(eventTopBar.transform);
+
+        Button[] buttons = { optionButton1, optionButton2, optionButton3 };
+        int visibleButtonCount = 3;
+        float spacing = Mathf.Max(0f, choiceButtonRowSpacing);
+        float topPadding = Mathf.Max(0f, choiceButtonTopPadding);
+        float buttonHeight = Mathf.Max(24f, choiceButtonHeight);
+        float totalSpacing = spacing * (visibleButtonCount - 1);
+
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            Button button = buttons[i];
+            if (button == null)
+                continue;
+
+            RectTransform buttonRect = button.GetComponent<RectTransform>();
+            if (buttonRect == null)
+                continue;
+
+            if (buttonRect.parent != eventTopBar.transform)
+                buttonRect.SetParent(eventTopBar.transform, false);
+
+            float minX = i / (float)visibleButtonCount;
+            float maxX = (i + 1f) / visibleButtonCount;
+            float leftOffset = i == 0 ? 0f : spacing * 0.5f;
+            float rightOffset = i == visibleButtonCount - 1 ? 0f : -spacing * 0.5f;
+
+            buttonRect.anchorMin = new Vector2(minX, 1f);
+            buttonRect.anchorMax = new Vector2(maxX, 1f);
+            buttonRect.pivot = new Vector2(0.5f, 1f);
+            buttonRect.anchoredPosition = new Vector2(0f, -topPadding);
+            buttonRect.sizeDelta = new Vector2(-totalSpacing / visibleButtonCount, buttonHeight);
+            buttonRect.offsetMin = new Vector2(leftOffset, buttonRect.offsetMin.y);
+            buttonRect.offsetMax = new Vector2(rightOffset, buttonRect.offsetMax.y);
+        }
+
+        ApplyChoiceDescriptionRect();
+    }
+
+    private void ApplyChoiceDescriptionRect()
+    {
+        if (descriptionText == null || eventTopBar == null)
+            return;
+
+        RectTransform descriptionRect = descriptionText.GetComponent<RectTransform>();
+        if (descriptionRect == null)
+            return;
+
+        if (descriptionRect.parent != eventTopBar.transform)
+            descriptionRect.SetParent(eventTopBar.transform, false);
+
+        float bottomPadding = Mathf.Max(0f, choiceDescriptionBottomPadding);
+        float descriptionHeight = Mathf.Max(18f, choiceDescriptionHeight);
+
+        descriptionRect.anchorMin = new Vector2(0f, 0f);
+        descriptionRect.anchorMax = new Vector2(1f, 0f);
+        descriptionRect.pivot = new Vector2(0.5f, 0f);
+        descriptionRect.anchoredPosition = new Vector2(0f, bottomPadding);
+        descriptionRect.sizeDelta = new Vector2(0f, descriptionHeight);
+        descriptionRect.offsetMin = new Vector2(0f, bottomPadding);
+        descriptionRect.offsetMax = new Vector2(0f, bottomPadding + descriptionHeight);
+    }
+
+    private void DisableChoiceBarLayoutGroups(Transform root)
+    {
+        if (root == null)
+            return;
+
+        LayoutGroup[] layoutGroups = root.GetComponentsInChildren<LayoutGroup>(true);
+
+        foreach (LayoutGroup layoutGroup in layoutGroups)
+        {
+            if (layoutGroup != null)
+                layoutGroup.enabled = false;
+        }
     }
 
     private void HideUnusedTopBarTextLabels()
