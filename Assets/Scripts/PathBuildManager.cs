@@ -14,12 +14,20 @@ public class PathBuildOption
 
 public class PathBuildManager : MonoBehaviour
 {
+    private const float GeneratedGhostVisualBottomLocalY = -0.05f;
+
     [Header("References")]
     public Camera mainCamera;
     public TileManager tileManager;
     public BuildManager buildManager;
     public GameManager gameManager;
     public GameObject pathGhostPrefab;
+
+    [Header("Generated Tile Prefabs")]
+    public GeneratedTilePrefabSet generatedTilePrefabSet;
+    public bool useGeneratedTilePrefabs = true;
+    public bool allowSpecialTilePlacementV1 = true;
+    public bool specialTilesUsePathBehaviourInV1 = true;
 
     [Header("UI")]
     public GameObject pathTopBar;
@@ -64,6 +72,9 @@ public class PathBuildManager : MonoBehaviour
     private void Start()
     {
         ResolveGameManagerReference();
+        ResolveGeneratedTilePrefabSetReference();
+        SyncGeneratedTilePrefabSetToTileManager();
+        EnsureDefaultRandomOptions();
 
         ApplyChoiceUILayoutDefaults();
 
@@ -73,6 +84,7 @@ public class PathBuildManager : MonoBehaviour
         if (pathGhostPrefab != null)
         {
             currentGhost = Instantiate(pathGhostPrefab);
+            NormalizeGeneratedGhostVisual(currentGhost);
             currentGhost.SetActive(false);
         }
         else
@@ -81,6 +93,96 @@ public class PathBuildManager : MonoBehaviour
         }
 
         SetupButtonEvents();
+    }
+
+    private void NormalizeGeneratedGhostVisual(GameObject ghostObject)
+    {
+        if (ghostObject == null)
+            return;
+
+        ghostObject.transform.rotation = Quaternion.identity;
+
+        Transform visual = ghostObject.transform.Find("Visual");
+
+        if (visual != null)
+        {
+            visual.localRotation = Quaternion.identity;
+            AlignGeneratedGhostVisualToGround(ghostObject, visual);
+        }
+
+        HideGeneratedGhostRailsAndCorners(ghostObject.transform);
+    }
+
+    private void ShowCurrentGhostAt(Vector2Int gridPos)
+    {
+        if (currentGhost == null || tileManager == null)
+            return;
+
+        currentGhost.transform.position = tileManager.GridToWorldPublic(gridPos);
+
+        Transform visual = currentGhost.transform.Find("Visual");
+
+        if (visual != null)
+            AlignGeneratedGhostVisualToGround(currentGhost, visual);
+
+        currentGhost.SetActive(true);
+    }
+
+    private void AlignGeneratedGhostVisualToGround(GameObject ghostObject, Transform visual)
+    {
+        if (ghostObject == null || visual == null)
+            return;
+
+        if (!TryGetRendererBounds(visual, out Bounds bounds))
+            return;
+
+        float localGroundY = tileManager != null ? tileManager.generatedTileGroundLocalY : GeneratedGhostVisualBottomLocalY;
+        float desiredMinY = ghostObject.transform.position.y + localGroundY;
+        float deltaY = desiredMinY - bounds.min.y;
+
+        if (Mathf.Abs(deltaY) > 0.001f)
+            visual.position += Vector3.up * deltaY;
+    }
+
+    private bool TryGetRendererBounds(Transform root, out Bounds bounds)
+    {
+        bounds = new Bounds();
+
+        if (root == null)
+            return false;
+
+        Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+        bool hasBounds = false;
+
+        foreach (Renderer targetRenderer in renderers)
+        {
+            if (targetRenderer == null)
+                continue;
+
+            if (!hasBounds)
+            {
+                bounds = targetRenderer.bounds;
+                hasBounds = true;
+            }
+            else
+            {
+                bounds.Encapsulate(targetRenderer.bounds);
+            }
+        }
+
+        return hasBounds;
+    }
+
+    private void HideGeneratedGhostRailsAndCorners(Transform root)
+    {
+        if (root == null)
+            return;
+
+        if (root.name.Contains("Rail_") || root.name.Contains("CornerPost") || root.name.Contains("Corner_"))
+            root.gameObject.SetActive(false);
+
+        for (int i = 0; i < root.childCount; i++)
+            HideGeneratedGhostRailsAndCorners(root.GetChild(i));
     }
 
     private void Update()
@@ -159,6 +261,68 @@ public class PathBuildManager : MonoBehaviour
         }
 
         gameManager = FindObjectOfType<GameManager>();
+    }
+
+    private void ResolveGeneratedTilePrefabSetReference()
+    {
+        if (!useGeneratedTilePrefabs)
+            return;
+
+        if (generatedTilePrefabSet == null && tileManager != null && tileManager.generatedTilePrefabSet != null)
+            generatedTilePrefabSet = tileManager.generatedTilePrefabSet;
+
+        if (generatedTilePrefabSet == null)
+            generatedTilePrefabSet = FindObjectOfType<GeneratedTilePrefabSet>();
+
+        if (generatedTilePrefabSet != null && generatedTilePrefabSet.pathGhostTilePrefab != null)
+            pathGhostPrefab = generatedTilePrefabSet.pathGhostTilePrefab;
+    }
+
+    private void SyncGeneratedTilePrefabSetToTileManager()
+    {
+        if (!useGeneratedTilePrefabs || tileManager == null || generatedTilePrefabSet == null)
+            return;
+
+        if (tileManager.generatedTilePrefabSet == null)
+            tileManager.generatedTilePrefabSet = generatedTilePrefabSet;
+
+        tileManager.useGeneratedTilePrefabs = true;
+    }
+
+    private void EnsureDefaultRandomOptions()
+    {
+        if (randomOptions == null)
+            randomOptions = new List<PathBuildOption>();
+
+        RemoveRemovedPathBuildOptions(randomOptions);
+
+        AddOptionIfTypeMissing(randomOptions, new PathBuildOption
+        {
+            displayName = "Trap Tile",
+            description = "Gefaehrliches Pfad-Tile. V1: zaehlt als Pfad-Variante.",
+            optionType = PathBuildOptionType.TrapTile
+        });
+    }
+
+    private void RemoveRemovedPathBuildOptions(List<PathBuildOption> options)
+    {
+        if (options == null)
+            return;
+
+        for (int i = options.Count - 1; i >= 0; i--)
+        {
+            PathBuildOption option = options[i];
+
+            if (option == null || IsRemovedPathBuildSelectionOption(option.optionType))
+                options.RemoveAt(i);
+        }
+    }
+
+    private bool IsRemovedPathBuildSelectionOption(PathBuildOptionType optionType)
+    {
+        return optionType == PathBuildOptionType.SpecialTile ||
+               optionType == PathBuildOptionType.BridgeTile ||
+               optionType == PathBuildOptionType.GoldTile;
     }
 
     private bool IsInputLockedByModalUI()
@@ -489,10 +653,7 @@ public class PathBuildManager : MonoBehaviour
         hasValidHover = true;
 
         if (currentGhost != null)
-        {
-            currentGhost.transform.position = tileManager.GridToWorldPublic(gridPos);
-            currentGhost.SetActive(true);
-        }
+            ShowCurrentGhostAt(gridPos);
 
         if (Input.GetMouseButtonDown(0))
         {
@@ -531,8 +692,7 @@ public class PathBuildManager : MonoBehaviour
         hoveredGridPosition = gridPos;
         hasValidHover = true;
 
-        currentGhost.transform.position = tileManager.GridToWorldPublic(gridPos);
-        currentGhost.SetActive(true);
+        ShowCurrentGhostAt(gridPos);
     }
 
     private void OpenTileChoice()
@@ -627,7 +787,7 @@ public class PathBuildManager : MonoBehaviour
         AddMissingDefaultSpecialOptions(optionPool);
 
         if (optionPool.Count == 0)
-            optionPool.AddRange(CreateDefaultSpecialOptions());
+            optionPool.Add(CreateFallbackSpecialOption());
 
         return optionPool;
     }
@@ -635,7 +795,7 @@ public class PathBuildManager : MonoBehaviour
     private PathBuildOption DrawRandomOptionFromPool(List<PathBuildOption> optionPool)
     {
         if (optionPool == null || optionPool.Count == 0)
-            return CreateDefaultSpecialOptions()[0];
+            return CreateFallbackSpecialOption();
 
         int randomIndex = Random.Range(0, optionPool.Count);
         PathBuildOption option = optionPool[randomIndex];
@@ -688,8 +848,21 @@ public class PathBuildManager : MonoBehaviour
 
         foreach (PathBuildOption defaultOption in CreateDefaultSpecialOptions())
         {
+            if (defaultOption == null || IsRemovedPathBuildSelectionOption(defaultOption.optionType))
+                continue;
+
             AddOptionIfTypeMissing(optionPool, defaultOption);
         }
+    }
+
+    private PathBuildOption CreateFallbackSpecialOption()
+    {
+        return new PathBuildOption
+        {
+            displayName = "Trap Tile",
+            description = "Trap-Tile: Weg-Tile. Gegner bluten 20s lang: 2 Schaden alle 3s.",
+            optionType = PathBuildOptionType.TrapTile
+        };
     }
 
     private void AddOptionIfTypeMissing(List<PathBuildOption> optionPool, PathBuildOption option)
@@ -721,7 +894,6 @@ public class PathBuildManager : MonoBehaviour
             return false;
 
         return option.optionType == PathBuildOptionType.TrapTile ||
-               option.optionType == PathBuildOptionType.GoldTile ||
                option.optionType == PathBuildOptionType.SlowTile ||
                option.optionType == PathBuildOptionType.KnockTile ||
                option.optionType == PathBuildOptionType.RangeTile ||
@@ -736,12 +908,6 @@ public class PathBuildManager : MonoBehaviour
     {
         return new List<PathBuildOption>
         {
-            new PathBuildOption
-            {
-                displayName = "Gold Tile",
-                description = "Gold-Tile: blockiert dieses Feld und erzeugt während Waves Gold.",
-                optionType = PathBuildOptionType.GoldTile
-            },
             new PathBuildOption
             {
                 displayName = "Trap Tile",
@@ -863,6 +1029,13 @@ public class PathBuildManager : MonoBehaviour
         {
             success = tileManager.TryExtendPathTo(hoveredGridPosition);
         }
+        else if (ShouldPlaceAsV1PathVariant(option.optionType))
+        {
+            success = tileManager.TryExtendPathToWithOption(hoveredGridPosition, option);
+
+            if (success)
+                Debug.Log(option.optionType + " platziert als V1 Path-Variante.");
+        }
         else if (IsSpecialPathOption(option.optionType))
         {
             success = tileManager.TryExtendSpecialPathTo(hoveredGridPosition, option.optionType);
@@ -899,6 +1072,14 @@ public class PathBuildManager : MonoBehaviour
                optionType == PathBuildOptionType.SlowTile ||
                optionType == PathBuildOptionType.KnockTile ||
                optionType == PathBuildOptionType.ComboTile;
+    }
+
+    private bool ShouldPlaceAsV1PathVariant(PathBuildOptionType optionType)
+    {
+        if (!allowSpecialTilePlacementV1 || !specialTilesUsePathBehaviourInV1)
+            return false;
+
+        return optionType == PathBuildOptionType.TrapTile;
     }
 
     private bool IsSupportTileOption(PathBuildOptionType optionType)

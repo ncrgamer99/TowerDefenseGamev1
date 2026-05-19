@@ -1266,6 +1266,13 @@ MonoBehaviour:
   choiceBarColor: {r: 0.07058824, g: 0.08627451, b: 0.11764706, a: 0.9607843}
   choiceButtonColor: {r: 0.25490198, g: 0.37254903, b: 0.5686275, a: 1}
   choiceDescriptionColor: {r: 1, g: 0.8627451, b: 0.47058824, a: 1}
+  choiceButtonRowSpacing: 14
+  forceChoiceButtonRectLayout: 1
+  choiceButtonTopPadding: 6
+  choiceButtonHeight: 46
+  choiceDescriptionHeight: 30
+  choiceDescriptionBottomPadding: 4
+  choiceDescriptionFontSize: 16
   mirrorPathBuildManagerLayout: 1
   timedBuildPhaseDuration: 10
   possibleEvents: []
@@ -9540,6 +9547,11 @@ MonoBehaviour:
   textPrimaryColor: {r: 0.9490196, g: 0.9607843, b: 0.98039216, a: 1}
   textSecondaryColor: {r: 0.70980394, g: 0.7490196, b: 0.8039216, a: 1}
   textDisabledColor: {r: 0.43137255, g: 0.47058824, b: 0.52156866, a: 1}
+  applyUpgradeButtonLayoutDefaults: 1
+  upgradeButtonCellSize: {x: 150, y: 72}
+  upgradeButtonSpacing: {x: 10, y: 10}
+  upgradeButtonFontSizeMax: 16
+  upgradeButtonFontSizeMin: 10
 --- !u!4 &900815698
 Transform:
   m_ObjectHideFlags: 0
@@ -10073,10 +10085,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 226ec3b15d81492438e63c6e04784a3c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TileManager
-  startTilePrefab: {fileID: 7040403260840581776, guid: 170bf8050e91b724cbdefc96a174572b, type: 3}
-  pathTilePrefab: {fileID: 1675389049122728109, guid: bf603015bf541574fbbc2e5dd86acc36, type: 3}
-  baseTilePrefab: {fileID: 153661450585619559, guid: 0dc133900081cc047b548e5b3707e597, type: 3}
-  buildTilePrefab: {fileID: 8035324466986334388, guid: 7f8b38d87b620bb4aac83a4e891eb6f7, type: 3}
+  startTilePrefab: {fileID: 6799005666642787944, guid: 861a5dbd24f7222409bb27c22a0b8dea, type: 3}
+  pathTilePrefab: {fileID: 5594327931762331806, guid: 140020a070ff7bc4382e0c7de5dfca8a, type: 3}
+  baseTilePrefab: {fileID: 7855524045932270641, guid: ed326680dc22cd24a829bf3a4fc18c45, type: 3}
+  buildTilePrefab: {fileID: 8826887482101949205, guid: debe1451d32472548a25025a7a4083ee, type: 3}
+  generatedTilePrefabSet: {fileID: 1695257725}
+  useGeneratedTilePrefabs: 1
+  skipProceduralRailingsOnGeneratedTiles: 1
+  useGeneratedTileDirectRails: 1
+  invertGeneratedRailSideNames: 1
+  rotateGeneratedPathTileVisualsToFlow: 1
+  generatedPathTileVisualEulerBase: {x: 0, y: 0, z: 0}
+  generatedPathTileForwardYawOffset: 0
+  generatedTileGroundLocalY: -0.05
+  trapTilePrefab: {fileID: 6100565347807413038, guid: 597de1442ee138247bd92ef5fcb851b3, type: 3}
+  specialTilePrefab: {fileID: 6306817060694791946, guid: d5c606dd8c97b124181d7b0b3fe46209, type: 3}
+  bridgeTilePrefab: {fileID: 1731564795444416399, guid: 545a85e6866c25847a2b6e465a4d0e65, type: 3}
+  goldTilePrefab: {fileID: 3927349088991019906, guid: cf602eb3091d25c4598d1baaa621755d, type: 3}
+  blockedTilePrefab: {fileID: 4687535001054656413, guid: f4a0f7c613011ab4bb87c4015ebae75c, type: 3}
   gameManager: {fileID: 652380030}
   tileSize: 1
   scaleWorldVisualOnStart: 1
@@ -12090,117 +12116,181 @@ MonoBehaviour:
   tooltipSize: {x: 360, y: 176}
   towerSlots:
   - option:
-      displayName: Basic
-      description: "G\xFCnstiger Allrounder f\xFCr den Spielstart."
+      displayName: Basic Tower
+      description: Guenstiger Allrounder fuer den Spielstart.
       icon: {fileID: 0}
-      prefab: {fileID: 8292224941147690173, guid: eb2b06eed915fcf4ca2d7d76569240a1, type: 3}
+      prefab: {fileID: 1294381198870490213, guid: d3e132c7825d5c645b0266f9ab9b653a, type: 3}
       cost: 50
       placementType: 0
     button: {fileID: 335998391}
     iconImage: {fileID: 234023455}
   - option:
-      displayName: Fire
+      displayName: Fire Tower
       description: Burn-Tower gegen Gruppen und Standard-Gegner.
       icon: {fileID: 0}
-      prefab: {fileID: 8731683357485143226, guid: 58aefcb20fd922d40aabba4621b56c7a, type: 3}
+      prefab: {fileID: 4425278913395318243, guid: 2945f876c6cf2bc419035d3c2a729f98, type: 3}
       cost: 80
       placementType: 0
     button: {fileID: 1206925180}
     iconImage: {fileID: 992260697}
   - option:
-      displayName: Heavy
-      description: Langsamer Einzelschaden gegen Armor, Tanks und Bosse.
+      displayName: Heavy Tower
+      description: Langsamer Einzelschaden gegen Tanks und Bosse.
       icon: {fileID: 0}
-      prefab: {fileID: 704908914254974826, guid: 1044c66bfda8f094e93175a460a3eddb, type: 3}
+      prefab: {fileID: 357747428197504757, guid: 838486122f439ac4d861ef4b00658e92, type: 3}
       cost: 100
       placementType: 0
     button: {fileID: 1970333527}
     iconImage: {fileID: 1327738323}
   - option:
-      displayName: Poison
+      displayName: Poison Tower
       description: DoT-Tower gegen Tanks, MiniBoss und Boss.
       icon: {fileID: 0}
-      prefab: {fileID: 8292224941147690173, guid: 31480da4ee3664f4b9a3e8788f80ec04, type: 3}
+      prefab: {fileID: 4030006302649223601, guid: 02bc72b1e08a5b74a95ebb7539b40d15, type: 3}
       cost: 80
       placementType: 0
     button: {fileID: 225612783}
     iconImage: {fileID: 2143983888}
   - option:
-      displayName: Rapid
-      description: "Schneller Tower gegen Runner und zum Aufr\xE4umen angeschlagener
-        Gegner."
+      displayName: Rapid Tower
+      description: Schneller Tower gegen Runner und Cleanup.
       icon: {fileID: 0}
-      prefab: {fileID: 6314805777368074503, guid: 3b35e077ec48e82448470f50f8191ad5, type: 3}
-      cost: 70
+      prefab: {fileID: 6212746672992145432, guid: 5aa4a46959295854984bca17692014dd, type: 3}
+      cost: 75
       placementType: 0
     button: {fileID: 760603730}
     iconImage: {fileID: 1800951208}
   - option:
-      displayName: Slow
-      description: "Kontrolltower, der Gegner verlangsamt und andere Tower st\xE4rker
-        macht."
+      displayName: Slow Tower
+      description: Kontrolltower, der Gegner verlangsamt.
       icon: {fileID: 0}
-      prefab: {fileID: 8292224941147690173, guid: 844855c1fd8b7f74291343637247f139, type: 3}
+      prefab: {fileID: 1501033923069659043, guid: b4a72cf2042acd044aa40c6f7dd71d71, type: 3}
       cost: 65
       placementType: 0
     button: {fileID: 651892003}
     iconImage: {fileID: 615387778}
+  - option:
+      displayName: Alchemist Tower
+      description: Gift und Kontrolle in einem kompakten Support-Tower.
+      icon: {fileID: 0}
+      prefab: {fileID: 3527327499668171362, guid: 93134ff2f9b2dac43a1f6408ce45ce6b, type: 3}
+      cost: 85
+      placementType: 0
+    button: {fileID: 0}
+    iconImage: {fileID: 0}
+  - option:
+      displayName: Lightning Tower
+      description: Schneller Tower mit Kettenblitz und kurzer Verlangsamung.
+      icon: {fileID: 0}
+      prefab: {fileID: 3437000587345945374, guid: 627f29cdf99d2bf41b8b5828ca177b9b, type: 3}
+      cost: 90
+      placementType: 0
+    button: {fileID: 0}
+    iconImage: {fileID: 0}
+  - option:
+      displayName: Mortar Tower
+      description: Langsamer Tower mit hohem Einschlagsschaden.
+      icon: {fileID: 0}
+      prefab: {fileID: 6781687835098839782, guid: 37697e7e7df642148a91b110e531beee, type: 3}
+      cost: 110
+      placementType: 0
+    button: {fileID: 0}
+    iconImage: {fileID: 0}
+  - option:
+      displayName: Sniper Tower
+      description: Sehr hohe Reichweite und starker Einzelschuss.
+      icon: {fileID: 0}
+      prefab: {fileID: 3608623996677298242, guid: 58a97575287ac3e42b8ef4ce9ea1b2b3, type: 3}
+      cost: 120
+      placementType: 0
+    button: {fileID: 0}
+    iconImage: {fileID: 0}
+  - option:
+      displayName: Spike Tower
+      description: Kurze Reichweite mit schnellen Treffern und Bleed.
+      icon: {fileID: 0}
+      prefab: {fileID: 2673075223448952891, guid: 58b39209ab422764ea66b6d1522fb9dc, type: 3}
+      cost: 75
+      placementType: 0
+    button: {fileID: 0}
+    iconImage: {fileID: 0}
   autoApplyBuildOptionDefaults: 1
   basicTower:
-    displayName: 
-    description: 
+    displayName: Basic Tower
+    description: Guenstiger Allrounder fuer den Spielstart.
     icon: {fileID: 0}
-    prefab: {fileID: 0}
-    cost: 0
+    prefab: {fileID: 1294381198870490213, guid: d3e132c7825d5c645b0266f9ab9b653a, type: 3}
+    cost: 50
     placementType: 0
   rapidTower:
-    displayName: 
-    description: 
+    displayName: Rapid Tower
+    description: Schneller Tower gegen Runner und Cleanup.
     icon: {fileID: 0}
-    prefab: {fileID: 0}
-    cost: 0
+    prefab: {fileID: 6212746672992145432, guid: 5aa4a46959295854984bca17692014dd, type: 3}
+    cost: 75
     placementType: 0
   heavyTower:
-    displayName: 
-    description: 
+    displayName: Heavy Tower
+    description: Langsamer Einzelschaden gegen Tanks und Bosse.
     icon: {fileID: 0}
-    prefab: {fileID: 0}
-    cost: 0
+    prefab: {fileID: 357747428197504757, guid: 838486122f439ac4d861ef4b00658e92, type: 3}
+    cost: 100
     placementType: 0
   fireTower:
-    displayName: 
-    description: 
+    displayName: Fire Tower
+    description: Burn-Tower gegen Gruppen und Standard-Gegner.
     icon: {fileID: 0}
-    prefab: {fileID: 0}
-    cost: 0
+    prefab: {fileID: 4425278913395318243, guid: 2945f876c6cf2bc419035d3c2a729f98, type: 3}
+    cost: 80
     placementType: 0
   slowTower:
-    displayName: 
-    description: 
+    displayName: Slow Tower
+    description: Kontrolltower, der Gegner verlangsamt.
     icon: {fileID: 0}
-    prefab: {fileID: 0}
-    cost: 0
+    prefab: {fileID: 1501033923069659043, guid: b4a72cf2042acd044aa40c6f7dd71d71, type: 3}
+    cost: 65
     placementType: 0
   poisonTower:
-    displayName: 
-    description: 
+    displayName: Poison Tower
+    description: DoT-Tower gegen Tanks, MiniBoss und Boss.
     icon: {fileID: 0}
-    prefab: {fileID: 0}
-    cost: 0
+    prefab: {fileID: 4030006302649223601, guid: 02bc72b1e08a5b74a95ebb7539b40d15, type: 3}
+    cost: 80
     placementType: 0
   sniperTower:
-    displayName: 
-    description: 
+    displayName: Sniper Tower
+    description: Sehr hohe Reichweite und starker Einzelschuss.
     icon: {fileID: 0}
-    prefab: {fileID: 0}
-    cost: 0
+    prefab: {fileID: 3608623996677298242, guid: 58a97575287ac3e42b8ef4ce9ea1b2b3, type: 3}
+    cost: 120
     placementType: 0
   alchemistTower:
-    displayName: 
-    description: 
+    displayName: Alchemist Tower
+    description: Gift und Kontrolle in einem kompakten Support-Tower.
     icon: {fileID: 0}
-    prefab: {fileID: 0}
-    cost: 0
+    prefab: {fileID: 3527327499668171362, guid: 93134ff2f9b2dac43a1f6408ce45ce6b, type: 3}
+    cost: 85
+    placementType: 0
+  lightningTower:
+    displayName: Lightning Tower
+    description: Schneller Tower mit Kettenblitz und kurzer Verlangsamung.
+    icon: {fileID: 0}
+    prefab: {fileID: 3437000587345945374, guid: 627f29cdf99d2bf41b8b5828ca177b9b, type: 3}
+    cost: 90
+    placementType: 0
+  mortarTower:
+    displayName: Mortar Tower
+    description: Langsamer Tower mit hohem Einschlagsschaden.
+    icon: {fileID: 0}
+    prefab: {fileID: 6781687835098839782, guid: 37697e7e7df642148a91b110e531beee, type: 3}
+    cost: 110
+    placementType: 0
+  spikeTower:
+    displayName: Spike Tower
+    description: Kurze Reichweite mit schnellen Treffern und Bleed.
+    icon: {fileID: 0}
+    prefab: {fileID: 2673075223448952891, guid: 58b39209ab422764ea66b6d1522fb9dc, type: 3}
+    cost: 75
     placementType: 0
   autoAddNewTowerSlots: 1
   autoCreateMissingSlotButtons: 1
@@ -12688,14 +12778,22 @@ MonoBehaviour:
   previewPanelColor: {r: 0.08627451, g: 0.15294118, b: 0.23529412, a: 0.9019608}
   chaosJusticeHudPanel: {fileID: 804905338}
   chaosJusticeHudText: {fileID: 1400689581}
+  chaosJusticeBalanceBarBackground: {fileID: 0}
+  chaosJusticeBalanceSafetyFill: {fileID: 0}
+  chaosJusticeBalanceChaosFill: {fileID: 0}
   showCompactChaosJusticeSummary: 1
   showChaosJusticeOnlyDuringBossChoice: 1
   appendChaosJusticeToStatsWhenNoSeparateText: 1
   showChaosBalanceBarInStats: 1
+  showOnlyChaosBalanceBarInCompactHud: 1
   showRiskGroupsInCompactSummary: 1
   showDetailedRiskListInStats: 0
   maxHudRiskDetails: 3
   chaosJusticeHudFontSize: 16
+  compactChaosJusticeHudPanelSize: {x: 300, y: 44}
+  chaosJusticeBalanceBarBackgroundColor: {r: 0.13725491, g: 0.1764706, b: 0.2509804, a: 1}
+  chaosJusticeBalanceSafetyColor: {r: 0.8392157, g: 0.6431373, b: 0.25490198, a: 1}
+  chaosJusticeBalanceChaosColor: {r: 0.7254902, g: 0.27450982, b: 0.37254903, a: 1}
   showFullChaosJusticeDebug: 0
   showChaosChoiceOptionsInStatsText: 0
   nextWavePreviewPanel: {fileID: 963669977}
@@ -17211,6 +17309,7 @@ MonoBehaviour:
   optionText4: {fileID: 1038107878}
   hideUnusedOptionButtons: 1
   applyModalLayoutDefaults: 1
+  showOnlyOptionTitlesInButtons: 1
   choiceTitlePosition: {x: 0, y: -58}
   choiceDescriptionPosition: {x: 0, y: -108}
   choiceButtonSize: {x: 270, y: 250}
@@ -17690,7 +17789,11 @@ MonoBehaviour:
   tileManager: {fileID: 992310456}
   buildManager: {fileID: 276326606}
   gameManager: {fileID: 652380030}
-  pathGhostPrefab: {fileID: 7592628148135918015, guid: fc4e460c478126e4b93faa29844be83f, type: 3}
+  pathGhostPrefab: {fileID: 1740532298637763642, guid: 7a9138d57791eed40bb4ad25c006a212, type: 3}
+  generatedTilePrefabSet: {fileID: 1695257725}
+  useGeneratedTilePrefabs: 1
+  allowSpecialTilePlacementV1: 1
+  specialTilesUsePathBehaviourInV1: 1
   pathTopBar: {fileID: 553725255}
   optionButton1: {fileID: 650247478}
   optionButton2: {fileID: 1881450640}
@@ -17708,19 +17811,32 @@ MonoBehaviour:
   choiceBarColor: {r: 0.07058824, g: 0.08627451, b: 0.11764706, a: 0.9607843}
   choiceButtonColor: {r: 0.25490198, g: 0.37254903, b: 0.5686275, a: 1}
   choiceDescriptionColor: {r: 1, g: 0.8627451, b: 0.47058824, a: 1}
+  choiceButtonRowSpacing: 14
+  forceChoiceButtonRectLayout: 1
+  choiceButtonTopPadding: 6
+  choiceButtonHeight: 46
+  choiceDescriptionHeight: 30
+  choiceDescriptionBottomPadding: 4
+  choiceDescriptionFontSize: 16
   randomOptions:
   - displayName: Trap Tile
-    description: "Platzhalter f\xFCr eine sp\xE4tere Falle."
+    description: 'Gefaehrliches Pfad-Tile. V1: zaehlt als Pfad-Variante.'
     optionType: 1
   - displayName: KnockTile
     description: "Platzhalter f\xFCr eine sp\xE4tere Br\xFCcke."
     optionType: 6
   - displayName: Gold Tile
-    description: "Platzhalter f\xFCr ein sp\xE4teres Bonus-Tile."
+    description: 'Gold-Tile. V1: zaehlt als Pfad-Variante.'
     optionType: 4
   - displayName: SlowTile
     description: "Platzhalter f\xFCr ein sp\xE4teres Bonus-Tile."
     optionType: 5
+  - displayName: Special Tile
+    description: 'Sonder-Tile. V1: zaehlt als Pfad-Variante.'
+    optionType: 2
+  - displayName: Bridge Tile
+    description: 'Bruecken-Tile. V1: zaehlt als Pfad-Variante.'
+    optionType: 3
   specialTileSelectionWaveInterval: 5
 --- !u!4 &1677539942
 Transform:
@@ -17878,6 +17994,60 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 600, y: 200}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &1695257724
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1695257726}
+  - component: {fileID: 1695257725}
+  m_Layer: 0
+  m_Name: GeneratedTilePrefabSet
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1695257725
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1695257724}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee5c16b7e2b8e364fac2b2de3cf60531, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GeneratedTilePrefabSet
+  pathTilePrefab: {fileID: 5594327931762331806, guid: 140020a070ff7bc4382e0c7de5dfca8a, type: 3}
+  startTilePrefab: {fileID: 6799005666642787944, guid: 861a5dbd24f7222409bb27c22a0b8dea, type: 3}
+  baseTilePrefab: {fileID: 7855524045932270641, guid: ed326680dc22cd24a829bf3a4fc18c45, type: 3}
+  buildTilePrefab: {fileID: 8826887482101949205, guid: debe1451d32472548a25025a7a4083ee, type: 3}
+  trapTilePrefab: {fileID: 6100565347807413038, guid: 597de1442ee138247bd92ef5fcb851b3, type: 3}
+  specialTilePrefab: {fileID: 6306817060694791946, guid: d5c606dd8c97b124181d7b0b3fe46209, type: 3}
+  bridgeTilePrefab: {fileID: 1731564795444416399, guid: 545a85e6866c25847a2b6e465a4d0e65, type: 3}
+  goldTilePrefab: {fileID: 3927349088991019906, guid: cf602eb3091d25c4598d1baaa621755d, type: 3}
+  pathGhostTilePrefab: {fileID: 1740532298637763642, guid: 7a9138d57791eed40bb4ad25c006a212, type: 3}
+  blockedTilePrefab: {fileID: 4687535001054656413, guid: f4a0f7c613011ab4bb87c4015ebae75c, type: 3}
+--- !u!4 &1695257726
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1695257724}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1727733536
 GameObject:
   m_ObjectHideFlags: 0
@@ -21218,3 +21388,4 @@ SceneRoots:
   - {fileID: 1831790830}
   - {fileID: 504844865}
   - {fileID: 459103898}
+  - {fileID: 1695257726}

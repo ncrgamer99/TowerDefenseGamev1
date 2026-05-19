@@ -93,6 +93,9 @@ public class Tower : MonoBehaviour
     private TowerRangeIndicator rangeIndicator;
     private TowerVisualFeedback towerVisualFeedback;
     private TowerVisualTierController visualTierController;
+    private TowerVisualTierPrefabController visualTierPrefabController;
+    private TowerAimController aimController;
+    private Enemy currentTarget;
 
     private bool visualTierBaseStatsCaptured = false;
     private int baseDamageBeforeVisualTier = 0;
@@ -263,13 +266,14 @@ public class Tower : MonoBehaviour
     {
         fireCooldown -= Time.deltaTime;
 
+        Enemy target = FindTarget();
+        SetCurrentTarget(target);
+
         int shotsThisFrame = 0;
         int maxShotsPerFrame = 5;
 
         while (fireCooldown <= 0f && shotsThisFrame < maxShotsPerFrame)
         {
-            Enemy target = FindTarget();
-
             if (target == null)
             {
                 fireCooldown = Mathf.Max(fireCooldown, 0f);
@@ -282,12 +286,38 @@ public class Tower : MonoBehaviour
             fireCooldown += shotInterval;
 
             shotsThisFrame++;
+
+            if (fireCooldown <= 0f && shotsThisFrame < maxShotsPerFrame)
+            {
+                target = FindTarget();
+                SetCurrentTarget(target);
+            }
         }
 
         if (shotsThisFrame >= maxShotsPerFrame)
         {
             fireCooldown = Mathf.Max(fireCooldown, 0f);
         }
+    }
+
+    private void SetCurrentTarget(Enemy target)
+    {
+        currentTarget = target;
+        UpdateAimController();
+    }
+
+    private void UpdateAimController()
+    {
+        if (aimController == null)
+            aimController = GetComponent<TowerAimController>();
+
+        if (aimController == null)
+            return;
+
+        if (aimController.tower == null)
+            aimController.tower = this;
+
+        aimController.AimAt(currentTarget);
     }
 
     private TowerRole ResolveTowerRoleForPreset()
@@ -556,7 +586,7 @@ public class Tower : MonoBehaviour
                 damage = 2;
                 range = 1.5f;
                 fireRate = 1.1f;
-                targetMode = TowerTargetMode.NoBleed;
+                targetMode = TowerTargetMode.Closest;
 
                 damageUpgradeCost = 55;
                 rangeUpgradeCost = 60;
@@ -1482,6 +1512,14 @@ public class Tower : MonoBehaviour
 
     private void EnsureQoLVisualComponents()
     {
+        if (aimController == null)
+        {
+            aimController = GetComponent<TowerAimController>();
+
+            if (aimController != null && aimController.tower == null)
+                aimController.tower = this;
+        }
+
         if (autoCreateRangeIndicator && rangeIndicator == null)
         {
             rangeIndicator = GetComponent<TowerRangeIndicator>();
@@ -1498,13 +1536,40 @@ public class Tower : MonoBehaviour
             towerVisualFeedback.tower = this;
         }
 
-        if (autoCreateVisualTierController && visualTierController == null)
+        bool useFixedVisualTierPrefabs = TryResolveFixedVisualTierController();
+
+        if (useFixedVisualTierPrefabs)
+        {
+            visualTierController = GetComponent<TowerVisualTierController>();
+
+            if (visualTierController != null)
+                visualTierController.enabled = false;
+        }
+
+        if (autoCreateVisualTierController && !useFixedVisualTierPrefabs && visualTierController == null)
         {
             visualTierController = GetComponent<TowerVisualTierController>();
             if (visualTierController == null)
                 visualTierController = gameObject.AddComponent<TowerVisualTierController>();
             visualTierController.tower = this;
         }
+
+        if (!useFixedVisualTierPrefabs && visualTierController != null && !visualTierController.enabled)
+            visualTierController.enabled = true;
+    }
+
+    private bool TryResolveFixedVisualTierController()
+    {
+        if (visualTierPrefabController == null)
+            visualTierPrefabController = GetComponent<TowerVisualTierPrefabController>();
+
+        if (visualTierPrefabController == null || !visualTierPrefabController.useFixedVisualTierPrefabs)
+            return false;
+
+        if (visualTierPrefabController.tower == null)
+            visualTierPrefabController.tower = this;
+
+        return true;
     }
 
     public void SetRangeIndicatorVisible(bool visible)
@@ -1547,6 +1612,12 @@ public class Tower : MonoBehaviour
     private void RefreshVisualTierShape()
     {
         EnsureQoLVisualComponents();
+
+        if (TryResolveFixedVisualTierController())
+        {
+            visualTierPrefabController.ApplyTier(visualTier);
+            return;
+        }
 
         if (visualTierController != null)
             visualTierController.ApplyTier(visualTier);

@@ -9,6 +9,22 @@ public class TileManager : MonoBehaviour
     public GameObject baseTilePrefab;
     public GameObject buildTilePrefab;
 
+    [Header("Generated Tile Prefabs")]
+    public GeneratedTilePrefabSet generatedTilePrefabSet;
+    public bool useGeneratedTilePrefabs = true;
+    public bool skipProceduralRailingsOnGeneratedTiles = true;
+    public bool useGeneratedTileDirectRails = true;
+    public bool invertGeneratedRailSideNames = true;
+    public bool rotateGeneratedPathTileVisualsToFlow = true;
+    public Vector3 generatedPathTileVisualEulerBase = Vector3.zero;
+    public float generatedPathTileForwardYawOffset = 0f;
+    public float generatedTileGroundLocalY = -0.05f;
+    public GameObject trapTilePrefab;
+    public GameObject specialTilePrefab;
+    public GameObject bridgeTilePrefab;
+    public GameObject goldTilePrefab;
+    public GameObject blockedTilePrefab;
+
     [Header("Managers")]
     public GameManager gameManager;
 
@@ -63,6 +79,7 @@ public class TileManager : MonoBehaviour
     private Vector2Int basePosition;
     private Vector2Int currentDirection = Vector2Int.right;
 
+    private GameObject currentStartTile;
     private GameObject currentBaseTile;
 
     private bool hasReservedPathExtension = false;
@@ -73,6 +90,12 @@ public class TileManager : MonoBehaviour
     private readonly List<Vector2Int> teleporterEntryPositions = new List<Vector2Int>();
     private readonly List<Vector2Int> teleporterExitPositions = new List<Vector2Int>();
     private readonly List<GameObject> teleporterObjects = new List<GameObject>();
+
+    private void Awake()
+    {
+        ResolveGeneratedTilePrefabSetReference();
+        ApplyGeneratedTilePrefabSetReferences();
+    }
 
     private void Start()
     {
@@ -106,6 +129,115 @@ public class TileManager : MonoBehaviour
         worldVisualRoot.localScale = scale;
     }
 
+    private void ResolveGeneratedTilePrefabSetReference()
+    {
+        if (!useGeneratedTilePrefabs || generatedTilePrefabSet != null)
+            return;
+
+        generatedTilePrefabSet = FindObjectOfType<GeneratedTilePrefabSet>();
+    }
+
+    private void ApplyGeneratedTilePrefabSetReferences()
+    {
+        if (!useGeneratedTilePrefabs || generatedTilePrefabSet == null)
+            return;
+
+        skipProceduralRailingsOnGeneratedTiles = true;
+        useGeneratedTileDirectRails = true;
+        invertGeneratedRailSideNames = true;
+        generatedTileGroundLocalY = -0.05f;
+        AssignGeneratedPrefabIfAvailable(ref pathTilePrefab, generatedTilePrefabSet.pathTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref startTilePrefab, generatedTilePrefabSet.startTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref baseTilePrefab, generatedTilePrefabSet.baseTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref buildTilePrefab, generatedTilePrefabSet.buildTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref trapTilePrefab, generatedTilePrefabSet.trapTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref specialTilePrefab, generatedTilePrefabSet.specialTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref bridgeTilePrefab, generatedTilePrefabSet.bridgeTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref goldTilePrefab, generatedTilePrefabSet.goldTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref blockedTilePrefab, generatedTilePrefabSet.blockedTilePrefab);
+    }
+
+    private void AssignGeneratedPrefabIfAvailable(ref GameObject target, GameObject generatedPrefab)
+    {
+        if (generatedPrefab != null)
+            target = generatedPrefab;
+    }
+
+    private void NormalizeGeneratedTileVisual(GameObject tileObject)
+    {
+        if (!useGeneratedTilePrefabs || tileObject == null)
+            return;
+
+        Transform visual = tileObject.transform.Find("Visual");
+
+        if (visual == null)
+            return;
+
+        visual.localRotation = Quaternion.identity;
+        AlignGeneratedTileVisualToGround(tileObject, visual);
+    }
+
+    private void AlignGeneratedTileVisualToGround(GameObject tileObject, Transform visual)
+    {
+        if (tileObject == null || visual == null)
+            return;
+
+        Renderer[] renderers = visual.GetComponentsInChildren<Renderer>(true);
+
+        if (renderers == null || renderers.Length == 0)
+            return;
+
+        bool hasBounds = false;
+        Bounds bounds = new Bounds();
+
+        foreach (Renderer targetRenderer in renderers)
+        {
+            if (targetRenderer == null)
+                continue;
+
+            if (!hasBounds)
+            {
+                bounds = targetRenderer.bounds;
+                hasBounds = true;
+            }
+            else
+            {
+                bounds.Encapsulate(targetRenderer.bounds);
+            }
+        }
+
+        if (!hasBounds)
+            return;
+
+        float desiredMinY = tileObject.transform.position.y + generatedTileGroundLocalY;
+        float deltaY = desiredMinY - bounds.min.y;
+
+        if (Mathf.Abs(deltaY) > 0.001f)
+            visual.position += Vector3.up * deltaY;
+    }
+
+    private void HideGeneratedTileRailsAndCorners(GameObject tileObject)
+    {
+        if (tileObject == null)
+            return;
+
+        SetChildrenActiveByNameContains(tileObject.transform, "Rail_", false);
+        SetChildrenActiveByNameContains(tileObject.transform, "CornerPost", false);
+        SetChildrenActiveByNameContains(tileObject.transform, "Corner_", false);
+    }
+
+    private void SetChildrenActiveByNameContains(Transform root, string namePart, bool active)
+    {
+        if (root == null || string.IsNullOrEmpty(namePart))
+            return;
+
+        if (root.name.Contains(namePart))
+            root.gameObject.SetActive(active);
+
+        for (int i = 0; i < root.childCount; i++)
+            SetChildrenActiveByNameContains(root.GetChild(i), namePart, active);
+    }
+
     public void SetCanBuild(bool value)
     {
         canBuild = value;
@@ -120,7 +252,15 @@ public class TileManager : MonoBehaviour
     {
         startPosition = new Vector2Int(0, 0);
 
-        Instantiate(startTilePrefab, GridToWorld(startPosition), Quaternion.identity);
+        GameObject startPrefab = GetStartTilePrefab();
+        if (startPrefab != null)
+        {
+            currentStartTile = Instantiate(startPrefab, GridToWorld(startPosition), Quaternion.identity);
+            NormalizeGeneratedTileVisual(currentStartTile);
+        }
+        else
+            Debug.LogError("TileManager: startTilePrefab fehlt.");
+
         pathPositions.Add(startPosition);
 
         AddPathTile(new Vector2Int(1, 0));
@@ -128,6 +268,8 @@ public class TileManager : MonoBehaviour
         AddPathTile(new Vector2Int(3, 0));
         AddPathTile(new Vector2Int(4, 0));
         AddPathTile(new Vector2Int(5, 0));
+
+        ConfigureGeneratedStartTileRails();
 
         basePosition = new Vector2Int(6, 0);
         PlaceBaseTile();
@@ -253,6 +395,25 @@ public class TileManager : MonoBehaviour
         return TryExtendPathTo(newBasePosition, PathBuildOptionType.PathTile);
     }
 
+    public bool TryExtendPathToWithOption(Vector2Int newBasePosition, PathBuildOption option)
+    {
+        if (option == null)
+            return TryExtendPathTo(newBasePosition);
+
+        return TryExtendPathToWithOption(newBasePosition, option.optionType);
+    }
+
+    public bool TryExtendPathToWithOption(Vector2Int newBasePosition, PathBuildOptionType optionType)
+    {
+        if (!IsPathVariantTileType(optionType))
+        {
+            Debug.LogWarning("TileManager: " + optionType + " ist keine sichere V1 Path-Variante.");
+            return false;
+        }
+
+        return TryExtendPathTo(newBasePosition, optionType);
+    }
+
     public bool TryExtendSpecialPathTo(Vector2Int newBasePosition, PathBuildOptionType specialTileType)
     {
         if (!IsSpecialPathTileType(specialTileType))
@@ -267,9 +428,23 @@ public class TileManager : MonoBehaviour
     private bool IsSpecialPathTileType(PathBuildOptionType specialTileType)
     {
         return specialTileType == PathBuildOptionType.TrapTile ||
+               specialTileType == PathBuildOptionType.SpecialTile ||
+               specialTileType == PathBuildOptionType.BridgeTile ||
                specialTileType == PathBuildOptionType.SlowTile ||
                specialTileType == PathBuildOptionType.KnockTile ||
                specialTileType == PathBuildOptionType.ComboTile;
+    }
+
+    private bool IsPathVariantTileType(PathBuildOptionType tileType)
+    {
+        return tileType == PathBuildOptionType.PathTile ||
+               tileType == PathBuildOptionType.TrapTile ||
+               tileType == PathBuildOptionType.SpecialTile ||
+               tileType == PathBuildOptionType.BridgeTile ||
+               tileType == PathBuildOptionType.GoldTile ||
+               tileType == PathBuildOptionType.SlowTile ||
+               tileType == PathBuildOptionType.KnockTile ||
+               tileType == PathBuildOptionType.ComboTile;
     }
 
     public bool TryBuildGoldTileAt(Vector2Int goldTilePosition)
@@ -768,11 +943,83 @@ public class TileManager : MonoBehaviour
         if (pathPositions.Contains(gridPosition))
             return;
 
+        GameObject tilePrefab = GetPathTilePrefabForType(pathTileType);
+        if (tilePrefab == null)
+        {
+            Debug.LogError("TileManager: Kein PathTile-Prefab fuer " + pathTileType + " zugewiesen.");
+            return;
+        }
+
         pathPositions.Add(gridPosition);
-        GameObject pathTileObject = Instantiate(pathTilePrefab, GridToWorld(gridPosition), Quaternion.identity);
+        GameObject pathTileObject = Instantiate(tilePrefab, GridToWorld(gridPosition), Quaternion.identity);
+        NormalizeGeneratedTileVisual(pathTileObject);
         pathTileObjects[gridPosition] = pathTileObject;
         ConfigureSpecialPathTile(pathTileObject, gridPosition, pathTileType);
         RefreshPathRailings();
+    }
+
+    public GameObject GetGeneratedTilePrefab(PathBuildOptionType optionType)
+    {
+        if (!useGeneratedTilePrefabs)
+            return null;
+
+        if (generatedTilePrefabSet != null)
+        {
+            GameObject prefabFromSet = generatedTilePrefabSet.GetPrefabForPathOption(optionType);
+
+            if (prefabFromSet != null)
+                return prefabFromSet;
+        }
+
+        switch (optionType)
+        {
+            case PathBuildOptionType.PathTile:
+                return pathTilePrefab;
+            case PathBuildOptionType.TrapTile:
+                return trapTilePrefab;
+            case PathBuildOptionType.SpecialTile:
+                return specialTilePrefab;
+            case PathBuildOptionType.BridgeTile:
+                return bridgeTilePrefab;
+            case PathBuildOptionType.GoldTile:
+                return goldTilePrefab;
+            default:
+                return null;
+        }
+    }
+
+    private GameObject GetPathTilePrefabForType(PathBuildOptionType pathTileType)
+    {
+        GameObject generatedPrefab = GetGeneratedTilePrefab(pathTileType);
+
+        if (generatedPrefab != null)
+            return generatedPrefab;
+
+        return pathTilePrefab;
+    }
+
+    private GameObject GetStartTilePrefab()
+    {
+        if (useGeneratedTilePrefabs && generatedTilePrefabSet != null && generatedTilePrefabSet.startTilePrefab != null)
+            return generatedTilePrefabSet.startTilePrefab;
+
+        return startTilePrefab;
+    }
+
+    private GameObject GetBaseTilePrefab()
+    {
+        if (useGeneratedTilePrefabs && generatedTilePrefabSet != null && generatedTilePrefabSet.baseTilePrefab != null)
+            return generatedTilePrefabSet.baseTilePrefab;
+
+        return baseTilePrefab;
+    }
+
+    private GameObject GetBuildTilePrefab()
+    {
+        if (useGeneratedTilePrefabs && generatedTilePrefabSet != null && generatedTilePrefabSet.buildTilePrefab != null)
+            return generatedTilePrefabSet.buildTilePrefab;
+
+        return buildTilePrefab;
     }
 
     private void ConfigureSpecialPathTile(GameObject pathTileObject, Vector2Int gridPosition, PathBuildOptionType pathTileType)
@@ -780,14 +1027,30 @@ public class TileManager : MonoBehaviour
         if (pathTileObject == null)
             return;
 
+        bool hasDedicatedGeneratedVisual = HasDedicatedGeneratedPathPrefab(pathTileType);
+
         if (pathTileType == PathBuildOptionType.TrapTile)
-            ColorTile(pathTileObject, trapTileColor);
+        {
+            if (!hasDedicatedGeneratedVisual)
+                ColorTile(pathTileObject, trapTileColor);
+        }
         else if (pathTileType == PathBuildOptionType.SlowTile)
             ColorTile(pathTileObject, slowTileColor);
         else if (pathTileType == PathBuildOptionType.KnockTile)
             ColorTile(pathTileObject, knockTileColor);
         else if (pathTileType == PathBuildOptionType.ComboTile)
             ColorTile(pathTileObject, comboTileColor);
+        else if (pathTileType == PathBuildOptionType.GoldTile)
+        {
+            if (!hasDedicatedGeneratedVisual)
+                ColorTile(pathTileObject, goldTileColor);
+
+            return;
+        }
+        else if (pathTileType == PathBuildOptionType.SpecialTile || pathTileType == PathBuildOptionType.BridgeTile)
+        {
+            return;
+        }
         else
             return;
 
@@ -796,6 +1059,29 @@ public class TileManager : MonoBehaviour
             effect = pathTileObject.AddComponent<SpecialPathTileEffect>();
 
         effect.Configure(pathTileType, gridPosition, tileSize);
+    }
+
+    private bool HasDedicatedGeneratedPathPrefab(PathBuildOptionType pathTileType)
+    {
+        if (!useGeneratedTilePrefabs)
+            return false;
+
+        if (generatedTilePrefabSet != null && generatedTilePrefabSet.GetPrefabForPathOption(pathTileType) != null)
+            return true;
+
+        switch (pathTileType)
+        {
+            case PathBuildOptionType.TrapTile:
+                return trapTilePrefab != null;
+            case PathBuildOptionType.SpecialTile:
+                return specialTilePrefab != null;
+            case PathBuildOptionType.BridgeTile:
+                return bridgeTilePrefab != null;
+            case PathBuildOptionType.GoldTile:
+                return goldTilePrefab != null;
+            default:
+                return false;
+        }
     }
 
     private void ColorTile(GameObject tileObject, Color color)
@@ -812,6 +1098,22 @@ public class TileManager : MonoBehaviour
     private void CreateGoldTile(Vector2Int gridPosition)
     {
         Vector3 worldPosition = GridToWorld(gridPosition);
+        GameObject generatedGoldPrefab = GetGeneratedTilePrefab(PathBuildOptionType.GoldTile);
+
+        if (generatedGoldPrefab != null)
+        {
+            GameObject generatedGoldTile = Instantiate(generatedGoldPrefab, worldPosition, Quaternion.identity);
+            generatedGoldTile.name = "Gold Tile";
+
+            GoldTileGenerator generatedGenerator = generatedGoldTile.GetComponent<GoldTileGenerator>();
+            if (generatedGenerator == null)
+                generatedGenerator = generatedGoldTile.AddComponent<GoldTileGenerator>();
+
+            generatedGenerator.gameManager = gameManager;
+            specialTileObjects.Add(generatedGoldTile);
+            return;
+        }
+
         GameObject tileObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
         tileObject.name = "Gold Tile";
         tileObject.transform.position = worldPosition;
@@ -881,11 +1183,21 @@ public class TileManager : MonoBehaviour
             Destroy(currentBaseTile);
         }
 
+        GameObject basePrefab = GetBaseTilePrefab();
+        if (basePrefab == null)
+        {
+            Debug.LogError("TileManager: baseTilePrefab fehlt.");
+            return;
+        }
+
         currentBaseTile = Instantiate(
-            baseTilePrefab,
+            basePrefab,
             GridToWorld(basePosition),
             Quaternion.identity
         );
+
+        NormalizeGeneratedTileVisual(currentBaseTile);
+        ConfigureGeneratedBaseTileRails(currentBaseTile);
     }
 
 
@@ -905,16 +1217,292 @@ public class TileManager : MonoBehaviour
             if (tileObject == null)
                 continue;
 
+            GetPathFlowOpenings(position, out bool openNorth, out bool openEast, out bool openSouth, out bool openWest);
+            bool usesGeneratedDirectRails = ConfigureGeneratedPathTileVisualsAndRails(
+                position,
+                tileObject,
+                openNorth,
+                openEast,
+                openSouth,
+                openWest
+            );
+
+            if (usesGeneratedDirectRails || ShouldSkipProceduralRailings(tileObject))
+                continue;
+
             PathTileRailingBuilder railingBuilder = tileObject.GetComponent<PathTileRailingBuilder>();
 
             if (railingBuilder == null)
                 railingBuilder = tileObject.AddComponent<PathTileRailingBuilder>();
 
-            GetPathFlowOpenings(position, out bool openNorth, out bool openEast, out bool openSouth, out bool openWest);
-
             railingBuilder.keepConnectedEdgesClosed = false;
             railingBuilder.Configure(tileSize, openNorth, openEast, openSouth, openWest, pathRailingHeight, pathRailingThickness, pathRailingColor);
         }
+    }
+
+    private bool ConfigureGeneratedPathTileVisualsAndRails(
+        Vector2Int position,
+        GameObject tileObject,
+        bool openNorth,
+        bool openEast,
+        bool openSouth,
+        bool openWest)
+    {
+        UpdatePathTileFlowMarker(position, tileObject);
+
+        if (!useGeneratedTileDirectRails || tileObject == null)
+            return false;
+
+        if (!HasGeneratedRailObjects(tileObject))
+            return false;
+
+        SetGeneratedRailVisibility(tileObject, openNorth, openEast, openSouth, openWest);
+        return true;
+    }
+
+    private void ConfigureGeneratedStartTileRails()
+    {
+        if (!useGeneratedTileDirectRails || currentStartTile == null)
+            return;
+
+        Vector2Int exitDirection = GetStartTileExitDirection();
+        bool openNorth = exitDirection == Vector2Int.up;
+        bool openEast = exitDirection == Vector2Int.right;
+        bool openSouth = exitDirection == Vector2Int.down;
+        bool openWest = exitDirection == Vector2Int.left;
+
+        if (HasGeneratedRailObjects(currentStartTile))
+            SetGeneratedRailVisibility(currentStartTile, openNorth, openEast, openSouth, openWest);
+
+        SetFlowMarkerVisibility(currentStartTile, exitDirection);
+    }
+
+    private void ConfigureGeneratedBaseTileRails(GameObject baseTileObject)
+    {
+        if (!useGeneratedTileDirectRails || baseTileObject == null || !HasGeneratedRailObjects(baseTileObject))
+            return;
+
+        Vector2Int entranceDirection = GetBaseTileEntranceDirection();
+        bool openNorth = entranceDirection == Vector2Int.up;
+        bool openEast = entranceDirection == Vector2Int.right;
+        bool openSouth = entranceDirection == Vector2Int.down;
+        bool openWest = entranceDirection == Vector2Int.left;
+
+        SetGeneratedRailVisibility(baseTileObject, openNorth, openEast, openSouth, openWest);
+        SetFlowMarkerVisibility(baseTileObject, entranceDirection);
+    }
+
+    private Vector2Int GetStartTileExitDirection()
+    {
+        if (pathPositions != null && pathPositions.Count > 1)
+            return NormalizeCardinalDirection(pathPositions[1] - startPosition);
+
+        return NormalizeCardinalDirection(currentDirection);
+    }
+
+    private Vector2Int GetBaseTileEntranceDirection()
+    {
+        if (pathPositions != null && pathPositions.Count > 0)
+            return NormalizeCardinalDirection(pathPositions[pathPositions.Count - 1] - basePosition);
+
+        return NormalizeCardinalDirection(new Vector2Int(-currentDirection.x, -currentDirection.y));
+    }
+
+    private void SetGeneratedRailVisibility(GameObject tileObject, bool openNorth, bool openEast, bool openSouth, bool openWest)
+    {
+        bool logicalNorthClosed = !openNorth;
+        bool logicalEastClosed = !openEast;
+        bool logicalSouthClosed = !openSouth;
+        bool logicalWestClosed = !openWest;
+
+        bool northClosed = invertGeneratedRailSideNames ? logicalSouthClosed : logicalNorthClosed;
+        bool eastClosed = invertGeneratedRailSideNames ? logicalWestClosed : logicalEastClosed;
+        bool southClosed = invertGeneratedRailSideNames ? logicalNorthClosed : logicalSouthClosed;
+        bool westClosed = invertGeneratedRailSideNames ? logicalEastClosed : logicalWestClosed;
+
+        SetChildActiveByNameContains(tileObject.transform, "Rail_North", northClosed);
+        SetChildActiveByNameContains(tileObject.transform, "Rail_East", eastClosed);
+        SetChildActiveByNameContains(tileObject.transform, "Rail_South", southClosed);
+        SetChildActiveByNameContains(tileObject.transform, "Rail_West", westClosed);
+
+        SetCornerPostVisibility(tileObject.transform, "Corner_NE", "CornerPost_NE", northClosed && eastClosed);
+        SetCornerPostVisibility(tileObject.transform, "Corner_NW", "CornerPost_NW", northClosed && westClosed);
+        SetCornerPostVisibility(tileObject.transform, "Corner_SE", "CornerPost_SE", southClosed && eastClosed);
+        SetCornerPostVisibility(tileObject.transform, "Corner_SW", "CornerPost_SW", southClosed && westClosed);
+    }
+
+    private void SetCornerPostVisibility(Transform root, string preferredNamePart, string fallbackNamePart, bool active)
+    {
+        if (!SetChildActiveByNameContains(root, preferredNamePart, active))
+            SetChildActiveByNameContains(root, fallbackNamePart, active);
+    }
+
+    private bool HasGeneratedRailObjects(GameObject tileObject)
+    {
+        if (tileObject == null)
+            return false;
+
+        Transform root = tileObject.transform;
+        return FindChildByNameContains(root, "Rail_North") != null &&
+               FindChildByNameContains(root, "Rail_East") != null &&
+               FindChildByNameContains(root, "Rail_South") != null &&
+               FindChildByNameContains(root, "Rail_West") != null;
+    }
+
+    private bool SetChildActiveByNameContains(Transform root, string namePart, bool active)
+    {
+        Transform child = FindChildByNameContains(root, namePart);
+
+        if (child == null)
+            return false;
+
+        child.gameObject.SetActive(active);
+        return true;
+    }
+
+    private Transform FindChildByNameContains(Transform root, string namePart)
+    {
+        if (root == null || string.IsNullOrEmpty(namePart))
+            return null;
+
+        if (root.name.Contains(namePart))
+            return root;
+
+        for (int i = 0; i < root.childCount; i++)
+        {
+            Transform result = FindChildByNameContains(root.GetChild(i), namePart);
+
+            if (result != null)
+                return result;
+        }
+
+        return null;
+    }
+
+    private void UpdatePathTileVisualRotation(Vector2Int position, GameObject tileObject)
+    {
+        if (!rotateGeneratedPathTileVisualsToFlow || tileObject == null)
+            return;
+
+        Transform visual = tileObject.transform.Find("Visual");
+
+        if (visual == null)
+            return;
+
+        Vector2Int direction = GetPathTileForwardDirection(position);
+
+        if (direction == Vector2Int.zero)
+            return;
+
+        float yaw = GetYawForGridDirection(direction) + generatedPathTileForwardYawOffset;
+        visual.localRotation = Quaternion.Euler(
+            generatedPathTileVisualEulerBase.x,
+            generatedPathTileVisualEulerBase.y + yaw,
+            generatedPathTileVisualEulerBase.z
+        );
+    }
+
+    private void UpdatePathTileFlowMarker(Vector2Int position, GameObject tileObject)
+    {
+        if (!rotateGeneratedPathTileVisualsToFlow || tileObject == null)
+            return;
+
+        Vector2Int direction = GetPathTileForwardDirection(position);
+
+        if (direction == Vector2Int.zero)
+            return;
+
+        bool foundDirectionalMarker = SetFlowMarkerVisibility(tileObject, direction);
+
+        if (!foundDirectionalMarker)
+            UpdatePathTileVisualRotation(position, tileObject);
+    }
+
+    private bool SetFlowMarkerVisibility(GameObject tileObject, Vector2Int direction)
+    {
+        Transform north = FindChildByNameContains(tileObject.transform, "Flow_North");
+        Transform east = FindChildByNameContains(tileObject.transform, "Flow_East");
+        Transform south = FindChildByNameContains(tileObject.transform, "Flow_South");
+        Transform west = FindChildByNameContains(tileObject.transform, "Flow_West");
+
+        if (north == null && east == null && south == null && west == null)
+            return false;
+
+        if (north != null)
+            north.gameObject.SetActive(direction == Vector2Int.up);
+
+        if (east != null)
+            east.gameObject.SetActive(direction == Vector2Int.right);
+
+        if (south != null)
+            south.gameObject.SetActive(direction == Vector2Int.down);
+
+        if (west != null)
+            west.gameObject.SetActive(direction == Vector2Int.left);
+
+        Transform centerLine = FindChildByNameContains(tileObject.transform, "CenterLine");
+
+        if (centerLine != null)
+            centerLine.gameObject.SetActive(false);
+
+        return true;
+    }
+
+    private Vector2Int GetPathTileForwardDirection(Vector2Int position)
+    {
+        if (pathPositions == null || pathPositions.Count == 0)
+            return NormalizeCardinalDirection(currentDirection);
+
+        int pathIndex = pathPositions.IndexOf(position);
+
+        if (pathIndex >= 0)
+        {
+            if (pathIndex < pathPositions.Count - 1)
+                return NormalizeCardinalDirection(pathPositions[pathIndex + 1] - position);
+
+            Vector2Int toBase = NormalizeCardinalDirection(basePosition - position);
+
+            if (toBase != Vector2Int.zero)
+                return toBase;
+
+            if (pathIndex > 0)
+                return NormalizeCardinalDirection(position - pathPositions[pathIndex - 1]);
+        }
+
+        return NormalizeCardinalDirection(currentDirection);
+    }
+
+    private Vector2Int NormalizeCardinalDirection(Vector2Int direction)
+    {
+        if (direction == Vector2Int.zero)
+            return Vector2Int.zero;
+
+        if (Mathf.Abs(direction.x) >= Mathf.Abs(direction.y))
+            return new Vector2Int(direction.x >= 0 ? 1 : -1, 0);
+
+        return new Vector2Int(0, direction.y >= 0 ? 1 : -1);
+    }
+
+    private float GetYawForGridDirection(Vector2Int direction)
+    {
+        if (direction == Vector2Int.right)
+            return 90f;
+
+        if (direction == Vector2Int.left)
+            return -90f;
+
+        if (direction == Vector2Int.down)
+            return 180f;
+
+        return 0f;
+    }
+
+    private bool ShouldSkipProceduralRailings(GameObject tileObject)
+    {
+        if (!skipProceduralRailingsOnGeneratedTiles || !useGeneratedTilePrefabs || tileObject == null)
+            return false;
+
+        return tileObject.name.StartsWith("TD_");
     }
 
     private bool IsPathOrBasePosition(Vector2Int position)
@@ -942,6 +1530,8 @@ public class TileManager : MonoBehaviour
 
         if (pathIndex > 0)
             MarkOpeningForNeighbor(position, pathPositions[pathIndex - 1], ref openNorth, ref openEast, ref openSouth, ref openWest);
+        else
+            MarkOpeningForNeighbor(position, startPosition, ref openNorth, ref openEast, ref openSouth, ref openWest);
 
         if (pathIndex < pathPositions.Count - 1)
             MarkOpeningForNeighbor(position, pathPositions[pathIndex + 1], ref openNorth, ref openEast, ref openSouth, ref openWest);
@@ -1002,11 +1592,21 @@ public class TileManager : MonoBehaviour
             if (!IsValidBuildTilePosition(buildPos))
                 continue;
 
+            GameObject buildPrefab = GetBuildTilePrefab();
+            if (buildPrefab == null)
+            {
+                Debug.LogError("TileManager: buildTilePrefab fehlt.");
+                return;
+            }
+
             GameObject tile = Instantiate(
-                buildTilePrefab,
+                buildPrefab,
                 GridToWorld(buildPos),
                 Quaternion.identity
             );
+
+            NormalizeGeneratedTileVisual(tile);
+            HideGeneratedTileRailsAndCorners(tile);
 
             tile.SetActive(buildTilesVisible);
 

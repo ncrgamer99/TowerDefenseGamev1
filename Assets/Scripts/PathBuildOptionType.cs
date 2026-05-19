@@ -3,6 +3,7 @@ public enum PathBuildOptionType
     PathTile = 0,
     TrapTile = 1,
     SpecialTile = 2,
+    BridgeTile = 3,
     GoldTile = 4,
     SlowTile = 5,
     KnockTile = 6,
