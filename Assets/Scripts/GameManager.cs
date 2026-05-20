@@ -29,6 +29,9 @@ public class GameManager : MonoBehaviour
     public ChaosLexiconUI chaosLexiconUI;
     public ChaosUnlockManager chaosUnlockManager;
     public ChaosUnlockUI chaosUnlockUI;
+    public MainMenuLexiconManager mainMenuLexiconManager;
+    public MainMenuLexiconUI mainMenuLexiconUI;
+    public bool autoCreateMainMenuLexicon = true;
     public RunStatisticsTracker runStatisticsTracker;
     public bool autoCreateRunStatisticsTracker = true;
     public BuildManager buildManager;
@@ -400,6 +403,11 @@ public class GameManager : MonoBehaviour
         if (startMenuRoot != null)
             startMenuRoot.SetActive(false);
 
+        if (mainMenuLexiconManager != null)
+            mainMenuLexiconManager.CloseLexicon();
+        else if (mainMenuLexiconUI != null)
+            mainMenuLexiconUI.CloseLexicon();
+
         if (tileManager != null)
             tileManager.SetCanBuild(true);
 
@@ -648,10 +656,19 @@ public class GameManager : MonoBehaviour
         }
 
         SetupPlaceholderStartMenuButton(startUnlocksButton, "Freischaltungen");
-        SetupPlaceholderStartMenuButton(startLexiconButton, "Lexikon");
+        SetupStartMenuLexiconButton();
         SetupPlaceholderStartMenuButton(startStatsButton, "Statistik");
         SetupPlaceholderStartMenuButton(startOptionsButton, "Optionen");
         SetupPlaceholderStartMenuButton(startResetButton, "Reset");
+    }
+
+    private void SetupStartMenuLexiconButton()
+    {
+        if (startLexiconButton == null)
+            return;
+
+        startLexiconButton.onClick.RemoveAllListeners();
+        startLexiconButton.onClick.AddListener(OpenMainMenuLexicon);
     }
 
     private void SetupPlaceholderStartMenuButton(Button button, string label)
@@ -661,6 +678,19 @@ public class GameManager : MonoBehaviour
 
         button.onClick.RemoveAllListeners();
         button.onClick.AddListener(() => OpenStartMenuPlaceholder(label));
+    }
+
+    public void OpenMainMenuLexicon()
+    {
+        MainMenuLexiconManager manager = GetMainMenuLexiconManager();
+
+        if (manager == null)
+        {
+            OpenStartMenuPlaceholder("Lexikon");
+            return;
+        }
+
+        manager.OpenLexicon();
     }
 
     private void RefreshStartMenuTexts()
@@ -1722,6 +1752,12 @@ public class GameManager : MonoBehaviour
 
         if (chaosUnlockUI == null)
             chaosUnlockUI = FindObjectOfType<ChaosUnlockUI>();
+
+        if (mainMenuLexiconManager == null)
+            mainMenuLexiconManager = FindObjectOfType<MainMenuLexiconManager>();
+
+        if (mainMenuLexiconUI == null)
+            mainMenuLexiconUI = FindObjectOfType<MainMenuLexiconUI>();
     }
 
     public bool IsChaosJusticeChoiceOpen()
@@ -1765,12 +1801,23 @@ public class GameManager : MonoBehaviour
         return unlockUI != null && unlockUI.IsOpen;
     }
 
+    public bool IsMainMenuLexiconOpen()
+    {
+        if (mainMenuLexiconManager != null && mainMenuLexiconManager.IsOpen)
+            return true;
+
+        if (mainMenuLexiconUI == null)
+            mainMenuLexiconUI = FindObjectOfType<MainMenuLexiconUI>();
+
+        return mainMenuLexiconUI != null && mainMenuLexiconUI.IsOpen;
+    }
+
     public bool IsGameplayInputLockedByModalUI()
     {
         if (isGameOver)
             return false;
 
-        return startMenuOpen || blockedBaseRelocationPending || IsEliteSpawnWarningOpen() || IsChaosJusticeChoiceOpen() || IsEliteRewardChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
+        return startMenuOpen || blockedBaseRelocationPending || IsEliteSpawnWarningOpen() || IsChaosJusticeChoiceOpen() || IsEliteRewardChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen() || IsMainMenuLexiconOpen();
     }
 
     public bool CanOpenAuxiliaryModalUI()
@@ -1778,7 +1825,7 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return true;
 
-        return !startMenuOpen && !blockedBaseRelocationPending && !IsEliteSpawnWarningOpen() && !IsChaosJusticeChoiceOpen() && !IsEliteRewardChoiceOpen() && !IsBlockedEventSelectionOpen();
+        return !startMenuOpen && !blockedBaseRelocationPending && !IsEliteSpawnWarningOpen() && !IsChaosJusticeChoiceOpen() && !IsEliteRewardChoiceOpen() && !IsBlockedEventSelectionOpen() && !IsMainMenuLexiconOpen();
     }
 
     public bool IsPathInputLockedByModalUI()
@@ -1786,7 +1833,7 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return true;
 
-        return startMenuOpen || blockedBaseRelocationPending || isBaseBlocked || isTimedBlockedBuildPhase || IsEliteSpawnWarningOpen() || IsChaosJusticeChoiceOpen() || IsEliteRewardChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
+        return startMenuOpen || blockedBaseRelocationPending || isBaseBlocked || isTimedBlockedBuildPhase || IsEliteSpawnWarningOpen() || IsChaosJusticeChoiceOpen() || IsEliteRewardChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen() || IsMainMenuLexiconOpen();
     }
 
     public void ClosePathAndBuildSelectionsForModal()
@@ -1971,6 +2018,41 @@ public class GameManager : MonoBehaviour
             chaosUnlockUI = FindObjectOfType<ChaosUnlockUI>();
 
         return chaosUnlockUI;
+    }
+
+    public MainMenuLexiconManager GetMainMenuLexiconManager()
+    {
+        if (mainMenuLexiconManager == null)
+            mainMenuLexiconManager = FindObjectOfType<MainMenuLexiconManager>();
+
+        if (mainMenuLexiconManager == null && autoCreateMainMenuLexicon)
+            mainMenuLexiconManager = CreateMainMenuLexiconManager();
+
+        return mainMenuLexiconManager;
+    }
+
+    private MainMenuLexiconManager CreateMainMenuLexiconManager()
+    {
+        if (startMenuCanvas == null)
+            startMenuCanvas = FindObjectOfType<Canvas>();
+
+        GameObject systemObject = new GameObject("MainMenuLexiconSystem");
+        MainMenuLexiconManager manager = systemObject.AddComponent<MainMenuLexiconManager>();
+        MainMenuLexiconUI ui = systemObject.AddComponent<MainMenuLexiconUI>();
+
+        manager.gameManager = this;
+        manager.lexiconUI = ui;
+        manager.targetCanvas = startMenuCanvas;
+        manager.rootParent = startMenuRoot != null ? startMenuRoot.transform : null;
+
+        ui.manager = manager;
+        ui.targetCanvas = startMenuCanvas;
+        ui.rootParent = manager.rootParent;
+
+        mainMenuLexiconManager = manager;
+        mainMenuLexiconUI = ui;
+        manager.EnsureInitialized();
+        return manager;
     }
 
 
