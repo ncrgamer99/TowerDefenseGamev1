@@ -5,10 +5,12 @@ public static class WaveEventBus
     public static event Action<WaveData> WaveStarted;
     public static event Action<WaveData> MiniBossWaveStarted;
     public static event Action<WaveData> BossWaveStarted;
+    public static event Action<WaveData> EliteWaveStarted;
 
     public static event Action<WaveCompletionResult> WaveCompleted;
     public static event Action<WaveCompletionResult> MiniBossWaveCompleted;
     public static event Action<WaveCompletionResult> BossWaveCompleted;
+    public static event Action<WaveCompletionResult> EliteWaveCompleted;
 
     public static event Action<WaveData> BuildPhaseStarted;
     public static event Action<WaveData> BlockedBuildPhaseStarted;
@@ -27,6 +29,9 @@ public static class WaveEventBus
 
         if (waveData.IsBossWave())
             BossWaveStarted?.Invoke(waveData);
+
+        if (waveData.IsEliteWave())
+            EliteWaveStarted?.Invoke(waveData);
     }
 
     public static void RaiseWaveCompleted(WaveCompletionResult result)
@@ -41,6 +46,9 @@ public static class WaveEventBus
 
         if (result.isBossWave)
             BossWaveCompleted?.Invoke(result);
+
+        if (result.isEliteWave)
+            EliteWaveCompleted?.Invoke(result);
     }
 
     public static void RaiseBuildPhaseStarted(WaveData nextWaveData)
@@ -63,10 +71,12 @@ public static class WaveEventBus
         WaveStarted = null;
         MiniBossWaveStarted = null;
         BossWaveStarted = null;
+        EliteWaveStarted = null;
 
         WaveCompleted = null;
         MiniBossWaveCompleted = null;
         BossWaveCompleted = null;
+        EliteWaveCompleted = null;
 
         BuildPhaseStarted = null;
         BlockedBuildPhaseStarted = null;

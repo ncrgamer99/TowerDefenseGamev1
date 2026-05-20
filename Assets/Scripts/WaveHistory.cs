@@ -188,6 +188,25 @@ public class WaveHistory
         return total;
     }
 
+    public int GetEliteWavesCompleted()
+    {
+        int total = 0;
+
+        if (completedWaves == null)
+            return total;
+
+        foreach (WaveCompletionResult result in completedWaves)
+        {
+            if (result == null)
+                continue;
+
+            if (result.isEliteWave && result.waveCompleted)
+                total++;
+        }
+
+        return total;
+    }
+
     public int GetBossKills()
     {
         int total = 0;
@@ -220,6 +239,44 @@ public class WaveHistory
                 continue;
 
             if (result.miniBossDefeated)
+                total++;
+        }
+
+        return total;
+    }
+
+    public int GetEliteKills()
+    {
+        int total = 0;
+
+        if (completedWaves == null)
+            return total;
+
+        foreach (WaveCompletionResult result in completedWaves)
+        {
+            if (result == null)
+                continue;
+
+            if (result.eliteDefeated)
+                total++;
+        }
+
+        return total;
+    }
+
+    public int GetEliteLeaks()
+    {
+        int total = 0;
+
+        if (completedWaves == null)
+            return total;
+
+        foreach (WaveCompletionResult result in completedWaves)
+        {
+            if (result == null)
+                continue;
+
+            if (result.eliteReachedBase)
                 total++;
         }
 
@@ -622,6 +679,9 @@ public class WaveHistory
             " | Chaos Variant Kills: " + GetTotalChaosVariantKills() + "/" + GetTotalChaosVariantSpawns() +
             " | Chaos Block Waves: " + GetChaosWaveBlockWavesCompleted() +
             " | MiniBoss Waves: " + GetMiniBossWavesCompleted() +
+            " | Elite Waves: " + GetEliteWavesCompleted() +
+            " | Elite Kills: " + GetEliteKills() +
+            " | Elite Leaks: " + GetEliteLeaks() +
             " | Boss Waves: " + GetBossWavesCompleted() +
             " | Boss Kills: " + GetBossKills() +
             " | Chaos Waves: " + GetChaosWavesCompleted() +

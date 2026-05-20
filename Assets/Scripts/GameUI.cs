@@ -85,6 +85,7 @@ public class GameUI : MonoBehaviour
     public Color normalWaveColor = Color.white;
     public Color miniBossWaveColor = new Color32(255, 170, 60, 255);
     public Color bossWaveColor = new Color32(255, 70, 70, 255);
+    public Color eliteWaveColor = new Color32(255, 235, 105, 255);
     public Color blockedWaveColor = new Color32(255, 90, 90, 255);
 
     private int lastWaveNumber = -1;
@@ -363,6 +364,13 @@ public class GameUI : MonoBehaviour
         if (gameManager.enemySpawner != null)
             scenarioName = gameManager.enemySpawner.GetScenarioNameForWave(waveNumber);
 
+        if (IsEliteWave(waveNumber))
+        {
+            temporaryWaveMessage = "!!! ELITE WAVE !!!\nWave " + waveNumber + " gestartet: " + scenarioName;
+            ShowBigAlert("!!! ELITE WAVE !!!\nWave " + waveNumber + "\n" + scenarioName, eliteWaveColor, specialWaveMessageDuration);
+            return;
+        }
+
         if (IsBossWave(waveNumber))
         {
             temporaryWaveMessage = "!!! BOSS WAVE !!!\nWave " + waveNumber + " gestartet: " + scenarioName;
@@ -383,7 +391,24 @@ public class GameUI : MonoBehaviour
 
     private void ShowWaveFinishedMessage(int finishedWaveNumber)
     {
-        if (gameManager.IsPlayerBlocked())
+        if (IsEliteWave(finishedWaveNumber))
+        {
+            bool choiceOpen = gameManager != null && gameManager.IsEliteRewardChoiceOpen();
+            string eliteOutcomeText = GetEliteWaveOutcomeText(finishedWaveNumber);
+
+            temporaryWaveMessage = choiceOpen
+                ? eliteOutcomeText + "! Wähle eine Elite-Belohnung."
+                : eliteOutcomeText + "! Buildphase gestartet.";
+
+            ShowBigAlert(
+                choiceOpen
+                    ? eliteOutcomeText.ToUpperInvariant() + "!\nWähle eine Elite-Belohnung."
+                    : eliteOutcomeText.ToUpperInvariant() + "!\nBuildphase gestartet.",
+                eliteWaveColor,
+                specialWaveMessageDuration
+            );
+        }
+        else if (gameManager.IsPlayerBlocked())
         {
             temporaryWaveMessage = "Wave " + finishedWaveNumber + " geschafft - VERBAUT!";
             ShowBigAlert("VERBAUT!\nWave " + finishedWaveNumber + " geschafft.", blockedWaveColor, specialWaveMessageDuration);
@@ -460,6 +485,8 @@ public class GameUI : MonoBehaviour
 
         ChaosJusticeManager currentChaosJusticeManager = GetChaosJusticeManager();
         bool chaosChoiceOpen = currentChaosJusticeManager != null && currentChaosJusticeManager.IsChoiceOpen;
+        bool eliteChoiceOpen = gameManager.IsEliteRewardChoiceOpen();
+        bool eliteWarningOpen = gameManager.IsEliteSpawnWarningOpen();
 
         string text =
             "<b>Gold:</b> " + gameManager.gold +
@@ -467,7 +494,7 @@ public class GameUI : MonoBehaviour
             "\n<b>Wave:</b> " + gameManager.waveNumber;
 
         if (showPhaseInMainHud)
-            text += "\n<b>Phase:</b> " + (chaosChoiceOpen ? "Entscheidung" : gameManager.currentPhase.ToString());
+            text += "\n<b>Phase:</b> " + (chaosChoiceOpen || eliteChoiceOpen || eliteWarningOpen ? "Entscheidung" : gameManager.currentPhase.ToString());
 
         if (!forceMinimalStatsText && showTemporaryWaveMessageInStats && !string.IsNullOrEmpty(temporaryWaveMessage))
             text += "\n\n" + temporaryWaveMessage;
@@ -654,7 +681,7 @@ public class GameUI : MonoBehaviour
 
     private bool ShouldShowNextWavePreview(bool chaosChoiceOpen)
     {
-        if (gameManager == null || gameManager.currentPhase != GamePhase.Build || gameManager.isGameOver || chaosChoiceOpen)
+        if (gameManager == null || gameManager.currentPhase != GamePhase.Build || gameManager.isGameOver || chaosChoiceOpen || gameManager.IsEliteRewardChoiceOpen() || gameManager.IsEliteSpawnWarningOpen())
             return false;
 
         return !hideNextWavePreviewDuringPathChoice || !gameManager.IsPathBuildChoiceOpen();
@@ -810,6 +837,25 @@ public class GameUI : MonoBehaviour
         return "Boss-Wave abgeschlossen";
     }
 
+    private string GetEliteWaveOutcomeText(int finishedWaveNumber)
+    {
+        if (gameManager == null)
+            return "Elite-Wave abgeschlossen";
+
+        WaveCompletionResult lastResult = gameManager.GetLastCompletedWaveResult();
+
+        if (lastResult != null && lastResult.waveNumber == finishedWaveNumber && lastResult.isEliteWave)
+        {
+            if (lastResult.eliteDefeated)
+                return "Elite besiegt";
+
+            if (lastResult.eliteReachedBase)
+                return "Elite durchgebrochen";
+        }
+
+        return "Elite-Wave abgeschlossen";
+    }
+
     private ChaosJusticeManager GetChaosJusticeManager()
     {
         if (chaosJusticeManager != null)
@@ -835,5 +881,21 @@ public class GameUI : MonoBehaviour
     private bool IsBossWave(int waveNumber)
     {
         return waveNumber > 0 && waveNumber % 10 == 0;
+    }
+
+    private bool IsEliteWave(int waveNumber)
+    {
+        if (gameManager == null || waveNumber <= 0)
+            return false;
+
+        WaveCompletionResult lastResult = gameManager.GetLastCompletedWaveResult();
+        if (lastResult != null && lastResult.waveNumber == waveNumber && lastResult.isEliteWave)
+            return true;
+
+        WaveData currentData = gameManager.GetCurrentWaveData();
+        if (currentData != null && currentData.waveNumber == waveNumber && currentData.IsEliteWave())
+            return true;
+
+        return gameManager.GetWaveScenarioForWave(waveNumber) == WaveScenario.Elite;
     }
 }

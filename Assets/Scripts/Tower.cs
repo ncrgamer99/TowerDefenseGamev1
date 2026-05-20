@@ -1119,6 +1119,38 @@ public class Tower : MonoBehaviour
         currentXP = Mathf.Clamp(currentXP, 0, Mathf.Max(0, xpToNextLevel - 1));
     }
 
+    public int RaiseByLevelsUpTo(int targetLevel, int levelCount)
+    {
+        int safeTargetLevel = Mathf.Max(1, targetLevel);
+        int remainingLevelUps = Mathf.Max(0, levelCount);
+        int startLevel = level;
+
+        while (level < safeTargetLevel && remainingLevelUps > 0)
+        {
+            LevelUp();
+            remainingLevelUps--;
+        }
+
+        currentXP = Mathf.Clamp(currentXP, 0, Mathf.Max(0, xpToNextLevel - 1));
+        return Mathf.Max(0, level - startLevel);
+    }
+
+    public void AddUpgradePoints(int amount)
+    {
+        int safeAmount = Mathf.Max(0, amount);
+
+        if (safeAmount <= 0)
+            return;
+
+        upgradePoints += safeAmount;
+        RefreshUpgradePointAvailableVisual();
+
+        GameManager manager = ResolveGameManagerForRunStats();
+
+        if (manager != null)
+            manager.RegisterTowerUpgradePointsGranted(this, safeAmount);
+    }
+
     public void ApplyEvolutionBoost(float bonusPercent)
     {
         float multiplier = 1f + Mathf.Max(0f, bonusPercent);

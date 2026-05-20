@@ -2,6 +2,9 @@ using UnityEngine;
 
 public class GameSpeedManager : MonoBehaviour
 {
+    [Header("References")]
+    public GameManager gameManager;
+
     [Header("Speed Values")]
     public float normalSpeed = 1f;
     public float fastSpeed = 2f;
@@ -26,6 +29,11 @@ public class GameSpeedManager : MonoBehaviour
 
     private void Update()
     {
+        ResolveReferences();
+
+        if (gameManager != null && gameManager.IsGameplayInputLockedByModalUI())
+            return;
+
         if (Input.GetKeyDown(KeyCode.Alpha7))
             SetNormalSpeed();
 
@@ -34,6 +42,12 @@ public class GameSpeedManager : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Alpha9))
             SetFasterSpeed();
+    }
+
+    private void ResolveReferences()
+    {
+        if (gameManager == null)
+            gameManager = FindObjectOfType<GameManager>();
     }
 
     private void OnDisable()

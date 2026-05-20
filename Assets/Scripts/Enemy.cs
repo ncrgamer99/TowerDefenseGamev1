@@ -14,7 +14,8 @@ public enum EnemyRole
     Learner,
     AllRounder,
     MiniBoss,
-    Boss
+    Boss,
+    Elite
 }
 
 public enum EnemyVariantType
@@ -98,6 +99,7 @@ public class Enemy : MonoBehaviour
     public float allRounderHealthScalingBonus = 1.48f;
     public float miniBossHealthScalingBonus = 2.15f;
     public float bossHealthScalingBonus = 2.70f;
+    public float eliteHealthScalingBonus = 1.85f;
 
     private int waveScalingAppliedForWave = -1;
     private int chaosScalingAppliedForWave = -1;
@@ -105,6 +107,7 @@ public class Enemy : MonoBehaviour
     private bool variantStatsApplied = false;
     private float chaosAllRounderArmorTimer = 0f;
     private int chaosAllRounderArmorBonusApplied = 0;
+    private float builtEffectResistance = 0f;
 
     [Header("Flags")]
     public bool isElite = false;
@@ -119,6 +122,15 @@ public class Enemy : MonoBehaviour
 
     [Range(0f, 2f)]
     public float effectDamageMultiplier = 1f;
+
+    [Header("Adaptive Effect Resistance V1")]
+    public bool buildsEffectResistance = false;
+    public float effectResistanceGainPerApplication = 0.06f;
+    public float eliteEffectResistanceGainPerApplication = 0.09f;
+    [Range(0f, 0.9f)]
+    public float maxBuiltEffectResistance = 0.55f;
+    [Range(0.1f, 1f)]
+    public float minimumEffectDamageMultiplierFromResistance = 0.45f;
 
     [Header("Mage Teleport")]
     public bool canTeleportOnHit = false;
@@ -144,9 +156,16 @@ public class Enemy : MonoBehaviour
     public Color burnColor = Color.red;
     public Color poisonColor = new Color(0.55f, 0f, 1f);
     public Color slowColor = new Color(0.35f, 0.75f, 1f, 1f);
+    public bool preserveRendererMaterialColors = false;
 
     [Range(0f, 1f)]
     public float slowVisualBlend = 0.35f;
+
+    [Header("Movement Facing")]
+    public bool rotateToMovementDirection = true;
+    public float movementTurnSpeed = 720f;
+    public bool rotateOnlyYaw = true;
+    public Vector3 movementFacingEulerOffset = Vector3.zero;
 
     [Header("Role Visual Colors")]
     public bool useRoleColors = true;
@@ -159,6 +178,7 @@ public class Enemy : MonoBehaviour
     public Color allRounderRoleColor = new Color32(255, 145, 60, 255);
     public Color miniBossRoleColor = new Color32(255, 85, 55, 255);
     public Color bossRoleColor = new Color32(120, 25, 25, 255);
+    public Color eliteRoleColor = new Color32(255, 235, 105, 255);
 
     private readonly List<Vector3> pathPoints = new List<Vector3>();
     private readonly Dictionary<Tower, float> contributingTowers = new Dictionary<Tower, float>();
@@ -169,6 +189,8 @@ public class Enemy : MonoBehaviour
     private int currentPathIndex = 0;
     private float distanceTravelled = 0f;
     private bool roleStatsApplied = false;
+    private Color[] rendererBaseColors;
+    private bool visualEffectColorWasApplied = false;
     private bool isDead = false;
     private bool reachedBase = false;
     private bool isBurning = false;
@@ -210,6 +232,7 @@ public class Enemy : MonoBehaviour
     {
         CacheRenderersIfNeeded();
         CacheDefaultColor();
+        CacheRendererBaseColors();
 
         if (hideLegacyHealthTexts)
             DisableLegacyHealthTexts();
@@ -280,7 +303,10 @@ public class Enemy : MonoBehaviour
         transform.position = pathPoints[0];
 
         if (pathPoints.Count > 1)
+        {
             currentPathIndex = 1;
+            UpdateMovementFacing(pathPoints[currentPathIndex], true);
+        }
     }
 
     public void SetStats(float newMaxHealth, float newSpeed, int newGoldReward, int newKillXPReward)
@@ -308,6 +334,8 @@ public class Enemy : MonoBehaviour
         immuneToEffects = false;
         slowResistance = 0f;
         effectDamageMultiplier = 1f;
+        buildsEffectResistance = false;
+        builtEffectResistance = 0f;
         canTeleportOnHit = false;
         teleportTilesForward = 1;
         teleportCooldown = 3f;
@@ -398,6 +426,7 @@ public class Enemy : MonoBehaviour
                 killXPReward = 11;
                 assistXPReward = 3;
                 slowResistance = 0.2f;
+                buildsEffectResistance = true;
                 break;
 
             case EnemyRole.MiniBoss:
@@ -422,6 +451,21 @@ public class Enemy : MonoBehaviour
                 assistXPReward = 8;
                 globalXPReward = 8;
                 isBoss = true;
+                break;
+
+            case EnemyRole.Elite:
+                maxHealth = 140f;
+                speed = 2f;
+                armor = 0;
+                baseDamage = 5;
+                goldReward = 45;
+                killXPReward = 34;
+                assistXPReward = 6;
+                globalXPReward = 4;
+                slowResistance = 0.15f;
+                effectDamageMultiplier = 0.95f;
+                buildsEffectResistance = true;
+                isElite = true;
                 break;
         }
 
@@ -545,6 +589,12 @@ public class Enemy : MonoBehaviour
                 baseDamageBonus += Mathf.Min(3, scalingWave / 15);
                 armorBonus += Mathf.Min(maxArmorBonus, scalingWave / Mathf.Max(1, armorBonusEveryWaves));
                 break;
+
+            case EnemyRole.Elite:
+                healthMultiplier *= eliteHealthScalingBonus;
+                speedMultiplier = 1f + Mathf.Min(maxNormalSpeedBonus, scalingWave * speedScalingPerWave);
+                baseDamageBonus = 0;
+                break;
         }
     }
 
@@ -566,6 +616,7 @@ public class Enemy : MonoBehaviour
         Vector3 targetPosition = pathPoints[currentPathIndex];
         float finalSpeed = Mathf.Max(0.05f, speed * currentSlowMultiplier * temporarySpeedMultiplier);
 
+        UpdateMovementFacing(targetPosition, false);
         transform.position = Vector3.MoveTowards(transform.position, targetPosition, finalSpeed * Time.deltaTime);
         distanceTravelled += Vector3.Distance(oldPosition, transform.position);
         SpikeTrapEffect.TryApplyAtWorldPosition(transform.position, this);
@@ -578,6 +629,31 @@ public class Enemy : MonoBehaviour
             if (currentPathIndex >= pathPoints.Count)
                 ReachBase();
         }
+    }
+
+    private void UpdateMovementFacing(Vector3 targetPosition, bool instant)
+    {
+        if (!rotateToMovementDirection)
+            return;
+
+        Vector3 direction = targetPosition - transform.position;
+
+        if (rotateOnlyYaw)
+            direction.y = 0f;
+
+        if (direction.sqrMagnitude <= 0.0001f)
+            return;
+
+        Quaternion targetRotation = Quaternion.LookRotation(direction.normalized, Vector3.up) * Quaternion.Euler(movementFacingEulerOffset);
+
+        if (instant)
+        {
+            transform.rotation = targetRotation;
+            return;
+        }
+
+        float maxDegreesDelta = Mathf.Max(0f, movementTurnSpeed) * Time.deltaTime;
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, maxDegreesDelta);
     }
 
     public void TakeDamage(float damage)
@@ -643,6 +719,34 @@ public class Enemy : MonoBehaviour
         return Mathf.Max(1f, armoredDamage);
     }
 
+    private void BuildAdaptiveEffectResistance()
+    {
+        if (!buildsEffectResistance)
+            return;
+
+        float maxResistance = Mathf.Clamp(maxBuiltEffectResistance, 0f, 0.9f);
+
+        if (maxResistance <= 0f || builtEffectResistance >= maxResistance)
+            return;
+
+        bool eliteResistance = isElite || enemyRole == EnemyRole.Elite;
+        float gain = eliteResistance ? eliteEffectResistanceGainPerApplication : effectResistanceGainPerApplication;
+        gain = Mathf.Max(0f, gain);
+
+        if (gain <= 0f)
+            return;
+
+        float oldResistance = builtEffectResistance;
+        builtEffectResistance = Mathf.Min(maxResistance, builtEffectResistance + gain);
+        float appliedGain = builtEffectResistance - oldResistance;
+
+        if (appliedGain <= 0f)
+            return;
+
+        slowResistance = Mathf.Clamp(slowResistance + appliedGain, 0f, 0.9f);
+        effectDamageMultiplier = Mathf.Clamp(effectDamageMultiplier - appliedGain, minimumEffectDamageMultiplierFromResistance, 2f);
+    }
+
     public void ApplyBurn(float duration)
     {
         ApplyBurn(defaultBurnDamagePerSecond, duration, null);
@@ -667,6 +771,7 @@ public class Enemy : MonoBehaviour
         duration = Mathf.Max(0.1f, duration);
         RegisterContributor(sourceTower, 0.1f);
         RegisterHealthBarDamageEffect(EnemyHealthBarEffectMode.Burn);
+        BuildAdaptiveEffectResistance();
 
         if (!CanReceiveBurnStack())
             return;
@@ -698,6 +803,7 @@ public class Enemy : MonoBehaviour
         duration = Mathf.Max(0.1f, duration);
         RegisterContributor(sourceTower, 0.1f);
         RegisterHealthBarDamageEffect(EnemyHealthBarEffectMode.Poison);
+        BuildAdaptiveEffectResistance();
 
         if (poisonRoutine != null)
             StopCoroutine(poisonRoutine);
@@ -716,6 +822,7 @@ public class Enemy : MonoBehaviour
             return;
 
         RegisterContributor(sourceTower, 0.1f);
+        BuildAdaptiveEffectResistance();
 
         if (sourceTower != null)
         {
@@ -757,6 +864,7 @@ public class Enemy : MonoBehaviour
         tickInterval = Mathf.Max(0.1f, tickInterval);
         RegisterContributor(null, 0.1f);
         RegisterHealthBarDamageEffect(EnemyHealthBarEffectMode.Darkness);
+        BuildAdaptiveEffectResistance();
 
         if (darknessRoutine != null)
             StopCoroutine(darknessRoutine);
@@ -778,6 +886,7 @@ public class Enemy : MonoBehaviour
         duration = Mathf.Max(0.1f, duration);
         RegisterContributor(sourceTower, 0.1f);
         RegisterHealthBarDamageEffect(EnemyHealthBarEffectMode.Bleed);
+        BuildAdaptiveEffectResistance();
 
         if (bleedRoutine != null)
             StopCoroutine(bleedRoutine);
@@ -927,7 +1036,7 @@ public class Enemy : MonoBehaviour
 
     public bool KnockBackPathTiles(int tilesBack, float duration)
     {
-        if (isDead || reachedBase || immuneToEffects || pathPoints == null || pathPoints.Count == 0)
+        if (isDead || reachedBase || immuneToEffects || IsBossOrMiniBossTarget() || pathPoints == null || pathPoints.Count == 0)
             return false;
 
         int currentTileIndex = Mathf.Clamp(currentPathIndex - 1, 0, pathPoints.Count - 1);
@@ -1260,7 +1369,7 @@ public class Enemy : MonoBehaviour
         chaosScalingAppliedForWave = wave;
         chaosScalingAppliedForLevel = chaosLevel;
 
-        float perLevel = (isBoss || isMiniBoss || enemyRole == EnemyRole.Boss || enemyRole == EnemyRole.MiniBoss)
+        float perLevel = (isBoss || isMiniBoss || isElite || enemyRole == EnemyRole.Boss || enemyRole == EnemyRole.MiniBoss || enemyRole == EnemyRole.Elite)
             ? chaosBossHealthBonusPerLevel
             : chaosHealthBonusPerLevel;
 
@@ -1563,6 +1672,8 @@ public class Enemy : MonoBehaviour
                 return miniBossRoleColor;
             case EnemyRole.Boss:
                 return bossRoleColor;
+            case EnemyRole.Elite:
+                return eliteRoleColor;
             default:
                 return standardRoleColor;
         }
@@ -1573,46 +1684,66 @@ public class Enemy : MonoBehaviour
         if (enemyRenderers == null || enemyRenderers.Length == 0)
             return;
 
-        Color targetColor = defaultColor;
+        bool hasActiveVisualTint = HasActiveVisualTint();
 
-        if (HasChaosVisualSignal())
+        if (preserveRendererMaterialColors && !hasActiveVisualTint)
         {
-            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * Mathf.Max(0.1f, chaosVariantPulseSpeed));
-            float blend = Mathf.Clamp01(chaosVariantPulseStrength) * pulse;
-            Color pulseColor = chaosVariantPulseColor;
-            pulseColor.a = defaultColor.a;
-            targetColor = Color.Lerp(defaultColor, pulseColor, blend);
+            if (visualEffectColorWasApplied)
+                RestoreRendererBaseColors();
+
+            visualEffectColorWasApplied = false;
+            return;
         }
 
-        if (isBleeding)
-        {
-            Color bleedVisualColor = burnColor;
-            bleedVisualColor.a = defaultColor.a;
-            targetColor = Color.Lerp(targetColor, bleedVisualColor, 0.25f);
-        }
-
-        if (isDarkened)
-        {
-            Color darknessVisualColor = Color.black;
-            darknessVisualColor.a = defaultColor.a;
-            targetColor = Color.Lerp(targetColor, darknessVisualColor, 0.85f);
-        }
-
-        if (isSlowed)
-        {
-            Color slowVisualColor = slowColor;
-            slowVisualColor.a = defaultColor.a;
-            targetColor = Color.Lerp(targetColor, slowVisualColor, slowVisualBlend);
-        }
+        if (hasActiveVisualTint)
+            visualEffectColorWasApplied = true;
 
         for (int i = 0; i < enemyRenderers.Length; i++)
         {
             if (enemyRenderers[i] == null)
                 continue;
 
+            Color baseColor = GetRendererBaseColor(i);
+            Color targetColor = baseColor;
+
+            if (HasChaosVisualSignal())
+            {
+                float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * Mathf.Max(0.1f, chaosVariantPulseSpeed));
+                float blend = Mathf.Clamp01(chaosVariantPulseStrength) * pulse;
+                Color pulseColor = chaosVariantPulseColor;
+                pulseColor.a = baseColor.a;
+                targetColor = Color.Lerp(baseColor, pulseColor, blend);
+            }
+
+            if (isBleeding)
+            {
+                Color bleedVisualColor = burnColor;
+                bleedVisualColor.a = baseColor.a;
+                targetColor = Color.Lerp(targetColor, bleedVisualColor, 0.25f);
+            }
+
+            if (isDarkened)
+            {
+                Color darknessVisualColor = Color.black;
+                darknessVisualColor.a = baseColor.a;
+                targetColor = Color.Lerp(targetColor, darknessVisualColor, 0.85f);
+            }
+
+            if (isSlowed)
+            {
+                Color slowVisualColor = slowColor;
+                slowVisualColor.a = baseColor.a;
+                targetColor = Color.Lerp(targetColor, slowVisualColor, slowVisualBlend);
+            }
+
             if (enemyRenderers[i].material != null)
                 enemyRenderers[i].material.color = targetColor;
         }
+    }
+
+    private bool HasActiveVisualTint()
+    {
+        return HasChaosVisualSignal() || isBleeding || isDarkened || isSlowed;
     }
 
     private void CacheRenderersIfNeeded()
@@ -1621,6 +1752,53 @@ public class Enemy : MonoBehaviour
             return;
 
         enemyRenderers = GetComponentsInChildren<Renderer>();
+    }
+
+    private void CacheRendererBaseColors()
+    {
+        if (enemyRenderers == null || enemyRenderers.Length == 0)
+            return;
+
+        rendererBaseColors = new Color[enemyRenderers.Length];
+
+        for (int i = 0; i < enemyRenderers.Length; i++)
+        {
+            if (enemyRenderers[i] == null || enemyRenderers[i].material == null)
+            {
+                rendererBaseColors[i] = defaultColor;
+                continue;
+            }
+
+            rendererBaseColors[i] = enemyRenderers[i].material.color;
+        }
+    }
+
+    private Color GetRendererBaseColor(int rendererIndex)
+    {
+        if (!preserveRendererMaterialColors)
+            return defaultColor;
+
+        if (rendererBaseColors == null || rendererBaseColors.Length != enemyRenderers.Length)
+            CacheRendererBaseColors();
+
+        if (rendererBaseColors == null || rendererIndex < 0 || rendererIndex >= rendererBaseColors.Length)
+            return defaultColor;
+
+        return rendererBaseColors[rendererIndex];
+    }
+
+    private void RestoreRendererBaseColors()
+    {
+        if (enemyRenderers == null || enemyRenderers.Length == 0)
+            return;
+
+        for (int i = 0; i < enemyRenderers.Length; i++)
+        {
+            if (enemyRenderers[i] == null || enemyRenderers[i].material == null)
+                continue;
+
+            enemyRenderers[i].material.color = GetRendererBaseColor(i);
+        }
     }
 
     private void CacheDefaultColor()
@@ -1648,12 +1826,12 @@ public class Enemy : MonoBehaviour
 
     public bool IsEliteTarget()
     {
-        return isElite || isMiniBoss || isBoss || enemyRole == EnemyRole.MiniBoss || enemyRole == EnemyRole.Boss;
+        return isElite || isMiniBoss || isBoss || enemyRole == EnemyRole.Elite || enemyRole == EnemyRole.MiniBoss || enemyRole == EnemyRole.Boss;
     }
 
     public bool IsBossOrMiniBossTarget()
     {
-        return isMiniBoss || isBoss || enemyRole == EnemyRole.MiniBoss || enemyRole == EnemyRole.Boss;
+        return isMiniBoss || isBoss || isElite || enemyRole == EnemyRole.MiniBoss || enemyRole == EnemyRole.Boss || enemyRole == EnemyRole.Elite;
     }
 
     public bool HasBurn()

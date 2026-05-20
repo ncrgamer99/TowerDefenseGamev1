@@ -721,7 +721,7 @@ public class ChaosLexiconManager : MonoBehaviour
             "- Keine automatische Gegneranzahl-Erhöhung nur durch Chaos-Level.\n" +
             "- Base-Schaden wird nicht heimlich erhöht.\n" +
             "- Boss, MiniBoss und normale Chaos-Auswahl zerstören keine Tower.\n" +
-            "- Tower-Zerstörung bleibt späteren Elite-Systemen vorbehalten.",
+            "- Tower-Zerstörung bleibt dem Elite-System vorbehalten.",
             true, false, false, false);
 
         AddEntry("chaos_variants", "Chaos-Varianten", ChaosLexiconCategory.Gegner, 0,
@@ -749,7 +749,7 @@ public class ChaosLexiconManager : MonoBehaviour
 
         AddEntry("chaos_elite_future", "Chaos-Elite", ChaosLexiconCategory.Zukunft, 0,
             "Der Riss antwortet.",
-            "Chaos-Elite ist nicht Teil dieser aktuellen V1-Implementierung. Sie braucht zuerst ein eigenes normales Elite-System. Erst danach kann Chaos-Elite sauber eingebaut werden.",
+            "Chaos-Elite ist nicht Teil dieser aktuellen V1-Implementierung. Sie baut später auf dem normalen Elite-System auf und bekommt eigene Chaos-Regeln.",
             false, false, includeFutureInfoAsTeasers, true);
 
         AddEntry("autopath_future", "Autopath", ChaosLexiconCategory.Zukunft, 10,

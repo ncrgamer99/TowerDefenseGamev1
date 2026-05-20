@@ -89,6 +89,7 @@ public class RunStatistics
 
     [Header("Tower")]
     public int towersBuilt = 0;
+    public int towersDestroyedByElite = 0;
     public int totalTowerXPGranted = 0;
     public int towerLevelUps = 0;
     public int highestTowerLevel = 1;
@@ -98,6 +99,14 @@ public class RunStatistics
     public int visualTierUps = 0;
     public int goldUpgradesBought = 0;
     public int pointUpgradesBought = 0;
+
+    [Header("Elite")]
+    public int eliteWavesCompleted = 0;
+    public int eliteKills = 0;
+    public int eliteLeaks = 0;
+    public int eliteRewardsChosen = 0;
+    public string lastEliteDestroyedTowerName = "";
+    public string lastEliteRewardName = "";
 
     public void Clear()
     {
@@ -116,6 +125,7 @@ public class RunStatistics
         lastBlockedEventName = "";
         lastBlockedEventType = "";
         towersBuilt = 0;
+        towersDestroyedByElite = 0;
         totalTowerXPGranted = 0;
         towerLevelUps = 0;
         highestTowerLevel = 1;
@@ -125,6 +135,12 @@ public class RunStatistics
         visualTierUps = 0;
         goldUpgradesBought = 0;
         pointUpgradesBought = 0;
+        eliteWavesCompleted = 0;
+        eliteKills = 0;
+        eliteLeaks = 0;
+        eliteRewardsChosen = 0;
+        lastEliteDestroyedTowerName = "";
+        lastEliteRewardName = "";
     }
 
     public int GetNetGoldDelta()
@@ -148,7 +164,7 @@ public class RunStatistics
 
     public string GetTowerProgressionSummary()
     {
-        return "Tower gebaut " + towersBuilt + " | Upgradepunkte verdient/ausgegeben " + upgradePointsEarned + "/" + upgradePointsSpent + " | vorbereitete Meta-Punkte " + metaPointsPrepared + " | Visual-Tier-Ups " + visualTierUps;
+        return "Tower gebaut " + towersBuilt + " | Elite zerstörte " + towersDestroyedByElite + " | Upgradepunkte verdient/ausgegeben " + upgradePointsEarned + "/" + upgradePointsSpent + " | vorbereitete Meta-Punkte " + metaPointsPrepared + " | Visual-Tier-Ups " + visualTierUps;
     }
 
     public string GetUpgradeSummary()
@@ -270,6 +286,7 @@ public class RunStatisticsTracker : MonoBehaviour
 
     [Header("Tower Progression")]
     public int towersBuilt = 0;
+    public int towersDestroyedByElite = 0;
     public int totalTowerBuildCost = 0;
     public int totalTowerXPGained = 0;
     public int totalTowerLevelUps = 0;
@@ -280,6 +297,14 @@ public class RunStatisticsTracker : MonoBehaviour
     public int totalGoldUpgradesPurchased = 0;
     public int totalPointUpgradesPurchased = 0;
     public int totalUpgradePointsSpent = 0;
+
+    [Header("Elite")]
+    public int eliteWavesCompleted = 0;
+    public int eliteKills = 0;
+    public int eliteLeaks = 0;
+    public int eliteRewardsChosen = 0;
+    public string lastEliteDestroyedTowerName = "";
+    public string lastEliteRewardName = "";
 
     [Header("Tower Records")]
     public List<RunTowerStatsRecord> towerRecords = new List<RunTowerStatsRecord>();
@@ -336,6 +361,7 @@ public class RunStatisticsTracker : MonoBehaviour
         economy.Clear();
         statistics.Clear();
         towersBuilt = 0;
+        towersDestroyedByElite = 0;
         totalTowerBuildCost = 0;
         totalTowerXPGained = 0;
         totalTowerLevelUps = 0;
@@ -352,6 +378,12 @@ public class RunStatisticsTracker : MonoBehaviour
         totalBlockedBuildPhaseDuration = 0f;
         lastBlockedEventName = "";
         lastBlockedEventType = "";
+        eliteWavesCompleted = 0;
+        eliteKills = 0;
+        eliteLeaks = 0;
+        eliteRewardsChosen = 0;
+        lastEliteDestroyedTowerName = "";
+        lastEliteRewardName = "";
         towerRecords.Clear();
     }
 
@@ -443,6 +475,59 @@ public class RunStatisticsTracker : MonoBehaviour
         }
     }
 
+    public void RecordEliteWaveCompleted(WaveCompletionResult result)
+    {
+        EnsureLists();
+
+        if (result == null || !result.isEliteWave || !result.waveCompleted)
+            return;
+
+        eliteWavesCompleted++;
+
+        if (result.eliteDefeated)
+            eliteKills++;
+
+        if (result.eliteReachedBase)
+            eliteLeaks++;
+
+        if (result.eliteDestroyedTower)
+            lastEliteDestroyedTowerName = result.eliteDestroyedTowerName;
+
+        SyncStatisticsSnapshot();
+    }
+
+    public void RecordTowerDestroyedByElite(Tower tower, int waveNumber, string reason)
+    {
+        EnsureLists();
+
+        towersDestroyedByElite++;
+        lastEliteDestroyedTowerName = tower != null
+            ? string.IsNullOrEmpty(tower.towerName) ? tower.name : tower.towerName
+            : "Unbekannter Tower";
+
+        RunTowerStatsRecord record = GetOrCreateTowerRecord(tower);
+        record.RefreshFromTower();
+        SyncStatisticsSnapshot();
+
+        if (logRunStatEvents)
+        {
+            Debug.Log(
+                "RunStats: Elite zerstörte Tower " + lastEliteDestroyedTowerName +
+                " in Wave " + Mathf.Max(0, waveNumber) +
+                (string.IsNullOrEmpty(reason) ? "." : " | " + reason)
+            );
+        }
+    }
+
+    public void RecordEliteRewardChoice(string rewardName)
+    {
+        EnsureLists();
+
+        eliteRewardsChosen++;
+        lastEliteRewardName = string.IsNullOrEmpty(rewardName) ? "Unbekannte Elite-Belohnung" : rewardName;
+        SyncStatisticsSnapshot();
+    }
+
     public void RecordTowerBuilt(Tower tower, int cost, int waveNumber, Vector2Int gridPosition, Vector3 worldPosition)
     {
         EnsureLists();
@@ -501,6 +586,24 @@ public class RunStatisticsTracker : MonoBehaviour
 
         if (gainedVisualTier)
             record.highestVisualTier = Mathf.Max(record.highestVisualTier, tower != null ? tower.visualTier : 0);
+
+        SyncTowerPeakValues(record);
+        SyncStatisticsSnapshot();
+    }
+
+    public void RecordTowerUpgradePointsGranted(Tower tower, int amount)
+    {
+        EnsureLists();
+        int safeAmount = Mathf.Max(0, amount);
+
+        if (safeAmount <= 0)
+            return;
+
+        totalUpgradePointsGained += safeAmount;
+
+        RunTowerStatsRecord record = GetOrCreateTowerRecord(tower);
+        record.upgradePointsGained += safeAmount;
+        record.RefreshFromTower();
 
         SyncTowerPeakValues(record);
         SyncStatisticsSnapshot();
@@ -608,6 +711,7 @@ public class RunStatisticsTracker : MonoBehaviour
         SyncStatisticsSnapshot();
         return
             "Tower gebaut: <b>" + towersBuilt + "</b> | Build-Kosten: " + totalTowerBuildCost + "\n" +
+            "Elite zerstörte Tower: <b>" + towersDestroyedByElite + "</b>" + (string.IsNullOrEmpty(lastEliteDestroyedTowerName) ? "" : " | zuletzt: " + lastEliteDestroyedTowerName) + "\n" +
             "Tower-XP: <b>" + totalTowerXPGained + "</b> | Level-Ups: " + totalTowerLevelUps + " | höchste Tower-Stufe: " + highestTowerLevelReached + "\n" +
             "Upgradepunkte: verdient " + totalUpgradePointsGained + " | ausgegeben " + totalUpgradePointsSpent + " | vorbereitete Meta-Punkte " + totalMetaPointsPrepared + "\n" +
             "Upgrades: Gold " + totalGoldUpgradesPurchased + " | Punkte " + totalPointUpgradesPurchased + "\n";
@@ -615,7 +719,19 @@ public class RunStatisticsTracker : MonoBehaviour
 
     public bool HasAnyTrackedData()
     {
-        return economy.totalGoldEarned > 0 || economy.totalGoldSpent > 0 || blockedEventsChosen > 0 || towersBuilt > 0 || totalTowerXPGained > 0 || totalTowerLevelUps > 0 || totalGoldUpgradesPurchased > 0 || totalPointUpgradesPurchased > 0;
+        return economy.totalGoldEarned > 0 ||
+               economy.totalGoldSpent > 0 ||
+               blockedEventsChosen > 0 ||
+               towersBuilt > 0 ||
+               towersDestroyedByElite > 0 ||
+               totalTowerXPGained > 0 ||
+               totalTowerLevelUps > 0 ||
+               totalGoldUpgradesPurchased > 0 ||
+               totalPointUpgradesPurchased > 0 ||
+               eliteWavesCompleted > 0 ||
+               eliteKills > 0 ||
+               eliteLeaks > 0 ||
+               eliteRewardsChosen > 0;
     }
 
     private RunTowerStatsRecord GetOrCreateTowerRecord(Tower tower)
@@ -741,6 +857,7 @@ public class RunStatisticsTracker : MonoBehaviour
         statistics.lastBlockedEventName = lastBlockedEventName;
         statistics.lastBlockedEventType = lastBlockedEventType;
         statistics.towersBuilt = towersBuilt;
+        statistics.towersDestroyedByElite = towersDestroyedByElite;
         statistics.totalTowerXPGranted = totalTowerXPGained;
         statistics.towerLevelUps = totalTowerLevelUps;
         statistics.highestTowerLevel = highestTowerLevelReached;
@@ -750,5 +867,11 @@ public class RunStatisticsTracker : MonoBehaviour
         statistics.visualTierUps = highestTowerVisualTierReached;
         statistics.goldUpgradesBought = totalGoldUpgradesPurchased;
         statistics.pointUpgradesBought = totalPointUpgradesPurchased;
+        statistics.eliteWavesCompleted = eliteWavesCompleted;
+        statistics.eliteKills = eliteKills;
+        statistics.eliteLeaks = eliteLeaks;
+        statistics.eliteRewardsChosen = eliteRewardsChosen;
+        statistics.lastEliteDestroyedTowerName = lastEliteDestroyedTowerName;
+        statistics.lastEliteRewardName = lastEliteRewardName;
     }
 }

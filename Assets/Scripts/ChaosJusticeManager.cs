@@ -3060,6 +3060,7 @@ public class ChaosJusticeManager : MonoBehaviour
             role == EnemyRole.Mage ||
             role == EnemyRole.Learner ||
             role == EnemyRole.AllRounder ||
+            role == EnemyRole.Elite ||
             role == EnemyRole.MiniBoss ||
             role == EnemyRole.Boss;
 

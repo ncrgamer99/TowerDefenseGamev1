@@ -13,7 +13,8 @@ public enum WaveScenario
 
     RunnerAttack,
     TankArmorCheck,
-    EffectCheck
+    EffectCheck,
+    Elite
 }
 
 public enum MiniBossSpawnPosition

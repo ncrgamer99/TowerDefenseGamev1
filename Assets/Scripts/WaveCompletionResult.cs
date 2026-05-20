@@ -26,8 +26,13 @@ public class WaveCompletionResult
     public bool waveCompleted = false;
     public bool isBossWave = false;
     public bool isMiniBossWave = false;
+    public bool isEliteWave = false;
     public bool bossDefeated = false;
     public bool miniBossDefeated = false;
+    public bool eliteDefeated = false;
+    public bool eliteReachedBase = false;
+    public bool eliteDestroyedTower = false;
+    public string eliteDestroyedTowerName = "";
 
     [Header("Enemy Stats")]
     public int totalSpawnCount = 0;
@@ -79,10 +84,15 @@ public class WaveCompletionResult
 
         isBossWave = waveData.IsBossWave();
         isMiniBossWave = waveData.IsMiniBossWave();
+        isEliteWave = waveData.IsEliteWave();
 
         waveCompleted = false;
         bossDefeated = false;
         miniBossDefeated = false;
+        eliteDefeated = false;
+        eliteReachedBase = false;
+        eliteDestroyedTower = false;
+        eliteDestroyedTowerName = "";
 
         enemiesKilled = 0;
         enemiesReachedBase = 0;
@@ -237,6 +247,9 @@ public class WaveCompletionResult
 
         if (role == EnemyRole.MiniBoss)
             miniBossDefeated = true;
+
+        if (role == EnemyRole.Elite)
+            eliteDefeated = true;
     }
 
     public void RegisterEnemyReachedBase(EnemyRole role, int damage)
@@ -259,11 +272,20 @@ public class WaveCompletionResult
 
         AddRoleCount(leakedRoles, role, 1);
 
+        if (role == EnemyRole.Elite)
+            eliteReachedBase = true;
+
         if (variantType == EnemyVariantType.Chaos)
         {
             chaosVariantReachedBaseCount++;
             AddRoleCount(leakedChaosVariantRoles, role, 1);
         }
+    }
+
+    public void RegisterEliteTowerDestroyed(string towerName)
+    {
+        eliteDestroyedTower = true;
+        eliteDestroyedTowerName = string.IsNullOrEmpty(towerName) ? "Unbekannter Tower" : towerName;
     }
 
     public void MarkCompleted()
@@ -327,8 +349,16 @@ public class WaveCompletionResult
 
         if (isBossWave)
             score += 8;
+        else if (isEliteWave)
+            score += 7;
         else if (isMiniBossWave)
             score += 4;
+
+        if (eliteReachedBase)
+            score += 12;
+
+        if (eliteDestroyedTower)
+            score += 8;
 
         return score;
     }
@@ -338,6 +368,7 @@ public class WaveCompletionResult
         int score = Mathf.Max(0, waveNumber);
         score += enemiesKilled;
         score += bossDefeated ? 30 : 0;
+        score += eliteDefeated ? 18 : 0;
         score += miniBossDefeated ? 12 : 0;
         score += chaosLevelAtWaveStart * 5;
         score += activeRiskModifierCountAtWaveStart * 3;
@@ -355,6 +386,9 @@ public class WaveCompletionResult
 
         if (isBossWave)
             return bossDefeated ? "Boss besiegt" : "Boss-Wave überstanden";
+
+        if (isEliteWave)
+            return eliteDefeated ? "Elite besiegt" : "Elite durchgebrochen";
 
         if (isMiniBossWave)
             return miniBossDefeated ? "MiniBoss besiegt" : "MiniBoss-Wave überstanden";
@@ -391,6 +425,14 @@ public class WaveCompletionResult
 
         if (chaosVariantSpawnCount > 0)
             text += " | Varianten " + chaosVariantSpawnCount;
+
+        if (isEliteWave)
+        {
+            text += eliteDefeated ? " | Elite besiegt" : " | Elite nicht besiegt";
+
+            if (eliteDestroyedTower)
+                text += " | Tower zerstört: " + eliteDestroyedTowerName;
+        }
 
         return text;
     }
@@ -446,7 +488,11 @@ public class WaveCompletionResult
             " | Killed: " + enemiesKilled +
             " | Leaked: " + enemiesReachedBase +
             " | Base Damage: " + baseDamageTaken +
-            " | Chaos Variants: " + chaosVariantKilledCount + "/" + chaosVariantSpawnCount;
+            " | Chaos Variants: " + chaosVariantKilledCount + "/" + chaosVariantSpawnCount +
+            " | Elite: " + (isEliteWave ? (eliteDefeated ? "Defeated" : eliteReachedBase ? "Leaked" : "Unhandled") : "Nein");
+
+        if (eliteDestroyedTower)
+            summary += " | Elite destroyed tower: " + eliteDestroyedTowerName;
 
         if (chaosLevelAtWaveStart > 0 || goldJusticeLevelAtWaveStart > 0 || xpJusticeLevelAtWaveStart > 0)
         {

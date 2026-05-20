@@ -20,11 +20,13 @@ public class WaveData
     [Header("Special Wave Info")]
     public bool isMiniBossWave = false;
     public bool isBossWave = false;
+    public bool isEliteWave = false;
     public bool hasSpecialEnemy = false;
 
     public EnemyRole mainSpecialRole = EnemyRole.Standard;
     public int miniBossCount = 0;
     public int bossCount = 0;
+    public int eliteCount = 0;
 
     [Header("Preview")]
     public bool previewHidden = false;
@@ -62,11 +64,13 @@ public class WaveData
 
         isMiniBossWave = false;
         isBossWave = false;
+        isEliteWave = false;
         hasSpecialEnemy = false;
 
         mainSpecialRole = EnemyRole.Standard;
         miniBossCount = 0;
         bossCount = 0;
+        eliteCount = 0;
 
         previewHidden = false;
         hasChaosVariants = false;
@@ -94,9 +98,11 @@ public class WaveData
 
         miniBossCount = 0;
         bossCount = 0;
+        eliteCount = 0;
 
         isMiniBossWave = false;
         isBossWave = false;
+        isEliteWave = false;
         hasSpecialEnemy = false;
         hasChaosVariants = false;
         chaosVariantCount = 0;
@@ -140,18 +146,30 @@ public class WaveData
                 continue;
             }
 
+            if (entry.enemyRole == EnemyRole.Elite)
+            {
+                eliteCount += amount;
+                specialEnemyCount += amount;
+                continue;
+            }
+
             normalEnemyCount += amount;
         }
 
         isMiniBossWave = scenario == WaveScenario.MiniBoss || miniBossCount > 0;
         isBossWave = scenario == WaveScenario.Boss || bossCount > 0;
+        isEliteWave = scenario == WaveScenario.Elite || eliteCount > 0;
 
-        hasSpecialEnemy = miniBossCount > 0 || bossCount > 0;
+        hasSpecialEnemy = miniBossCount > 0 || bossCount > 0 || eliteCount > 0;
         hasChaosVariants = chaosVariantCount > 0;
 
         if (bossCount > 0)
         {
             mainSpecialRole = EnemyRole.Boss;
+        }
+        else if (eliteCount > 0)
+        {
+            mainSpecialRole = EnemyRole.Elite;
         }
         else if (miniBossCount > 0)
         {
@@ -173,9 +191,14 @@ public class WaveData
         return isMiniBossWave;
     }
 
+    public bool IsEliteWave()
+    {
+        return isEliteWave;
+    }
+
     public bool HasSpecialWave()
     {
-        return isBossWave || isMiniBossWave || hasSpecialEnemy;
+        return isBossWave || isMiniBossWave || isEliteWave || hasSpecialEnemy;
     }
 
     public void SetChaosWaveBlocks(List<ChaosWaveBlock> blocks)
@@ -306,6 +329,9 @@ public class WaveData
         if (bossCount > 0)
             return EnemyRole.Boss;
 
+        if (eliteCount > 0)
+            return EnemyRole.Elite;
+
         if (miniBossCount > 0)
             return EnemyRole.MiniBoss;
 
@@ -316,6 +342,9 @@ public class WaveData
     {
         if (bossCount > 0)
             return "Boss";
+
+        if (eliteCount > 0)
+            return "Elite";
 
         if (miniBossCount > 0)
             return "MiniBoss";
@@ -337,6 +366,9 @@ public class WaveData
 
         if (bossCount > 0)
             summary += " | Boss: " + bossCount;
+
+        if (eliteCount > 0)
+            summary += " | Elite: " + eliteCount;
 
         if (!string.IsNullOrEmpty(chaosVariantSummary))
             summary += " | Chaos-Varianten: " + chaosVariantSummary;

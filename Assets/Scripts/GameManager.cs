@@ -34,6 +34,10 @@ public class GameManager : MonoBehaviour
     public BuildManager buildManager;
     public BuildSelectionUI buildSelectionUI;
     public PathBuildManager pathBuildManager;
+    public EliteRewardChoiceManager eliteRewardChoiceManager;
+    public bool autoCreateEliteRewardChoiceManager = true;
+    public EliteSpawnWarningManager eliteSpawnWarningManager;
+    public bool autoCreateEliteSpawnWarningManager = true;
     public TowerUI towerUI;
 
     [Header("Start Menu")]
@@ -89,6 +93,11 @@ public class GameManager : MonoBehaviour
 
     [Header("Modal / Choice State Debug")]
     public bool postBossChoicePending = false;
+    public bool postEliteRewardChoicePending = false;
+
+    [Header("Elite V1")]
+    public int eliteLeakLifeDamage = 5;
+    public bool destroyEliteLeakTower = true;
 
     [Header("Blocked Build Phase")]
     public bool isBaseBlocked = false;
@@ -125,6 +134,7 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
+        Time.timeScale = 1f;
         currentPhase = GamePhase.Build;
 
         EnsureWaveHistory();
@@ -132,6 +142,8 @@ public class GameManager : MonoBehaviour
         GetChaosJusticeManager();
         GetRunStatisticsTracker();
         GetChaosUnlockManager();
+        GetEliteRewardChoiceManager();
+        GetEliteSpawnWarningManager();
         EnsureEnemyWaveDebugWindow();
 
         if (showStartMenuOnStart)
@@ -186,7 +198,7 @@ public class GameManager : MonoBehaviour
 
     private void StartNextWave()
     {
-        if (!gameStarted || isGameOver || IsChaosJusticeChoiceOpen())
+        if (!gameStarted || isGameOver || IsChaosJusticeChoiceOpen() || IsEliteRewardChoiceOpen())
             return;
 
         currentPhase = GamePhase.Wave;
@@ -242,6 +254,7 @@ public class GameManager : MonoBehaviour
         }
 
         FinalizeCurrentWaveResult();
+        RegisterEliteWaveCompletionIfNeeded();
         GiveWaveCompletionReward();
         currentPhase = GamePhase.Build;
         RefreshWaveScenarioDebug();
@@ -250,6 +263,12 @@ public class GameManager : MonoBehaviour
         if (TryOpenChaosJusticeChoiceAfterWave())
         {
             postBossChoicePending = true;
+            return;
+        }
+
+        if (TryOpenEliteRewardChoiceAfterWave())
+        {
+            postEliteRewardChoicePending = true;
             return;
         }
 
@@ -291,6 +310,15 @@ public class GameManager : MonoBehaviour
         CompletePostWaveBuildPhase();
     }
 
+    public void ResumeBuildPhaseAfterEliteRewardChoice()
+    {
+        if (isGameOver)
+            return;
+
+        postEliteRewardChoicePending = false;
+        CompletePostWaveBuildPhase();
+    }
+
     private bool TryOpenChaosJusticeChoiceAfterWave()
     {
         if (lastCompletedWaveResult == null || !lastCompletedWaveResult.isBossWave || !lastCompletedWaveResult.waveCompleted)
@@ -302,6 +330,19 @@ public class GameManager : MonoBehaviour
             return false;
 
         return manager.TryOpenBossChoice(lastCompletedWaveResult);
+    }
+
+    private bool TryOpenEliteRewardChoiceAfterWave()
+    {
+        if (lastCompletedWaveResult == null || !lastCompletedWaveResult.isEliteWave || !lastCompletedWaveResult.waveCompleted || !lastCompletedWaveResult.eliteDefeated)
+            return false;
+
+        EliteRewardChoiceManager manager = GetEliteRewardChoiceManager();
+
+        if (manager == null || !manager.isActiveAndEnabled)
+            return false;
+
+        return manager.OpenEliteRewardSelection(lastCompletedWaveResult);
     }
 
 
@@ -351,6 +392,9 @@ public class GameManager : MonoBehaviour
         gameStarted = true;
         startMenuOpen = false;
         currentPhase = GamePhase.Build;
+        Time.timeScale = 1f;
+        postBossChoicePending = false;
+        postEliteRewardChoicePending = false;
         ApplyStartModeResources(mode);
 
         if (startMenuRoot != null)
@@ -662,6 +706,8 @@ public class GameManager : MonoBehaviour
 
         switch (scenario)
         {
+            case WaveScenario.Elite:
+                return 1;
             case WaveScenario.Boss:
                 calculatedCount = blockBase + 6;
                 break;
@@ -861,6 +907,19 @@ public class GameManager : MonoBehaviour
         Debug.Log(waveHistory.GetDebugSummary());
     }
 
+    private void RegisterEliteWaveCompletionIfNeeded()
+    {
+        if (lastCompletedWaveResult == null || !lastCompletedWaveResult.isEliteWave)
+            return;
+
+        if (enemySpawner != null)
+            enemySpawner.RegisterEliteWaveCompleted(lastCompletedWaveResult);
+
+        RunStatisticsTracker stats = GetRunStatisticsTracker();
+        if (stats != null)
+            stats.RecordEliteWaveCompleted(lastCompletedWaveResult);
+    }
+
     public void RegisterEnemyKilled(Enemy enemy)
     {
         if (enemy == null || currentWaveResult == null)
@@ -874,12 +933,139 @@ public class GameManager : MonoBehaviour
         if (enemy == null)
             return;
 
-        int damage = Mathf.Max(1, enemy.baseDamage);
+        bool isEliteEnemy = enemy.isElite || enemy.enemyRole == EnemyRole.Elite;
+        int damage = isEliteEnemy ? Mathf.Max(1, eliteLeakLifeDamage) : Mathf.Max(1, enemy.baseDamage);
 
         if (currentWaveResult != null)
             currentWaveResult.RegisterEnemyReachedBase(enemy, damage);
 
+        if (isEliteEnemy)
+            HandleEliteReachedBaseTowerPenalty();
+
         LoseLife(damage);
+    }
+
+    private void HandleEliteReachedBaseTowerPenalty()
+    {
+        if (!destroyEliteLeakTower)
+            return;
+
+        bool destroyedTower = TryDestroyRandomTopEliteTower();
+
+        if (!destroyedTower)
+            Debug.LogWarning("Elite ist durchgekommen, aber es wurde kein aktiver Tower zum Zerstören gefunden.");
+    }
+
+    private bool TryDestroyRandomTopEliteTower()
+    {
+        List<Tower> candidates = GetTopEliteTowerCandidates(5);
+
+        if (candidates.Count == 0)
+            return false;
+
+        Tower target = candidates[Random.Range(0, candidates.Count)];
+
+        if (target == null)
+            return false;
+
+        string towerName = string.IsNullOrEmpty(target.towerName) ? target.name : target.towerName;
+
+        RunStatisticsTracker stats = GetRunStatisticsTracker();
+        if (stats != null)
+            stats.RecordTowerDestroyedByElite(target, waveNumber, "Elite Leak");
+
+        if (currentWaveResult != null)
+            currentWaveResult.RegisterEliteTowerDestroyed(towerName);
+
+        if (tileManager != null)
+        {
+            if (target.hasBuildGridPosition)
+                tileManager.UnregisterTowerPosition(target.builtGridPosition);
+            else
+                tileManager.UnregisterTowerPosition(target.transform.position);
+        }
+
+        MarkEliteDestroyedBuildTileFree(target);
+        CloseTowerUIForModal();
+        Destroy(target.gameObject);
+        Debug.Log("Elite Leak: Tower zerstört - " + towerName);
+        return true;
+    }
+
+    private void MarkEliteDestroyedBuildTileFree(Tower tower)
+    {
+        if (tower == null || tileManager == null)
+            return;
+
+        Vector2Int towerGridPosition = tower.hasBuildGridPosition
+            ? tower.builtGridPosition
+            : tileManager.WorldToGridPublic(tower.transform.position);
+
+        BuildTile[] buildTiles = FindObjectsByType<BuildTile>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+
+        foreach (BuildTile buildTile in buildTiles)
+        {
+            if (buildTile == null)
+                continue;
+
+            if (tileManager.WorldToGridPublic(buildTile.transform.position) != towerGridPosition)
+                continue;
+
+            buildTile.isOccupied = false;
+            buildTile.SetHovered(false);
+            return;
+        }
+    }
+
+    private List<Tower> GetTopEliteTowerCandidates(int maxCandidates)
+    {
+        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        List<Tower> candidates = new List<Tower>();
+
+        if (towers == null)
+            return candidates;
+
+        foreach (Tower tower in towers)
+        {
+            if (tower != null)
+                candidates.Add(tower);
+        }
+
+        candidates.Sort((a, b) => GetEliteTowerScore(b).CompareTo(GetEliteTowerScore(a)));
+
+        int safeMax = Mathf.Max(1, maxCandidates);
+        if (candidates.Count > safeMax)
+            candidates.RemoveRange(safeMax, candidates.Count - safeMax);
+
+        return candidates;
+    }
+
+    private int GetEliteTowerScore(Tower tower)
+    {
+        if (tower == null)
+            return 0;
+
+        float effectiveDps = tower.GetEffectiveDamage() * tower.GetEffectiveFireRate();
+        int upgradeScore =
+            tower.damageGoldUpgradeLevel +
+            tower.rangeGoldUpgradeLevel +
+            tower.fireRateGoldUpgradeLevel +
+            tower.effectGoldUpgradeLevel +
+            tower.damagePointUpgradeLevel * 2 +
+            tower.rangePointUpgradeLevel * 2 +
+            tower.fireRatePointUpgradeLevel * 2 +
+            tower.effectPointUpgradeLevel * 2;
+
+        int score = 0;
+        score += Mathf.RoundToInt(effectiveDps * 20f);
+        score += Mathf.RoundToInt(tower.GetEffectiveRange() * 4f);
+        score += Mathf.Max(1, tower.level) * 25;
+        score += Mathf.Max(0, tower.visualTier) * 20;
+        score += Mathf.Max(0, upgradeScore) * 8;
+        score += Mathf.Max(0, tower.totalKills) * 8;
+        score += Mathf.Max(0, tower.totalAssists) * 3;
+        score += Mathf.RoundToInt(Mathf.Max(0f, tower.totalDamageDealt) * 0.15f);
+        return score;
     }
 
     public WaveCompletionResult GetCurrentWaveResult()
@@ -1168,6 +1354,171 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    public int GrantXPToAllTowers(int baseAmount, bool applyRewardModifiers)
+    {
+        int finalAmount = GetFinalTowerXPRewardAmount(baseAmount, applyRewardModifiers);
+
+        if (finalAmount <= 0)
+            return 0;
+
+        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        int affectedTowers = 0;
+
+        foreach (Tower tower in towers)
+        {
+            if (tower == null)
+                continue;
+
+            tower.AddXP(finalAmount);
+            affectedTowers++;
+        }
+
+        Debug.Log("Elite-Reward: " + affectedTowers + " Tower erhalten +" + finalAmount + " XP.");
+        return affectedTowers;
+    }
+
+    public bool GrantXPToStrongestTower(int baseAmount, bool applyRewardModifiers)
+    {
+        Tower tower = GetStrongestTowerForEliteReward();
+
+        if (tower == null)
+            return false;
+
+        int finalAmount = GetFinalTowerXPRewardAmount(baseAmount, applyRewardModifiers);
+
+        if (finalAmount <= 0)
+            return false;
+
+        tower.AddXP(finalAmount);
+        Debug.Log("Elite-Reward: " + GetTowerDisplayName(tower) + " erhält +" + finalAmount + " XP.");
+        return true;
+    }
+
+    private int GetFinalTowerXPRewardAmount(int baseAmount, bool applyRewardModifiers)
+    {
+        int safeAmount = Mathf.Max(0, baseAmount);
+
+        if (safeAmount <= 0)
+            return 0;
+
+        return applyRewardModifiers ? ApplyXPRewardModifiers(safeAmount) : safeAmount;
+    }
+
+    public int RaiseWeakTowersByLevels(int targetLevel, int levelUps)
+    {
+        int safeTargetLevel = Mathf.Max(1, targetLevel);
+        int safeLevelUps = Mathf.Max(1, levelUps);
+        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        int affectedTowers = 0;
+        int totalLevelUps = 0;
+
+        foreach (Tower tower in towers)
+        {
+            if (tower == null || tower.level >= safeTargetLevel)
+                continue;
+
+            int gainedLevels = tower.RaiseByLevelsUpTo(safeTargetLevel, safeLevelUps);
+
+            if (gainedLevels <= 0)
+                continue;
+
+            affectedTowers++;
+            totalLevelUps += gainedLevels;
+        }
+
+        Debug.Log("Elite-Reward: " + affectedTowers + " schwache Tower gestärkt, +" + totalLevelUps + " Level gesamt.");
+        return totalLevelUps;
+    }
+
+    public bool GrantUpgradePointsToStrongestTower(int amount)
+    {
+        Tower tower = GetStrongestTowerForEliteReward();
+
+        if (tower == null)
+            return false;
+
+        int safeAmount = Mathf.Max(1, amount);
+        tower.AddUpgradePoints(safeAmount);
+        Debug.Log("Elite-Reward: " + GetTowerDisplayName(tower) + " erhält +" + safeAmount + " Upgradepunkt(e).");
+        return true;
+    }
+
+    public int ApplyEliteLegacyBoostToAllTowers(float bonusPercent)
+    {
+        float safeBonus = Mathf.Max(0f, bonusPercent);
+
+        if (safeBonus <= 0f)
+            return 0;
+
+        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        int affectedTowers = 0;
+
+        foreach (Tower tower in towers)
+        {
+            if (tower == null)
+                continue;
+
+            tower.ApplyEvolutionBoost(safeBonus);
+            affectedTowers++;
+        }
+
+        Debug.Log("Elite-Reward: Elite-Erbe stärkt " + affectedTowers + " Tower um +" + (safeBonus * 100f).ToString("0.#") + "%.");
+        return affectedTowers;
+    }
+
+    public int AddLivesCapped(int amount)
+    {
+        if (isGameOver)
+            return 0;
+
+        int safeAmount = Mathf.Max(0, amount);
+        int maxLives = GetCurrentMaxLives();
+        int before = lives;
+
+        if (before >= maxLives)
+        {
+            Debug.Log("Lives: " + lives + " (+0, Max " + maxLives + ")");
+            return 0;
+        }
+
+        lives = Mathf.Min(maxLives, lives + safeAmount);
+
+        int applied = Mathf.Max(0, lives - before);
+        Debug.Log("Lives: " + lives + " (+" + applied + ", Max " + maxLives + ")");
+        return applied;
+    }
+
+    public int GetCurrentMaxLives()
+    {
+        return Mathf.Max(1, currentStartMode == GameStartMode.Balancing ? balancingStartLives : normalStartLives);
+    }
+
+    public void AddEliteTileChoiceQualityBoosts(int amount)
+    {
+        int safeAmount = Mathf.Max(1, amount);
+
+        ResolveOptionalInteractionReferences();
+
+        if (pathBuildManager == null)
+            return;
+
+        pathBuildManager.AddEliteTileQualityBoosts(safeAmount);
+    }
+
+    public Tower GetStrongestTowerForEliteReward()
+    {
+        List<Tower> candidates = GetTopEliteTowerCandidates(1);
+        return candidates.Count > 0 ? candidates[0] : null;
+    }
+
+    private string GetTowerDisplayName(Tower tower)
+    {
+        if (tower == null)
+            return "Unbekannter Tower";
+
+        return string.IsNullOrEmpty(tower.towerName) ? tower.name : tower.towerName;
+    }
+
     public List<string> GetActiveRiskModifierDisplayNames()
     {
         ChaosJusticeManager manager = GetChaosJusticeManager();
@@ -1315,6 +1666,7 @@ public class GameManager : MonoBehaviour
         blockedBaseRelocationPending = false;
         StopBlockedBuildTimer();
         postBossChoicePending = false;
+        postEliteRewardChoicePending = false;
 
         if (blockedEventManager != null)
             blockedEventManager.CloseSelection();
@@ -1323,6 +1675,12 @@ public class GameManager : MonoBehaviour
 
         if (chaosJusticeManager != null)
             chaosJusticeManager.CloseSelectionWithoutResume();
+
+        if (eliteRewardChoiceManager != null)
+            eliteRewardChoiceManager.CloseSelectionWithoutResume();
+
+        if (eliteSpawnWarningManager != null)
+            eliteSpawnWarningManager.CloseWarningAndRestoreTime();
 
         if (fireWaveBackendEvents)
             WaveEventBus.RaiseGameOverTriggered();
@@ -1346,6 +1704,12 @@ public class GameManager : MonoBehaviour
 
         if (pathBuildManager == null)
             pathBuildManager = FindObjectOfType<PathBuildManager>();
+
+        if (eliteRewardChoiceManager == null)
+            eliteRewardChoiceManager = FindObjectOfType<EliteRewardChoiceManager>();
+
+        if (eliteSpawnWarningManager == null)
+            eliteSpawnWarningManager = FindObjectOfType<EliteSpawnWarningManager>();
 
         if (towerUI == null)
             towerUI = FindObjectOfType<TowerUI>();
@@ -1377,6 +1741,18 @@ public class GameManager : MonoBehaviour
         return pathBuildManager != null && pathBuildManager.IsChoiceOpen();
     }
 
+    public bool IsEliteRewardChoiceOpen()
+    {
+        EliteRewardChoiceManager manager = GetEliteRewardChoiceManager();
+        return manager != null && manager.IsSelectionOpen();
+    }
+
+    public bool IsEliteSpawnWarningOpen()
+    {
+        EliteSpawnWarningManager manager = GetEliteSpawnWarningManager();
+        return manager != null && manager.IsWarningOpen();
+    }
+
     public bool IsChaosLexiconOpen()
     {
         ChaosLexiconUI lexicon = GetChaosLexiconUI();
@@ -1394,7 +1770,7 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return false;
 
-        return startMenuOpen || blockedBaseRelocationPending || IsChaosJusticeChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
+        return startMenuOpen || blockedBaseRelocationPending || IsEliteSpawnWarningOpen() || IsChaosJusticeChoiceOpen() || IsEliteRewardChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
     }
 
     public bool CanOpenAuxiliaryModalUI()
@@ -1402,7 +1778,7 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return true;
 
-        return !startMenuOpen && !blockedBaseRelocationPending && !IsChaosJusticeChoiceOpen() && !IsBlockedEventSelectionOpen();
+        return !startMenuOpen && !blockedBaseRelocationPending && !IsEliteSpawnWarningOpen() && !IsChaosJusticeChoiceOpen() && !IsEliteRewardChoiceOpen() && !IsBlockedEventSelectionOpen();
     }
 
     public bool IsPathInputLockedByModalUI()
@@ -1410,7 +1786,7 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return true;
 
-        return startMenuOpen || blockedBaseRelocationPending || isBaseBlocked || isTimedBlockedBuildPhase || IsChaosJusticeChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
+        return startMenuOpen || blockedBaseRelocationPending || isBaseBlocked || isTimedBlockedBuildPhase || IsEliteSpawnWarningOpen() || IsChaosJusticeChoiceOpen() || IsEliteRewardChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen();
     }
 
     public void ClosePathAndBuildSelectionsForModal()
@@ -1472,6 +1848,51 @@ public class GameManager : MonoBehaviour
         return stats != null ? stats.GetRunStatistics() : null;
     }
 
+    public EliteRewardChoiceManager GetEliteRewardChoiceManager()
+    {
+        if (eliteRewardChoiceManager == null)
+            eliteRewardChoiceManager = GetComponent<EliteRewardChoiceManager>();
+
+        if (eliteRewardChoiceManager == null)
+            eliteRewardChoiceManager = FindObjectOfType<EliteRewardChoiceManager>();
+
+        if (eliteRewardChoiceManager == null && autoCreateEliteRewardChoiceManager)
+            eliteRewardChoiceManager = gameObject.AddComponent<EliteRewardChoiceManager>();
+
+        if (eliteRewardChoiceManager != null)
+            eliteRewardChoiceManager.Connect(this);
+
+        return eliteRewardChoiceManager;
+    }
+
+    public EliteSpawnWarningManager GetEliteSpawnWarningManager()
+    {
+        if (eliteSpawnWarningManager == null)
+            eliteSpawnWarningManager = GetComponent<EliteSpawnWarningManager>();
+
+        if (eliteSpawnWarningManager == null)
+            eliteSpawnWarningManager = FindObjectOfType<EliteSpawnWarningManager>();
+
+        if (eliteSpawnWarningManager == null && autoCreateEliteSpawnWarningManager)
+            eliteSpawnWarningManager = gameObject.AddComponent<EliteSpawnWarningManager>();
+
+        if (eliteSpawnWarningManager != null)
+            eliteSpawnWarningManager.Connect(this);
+
+        return eliteSpawnWarningManager;
+    }
+
+    public void OpenEliteSpawnWarning(Enemy eliteEnemy)
+    {
+        if (isGameOver || eliteEnemy == null)
+            return;
+
+        EliteSpawnWarningManager manager = GetEliteSpawnWarningManager();
+
+        if (manager != null)
+            manager.OpenEliteSpawnWarning(eliteEnemy);
+    }
+
     public void RegisterTowerBuilt(Tower tower, int cost, Vector2Int gridPosition, Vector3 worldPosition)
     {
         RunStatisticsTracker stats = GetRunStatisticsTracker();
@@ -1496,6 +1917,14 @@ public class GameManager : MonoBehaviour
             stats.RecordTowerLevelUp(tower, reachedLevel, gainedUpgradePoint, gainedMetaPoint, gainedVisualTier);
     }
 
+    public void RegisterTowerUpgradePointsGranted(Tower tower, int amount)
+    {
+        RunStatisticsTracker stats = GetRunStatisticsTracker();
+
+        if (stats != null)
+            stats.RecordTowerUpgradePointsGranted(tower, amount);
+    }
+
     public void RegisterTowerGoldUpgrade(Tower tower, TowerUpgradeCategory category, int goldSpent, int newUpgradeLevel)
     {
         RunStatisticsTracker stats = GetRunStatisticsTracker();
@@ -1510,6 +1939,14 @@ public class GameManager : MonoBehaviour
 
         if (stats != null)
             stats.RecordPointUpgrade(tower, category, pointsSpent, newUpgradeLevel);
+    }
+
+    public void RegisterEliteRewardChoice(string rewardName)
+    {
+        RunStatisticsTracker stats = GetRunStatisticsTracker();
+
+        if (stats != null)
+            stats.RecordEliteRewardChoice(rewardName);
     }
 
     public ChaosLexiconUI GetChaosLexiconUI()

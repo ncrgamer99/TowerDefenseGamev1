@@ -7517,6 +7517,10 @@ MonoBehaviour:
   buildManager: {fileID: 276326606}
   buildSelectionUI: {fileID: 1157879198}
   pathBuildManager: {fileID: 1677539941}
+  eliteRewardChoiceManager: {fileID: 0}
+  autoCreateEliteRewardChoiceManager: 1
+  eliteSpawnWarningManager: {fileID: 0}
+  autoCreateEliteSpawnWarningManager: 1
   towerUI: {fileID: 900815697}
   showStartMenuOnStart: 1
   normalStartGold: 120
@@ -7557,10 +7561,12 @@ MonoBehaviour:
     specialEnemyCount: 0
     isMiniBossWave: 0
     isBossWave: 0
+    isEliteWave: 0
     hasSpecialEnemy: 0
     mainSpecialRole: 0
     miniBossCount: 0
     bossCount: 0
+    eliteCount: 0
     previewHidden: 0
     hasChaosVariants: 0
     chaosVariantCount: 0
@@ -7584,10 +7590,12 @@ MonoBehaviour:
     specialEnemyCount: 0
     isMiniBossWave: 0
     isBossWave: 0
+    isEliteWave: 0
     hasSpecialEnemy: 0
     mainSpecialRole: 0
     miniBossCount: 0
     bossCount: 0
+    eliteCount: 0
     previewHidden: 0
     hasChaosVariants: 0
     chaosVariantCount: 0
@@ -7606,8 +7614,13 @@ MonoBehaviour:
     waveCompleted: 0
     isBossWave: 0
     isMiniBossWave: 0
+    isEliteWave: 0
     bossDefeated: 0
     miniBossDefeated: 0
+    eliteDefeated: 0
+    eliteReachedBase: 0
+    eliteDestroyedTower: 0
+    eliteDestroyedTowerName: 
     totalSpawnCount: 0
     enemiesKilled: 0
     enemiesReachedBase: 0
@@ -7639,8 +7652,13 @@ MonoBehaviour:
     waveCompleted: 0
     isBossWave: 0
     isMiniBossWave: 0
+    isEliteWave: 0
     bossDefeated: 0
     miniBossDefeated: 0
+    eliteDefeated: 0
+    eliteReachedBase: 0
+    eliteDestroyedTower: 0
+    eliteDestroyedTowerName: 
     totalSpawnCount: 0
     enemiesKilled: 0
     enemiesReachedBase: 0
@@ -7673,6 +7691,9 @@ MonoBehaviour:
   enemyWaveDebugToggleKey: 284
   fireWaveBackendEvents: 1
   postBossChoicePending: 0
+  postEliteRewardChoicePending: 0
+  eliteLeakLifeDamage: 5
+  destroyEliteLeakTower: 1
   isBaseBlocked: 0
   isTimedBlockedBuildPhase: 0
   blockedBuildTimeRemaining: 0
@@ -9348,23 +9369,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ae3e3364fcb89b14e980e8d2ce4a8703, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemySpawner
-  standardEnemyPrefab: {fileID: 5865185149661257560, guid: 567bf2ab588ed8340a1fa563ea289f7d, type: 3}
-  tankEnemyPrefab: {fileID: 9184241791454576486, guid: 258e1329ad731b041ba4caa6c6a9579e, type: 3}
-  knightEnemyPrefab: {fileID: 8858270218545373496, guid: dd6eabc3180ce174aad7cb98086aecd9, type: 3}
-  runnerEnemyPrefab: {fileID: 7773335126923875482, guid: 924cce83a5f5bf5498c8a0755ef2a0e7, type: 3}
-  mageEnemyPrefab: {fileID: 7922357646172127027, guid: 62acdb8c81eb4de449e740cbe3f32a20, type: 3}
-  learnerEnemyPrefab: {fileID: 6153190920989997358, guid: 51df0bb0184b2c946b68393e9512887a, type: 3}
-  allRounderEnemyPrefab: {fileID: 833282278935127833, guid: eac00b14c327db74e9e1a43a802be76a, type: 3}
-  miniBossEnemyPrefab: {fileID: 8060850368349430259, guid: cfc8aa77020ff894db2e9baec52486e3, type: 3}
-  bossEnemyPrefab: {fileID: 8960077718873877236, guid: 49f0978af2bf86a448ec2202fe642c4f, type: 3}
+  standardEnemyPrefab: {fileID: 2343735829679692866, guid: f6940aef271c2dc43ba617e6a45b665f, type: 3}
+  tankEnemyPrefab: {fileID: 3588461611585384653, guid: bdf6541f4b6f5a24dafb95dabfe08a76, type: 3}
+  knightEnemyPrefab: {fileID: 1737119192653278904, guid: f8984e39181f4e94fa172785437a963f, type: 3}
+  runnerEnemyPrefab: {fileID: 1914983115358299155, guid: 901a457edba21a64d85b48105f2ceeb9, type: 3}
+  mageEnemyPrefab: {fileID: 5460667976803557792, guid: b6332f313a8ba4342a59fba8f4cda875, type: 3}
+  learnerEnemyPrefab: {fileID: 5913960001758062089, guid: fc9ed5bc17cd14449b2fff151bf5cc81, type: 3}
+  allRounderEnemyPrefab: {fileID: 1200703997738340832, guid: de8a96992bd07384d8c728d0d3eb8658, type: 3}
+  miniBossEnemyPrefab: {fileID: 489479777256911354, guid: 1558fa3f6c0f83d42ae651af959c2932, type: 3}
+  bossEnemyPrefab: {fileID: 6024475698315659228, guid: d5ad0fad5082c564eb65f9a3a8544952, type: 3}
+  eliteEnemyPrefab: {fileID: 6868870393672451833, guid: baeadfc1eaca6b1498e559ca64d9148a, type: 3}
+  useGeneratedEnemyPrefabs: 1
   preferChaosVariantPrefabs: 1
-  chaosStandardEnemyPrefab: {fileID: 5865185149661257560, guid: 52e1132bfc717a54bb22a2495c9226eb, type: 3}
-  chaosRunnerEnemyPrefab: {fileID: 7773335126923875482, guid: 48030affed0cbfb44806ff7df062a69a, type: 3}
-  chaosTankEnemyPrefab: {fileID: 9184241791454576486, guid: a28f3bfc5788f844cb63d3e6c4a78ecb, type: 3}
-  chaosKnightEnemyPrefab: {fileID: 8858270218545373496, guid: 8ca0fe4c7ae1c6447b4f2eb4d6e97a16, type: 3}
-  chaosMageEnemyPrefab: {fileID: 7922357646172127027, guid: f7b79409e7ce42649884e74ad0b2bc3c, type: 3}
-  chaosLearnerEnemyPrefab: {fileID: 6153190920989997358, guid: a7aecc4ec8050424aa86cffb79e8e535, type: 3}
-  chaosAllRounderEnemyPrefab: {fileID: 833282278935127833, guid: dc2990b65f6006d418a05bccdaac3899, type: 3}
+  chaosStandardEnemyPrefab: {fileID: 5590829723150195352, guid: 0bf38593c864c0b4e8284c384cbc014c, type: 3}
+  chaosRunnerEnemyPrefab: {fileID: 2758584505466437291, guid: 390e490c4abc0804cbea63284d33c56f, type: 3}
+  chaosTankEnemyPrefab: {fileID: 9135846873991615882, guid: 2fdc53e1e92e05449a7581f8105830e7, type: 3}
+  chaosKnightEnemyPrefab: {fileID: 4278767862098791244, guid: 48b83a470640069448adb2044e1a72b0, type: 3}
+  chaosMageEnemyPrefab: {fileID: 8619212342389349715, guid: b6430ee6ea5cbd64ba31235b9656b415, type: 3}
+  chaosLearnerEnemyPrefab: {fileID: 2760916382957750548, guid: 439c00031f3f1464288db6de3bb5f338, type: 3}
+  chaosAllRounderEnemyPrefab: {fileID: 2990705017446145410, guid: 2bfaaae46226ab047a16fd83009a767a, type: 3}
+  chaosMiniBossEnemyPrefab: {fileID: 7416823676834084054, guid: 2e33e66954d1bf6439dde38c22190243, type: 3}
+  chaosBossEnemyPrefab: {fileID: 1147784914823118143, guid: 8cf67fca5ad72b1419cf288185abc7e9, type: 3}
   tileManager: {fileID: 992310456}
   gameManager: {fileID: 652380030}
   spawnDelay: 0.45
@@ -9386,10 +9411,12 @@ MonoBehaviour:
     specialEnemyCount: 0
     isMiniBossWave: 0
     isBossWave: 0
+    isEliteWave: 0
     hasSpecialEnemy: 0
     mainSpecialRole: 0
     miniBossCount: 0
     bossCount: 0
+    eliteCount: 0
     previewHidden: 0
     hasChaosVariants: 0
     chaosVariantCount: 0
@@ -9432,6 +9459,21 @@ MonoBehaviour:
   allowResistanceBlockInV1: 0
   allowPreviewHiddenBlockInV1: 0
   logChaosWaveBlockGeneration: 0
+  enableEliteWavesV1: 1
+  eliteStartWave: 18
+  eliteMinimumWavesBetween: 5
+  eliteMinimumTowerCount: 3
+  eliteTowerXPSinceLastThreshold: 220
+  eliteKillsSinceLastThreshold: 90
+  eliteConditionSpawnChance: 0.01
+  eliteRareChanceStartWave: 18
+  eliteRareChanceWithoutThreshold: 0.002
+  eliteRandomSeedSalt: 53021
+  logEliteWaveSelection: 0
+  lastEliteWaveNumber: 0
+  pendingEliteWaveNumber: 0
+  towerXPAtLastEliteWave: 0
+  killsAtLastEliteWave: 0
 --- !u!4 &897604605
 Transform:
   m_ObjectHideFlags: 0
@@ -9733,6 +9775,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c58718f2ea0bbb47b018ce9a777e36a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameSpeedManager
+  gameManager: {fileID: 0}
   normalSpeed: 1
   fastSpeed: 2
   fasterSpeed: 6
@@ -12818,6 +12861,7 @@ MonoBehaviour:
   normalWaveColor: {r: 1, g: 1, b: 1, a: 1}
   miniBossWaveColor: {r: 1, g: 0.6666667, b: 0.23529412, a: 1}
   bossWaveColor: {r: 1, g: 0.27450982, b: 0.27450982, a: 1}
+  eliteWaveColor: {r: 1, g: 0.92156863, b: 0.4117647, a: 1}
   blockedWaveColor: {r: 1, g: 0.3529412, b: 0.3529412, a: 1}
 --- !u!4 &1169827241
 Transform:
@@ -17825,18 +17869,11 @@ MonoBehaviour:
   - displayName: KnockTile
     description: "Platzhalter f\xFCr eine sp\xE4tere Br\xFCcke."
     optionType: 6
-  - displayName: Gold Tile
-    description: 'Gold-Tile. V1: zaehlt als Pfad-Variante.'
-    optionType: 4
   - displayName: SlowTile
     description: "Platzhalter f\xFCr ein sp\xE4teres Bonus-Tile."
     optionType: 5
-  - displayName: Special Tile
-    description: 'Sonder-Tile. V1: zaehlt als Pfad-Variante.'
-    optionType: 2
-  - displayName: Bridge Tile
-    description: 'Bruecken-Tile. V1: zaehlt als Pfad-Variante.'
-    optionType: 3
+  eliteQualityOptions: []
+  pendingEliteTileQualityBoosts: 0
   specialTileSelectionWaveInterval: 5
 --- !u!4 &1677539942
 Transform:

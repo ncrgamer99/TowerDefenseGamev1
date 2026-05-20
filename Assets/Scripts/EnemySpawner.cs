@@ -5,6 +5,10 @@ using UnityEngine;
 
 public class EnemySpawner : MonoBehaviour
 {
+    private const int EliteMinimumStartWaveV1 = 18;
+    private const float EliteConditionSpawnChanceV1 = 0.01f;
+    private const float EliteRareSpawnChanceV1 = 0.002f;
+
     [Header("Enemy Prefabs")]
     public GameObject standardEnemyPrefab;
     public GameObject tankEnemyPrefab;
@@ -15,6 +19,10 @@ public class EnemySpawner : MonoBehaviour
     public GameObject allRounderEnemyPrefab;
     public GameObject miniBossEnemyPrefab;
     public GameObject bossEnemyPrefab;
+    public GameObject eliteEnemyPrefab;
+
+    [Header("Generated Enemy Prefabs")]
+    public bool useGeneratedEnemyPrefabs = true;
 
     [Header("Chaos Variant Enemy Prefabs - Optional V1")]
     public bool preferChaosVariantPrefabs = true;
@@ -25,6 +33,8 @@ public class EnemySpawner : MonoBehaviour
     public GameObject chaosMageEnemyPrefab;
     public GameObject chaosLearnerEnemyPrefab;
     public GameObject chaosAllRounderEnemyPrefab;
+    public GameObject chaosMiniBossEnemyPrefab;
+    public GameObject chaosBossEnemyPrefab;
 
     [Header("References")]
     public TileManager tileManager;
@@ -81,9 +91,38 @@ public class EnemySpawner : MonoBehaviour
     public bool allowPreviewHiddenBlockInV1 = false;
     public bool logChaosWaveBlockGeneration = false;
 
+    [Header("Elite Waves V1")]
+    public bool enableEliteWavesV1 = true;
+    public int eliteStartWave = 18;
+    public int eliteMinimumWavesBetween = 5;
+    public int eliteMinimumTowerCount = 3;
+    public int eliteTowerXPSinceLastThreshold = 0;
+    public int eliteKillsSinceLastThreshold = 100;
+    [Range(0f, 1f)]
+    public float eliteConditionSpawnChance = 0.01f;
+    public int eliteRareChanceStartWave = 18;
+    [Range(0f, 1f)]
+    public float eliteRareChanceWithoutThreshold = 0.002f;
+    public int eliteRandomSeedSalt = 53021;
+    public bool logEliteWaveSelection = false;
+    public int lastEliteWaveNumber = 0;
+    public int pendingEliteWaveNumber = 0;
+    public int towerXPAtLastEliteWave = 0;
+    public int killsAtLastEliteWave = 0;
+
     private int aliveEnemies = 0;
     private Action onWaveFinished;
     private Coroutine activeSpawnCoroutine;
+
+    private void Awake()
+    {
+        ClampEliteWaveSettings();
+    }
+
+    private void OnValidate()
+    {
+        ClampEliteWaveSettings();
+    }
 
     public void StartWave(int enemyCount, Action finishedCallback)
     {
@@ -231,8 +270,12 @@ public class EnemySpawner : MonoBehaviour
         WaveData waveData = new WaveData();
 
         waveData.waveNumber = safeWave;
-        waveData.requestedEnemyCount = safeEnemyCount;
         waveData.scenario = GetWaveScenario(safeWave);
+
+        if (waveData.scenario == WaveScenario.Elite)
+            safeEnemyCount = 1;
+
+        waveData.requestedEnemyCount = safeEnemyCount;
         waveData.scenarioName = GetScenarioNameForWave(safeWave);
         waveData.specialHint = GetSpecialHintForWave(safeWave);
         waveData.modifiedEnemyCount = GetModifiedEnemyCount(safeEnemyCount, safeWave, waveData.scenario);
@@ -400,6 +443,9 @@ public class EnemySpawner : MonoBehaviour
     {
         List<WaveModifier> result = new List<WaveModifier>();
 
+        if (scenario == WaveScenario.Elite)
+            return result;
+
         if (!usePreparedWaveModifiers || activeWaveModifiers == null)
             return result;
 
@@ -443,6 +489,9 @@ public class EnemySpawner : MonoBehaviour
 
     private int GetModifiedEnemyCount(int originalEnemyCount, int waveNumber, WaveScenario scenario)
     {
+        if (scenario == WaveScenario.Elite)
+            return 1;
+
         int modifiedCount = Mathf.Max(1, originalEnemyCount);
 
         if (!usePreparedWaveModifiers)
@@ -476,6 +525,9 @@ public class EnemySpawner : MonoBehaviour
 
     private void ApplyPreparedWaveModifiersToEntries(List<EnemySpawnEntry> entries, int waveNumber, WaveScenario scenario)
     {
+        if (scenario == WaveScenario.Elite)
+            return;
+
         if (!usePreparedWaveModifiers || entries == null || activeWaveModifiers == null || activeWaveModifiers.Count == 0)
             return;
 
@@ -594,6 +646,9 @@ public class EnemySpawner : MonoBehaviour
     private List<ChaosWaveBlock> GenerateChaosWaveBlocksForWave(int waveNumber, WaveScenario scenario, List<EnemySpawnEntry> entries)
     {
         List<ChaosWaveBlock> selectedBlocks = new List<ChaosWaveBlock>();
+
+        if (scenario == WaveScenario.Elite)
+            return selectedBlocks;
 
         if (!enableChaosWaveBlocksV1 || entries == null || entries.Count == 0)
             return selectedBlocks;
@@ -954,6 +1009,9 @@ public class EnemySpawner : MonoBehaviour
 
     private void ApplyChaosWaveBlocksToEntries(List<EnemySpawnEntry> entries, List<ChaosWaveBlock> blocks, int waveNumber, WaveScenario scenario)
     {
+        if (scenario == WaveScenario.Elite)
+            return;
+
         if (entries == null || blocks == null || blocks.Count == 0)
             return;
 
@@ -1021,7 +1079,7 @@ public class EnemySpawner : MonoBehaviour
             float entryEffectMultiplier = Mathf.Max(0.1f, effectDamageMultiplier);
             float entrySlowResistanceBonus = slowResistanceBonus;
 
-            if (entry.enemyRole == EnemyRole.Boss || entry.enemyRole == EnemyRole.MiniBoss)
+            if (entry.enemyRole == EnemyRole.Boss || entry.enemyRole == EnemyRole.MiniBoss || entry.enemyRole == EnemyRole.Elite)
             {
                 if (!includeSpecialEnemiesWeakly)
                     continue;
@@ -1103,7 +1161,7 @@ public class EnemySpawner : MonoBehaviour
             if (source.enemyRole == targetRole)
                 continue;
 
-            if (source.enemyRole == EnemyRole.Boss || source.enemyRole == EnemyRole.MiniBoss)
+            if (source.enemyRole == EnemyRole.Boss || source.enemyRole == EnemyRole.MiniBoss || source.enemyRole == EnemyRole.Elite)
                 continue;
 
             int take = Mathf.Min(remaining, source.amount);
@@ -1205,6 +1263,7 @@ public class EnemySpawner : MonoBehaviour
             case EnemyRole.Mage: return 0.58f;
             case EnemyRole.Learner: return 0.54f;
             case EnemyRole.AllRounder: return 0.78f;
+            case EnemyRole.Elite: return 1.50f;
             case EnemyRole.MiniBoss: return 1.25f;
             case EnemyRole.Boss: return 1.50f;
             default: return 0.35f;
@@ -1214,6 +1273,9 @@ public class EnemySpawner : MonoBehaviour
 
     private void ApplyChaosVariantsToEntries(List<EnemySpawnEntry> entries, int waveNumber, WaveScenario scenario, List<ChaosWaveBlock> chaosWaveBlocks)
     {
+        if (scenario == WaveScenario.Elite)
+            return;
+
         if (!enableChaosVariantsV1 || entries == null || entries.Count == 0)
             return;
 
@@ -1306,6 +1368,9 @@ public class EnemySpawner : MonoBehaviour
 
     private bool CanRoleBecomeChaosVariant(EnemyRole role)
     {
+        if (role == EnemyRole.Elite)
+            return false;
+
         if (role == EnemyRole.Boss)
             return allowChaosVariantBossesInV1;
 
@@ -1577,6 +1642,9 @@ public class EnemySpawner : MonoBehaviour
 
         switch (scenario)
         {
+            case WaveScenario.Elite:
+                AddEliteWaveEntries(entries);
+                break;
             case WaveScenario.Boss:
                 AddBossWaveEntries(entries, safeWave, safeEnemyCount);
                 break;
@@ -1602,6 +1670,17 @@ public class EnemySpawner : MonoBehaviour
     }
 
     public WaveScenario GetWaveScenario(int waveNumber)
+    {
+        int safeWave = Mathf.Max(1, waveNumber);
+        WaveScenario baseScenario = GetBaseWaveScenario(safeWave);
+
+        if (ShouldUseEliteWaveForWave(safeWave, baseScenario))
+            return WaveScenario.Elite;
+
+        return baseScenario;
+    }
+
+    private WaveScenario GetBaseWaveScenario(int waveNumber)
     {
         int safeWave = Mathf.Max(1, waveNumber);
 
@@ -1634,6 +1713,197 @@ public class EnemySpawner : MonoBehaviour
             case 2: return WaveScenario.EffectCheck;
             default: return WaveScenario.Mixed;
         }
+    }
+
+    private bool ShouldUseEliteWaveForWave(int waveNumber, WaveScenario baseScenario)
+    {
+        int safeWave = Mathf.Max(1, waveNumber);
+        ClearInvalidPendingEliteWave(safeWave, baseScenario);
+
+        if (!enableEliteWavesV1)
+            return false;
+
+        if (safeWave < GetEffectiveEliteStartWave())
+            return false;
+
+        if (baseScenario == WaveScenario.Boss || baseScenario == WaveScenario.MiniBoss || baseScenario == WaveScenario.Elite)
+            return false;
+
+        if (!HasEnemyPrefabForRole(EnemyRole.Elite))
+            return false;
+
+        if (pendingEliteWaveNumber == safeWave || lastEliteWaveNumber == safeWave)
+            return true;
+
+        int mostRecentEliteWave = lastEliteWaveNumber;
+        if (pendingEliteWaveNumber > 0 && pendingEliteWaveNumber < safeWave)
+            mostRecentEliteWave = Mathf.Max(mostRecentEliteWave, pendingEliteWaveNumber);
+
+        int minimumGap = Mathf.Max(1, eliteMinimumWavesBetween);
+        if (mostRecentEliteWave > 0 && safeWave - mostRecentEliteWave < minimumGap)
+            return false;
+
+        if (CountActiveTowersForElite() < Mathf.Max(0, eliteMinimumTowerCount))
+            return false;
+
+        int currentTowerXP = GetCurrentTotalTowerXPForElite();
+        int currentKills = GetCurrentTotalKillsForElite();
+        bool killThresholdMet = eliteKillsSinceLastThreshold > 0 && currentKills - killsAtLastEliteWave >= eliteKillsSinceLastThreshold;
+        bool conditionRollMet = killThresholdMet && RollEliteConditionChanceForWave(safeWave, currentKills);
+        bool rareRollMet = safeWave >= GetEffectiveEliteRareChanceStartWave() && RollEliteRareChanceForWave(safeWave, currentTowerXP, currentKills);
+
+        if (!conditionRollMet && !rareRollMet)
+            return false;
+
+        pendingEliteWaveNumber = safeWave;
+
+        if (logEliteWaveSelection)
+        {
+            string reason = conditionRollMet ? "Kills + 1%-Roll" : "seltene Chance";
+            Debug.Log("EnemySpawner: Elite-Wave V1 geplant für Wave " + safeWave + " durch " + reason + ".");
+        }
+
+        return true;
+    }
+
+    private void ClampEliteWaveSettings()
+    {
+        eliteStartWave = Mathf.Max(EliteMinimumStartWaveV1, eliteStartWave);
+        eliteRareChanceStartWave = Mathf.Max(GetEffectiveEliteStartWave(), eliteRareChanceStartWave);
+        eliteMinimumWavesBetween = Mathf.Max(1, eliteMinimumWavesBetween);
+        eliteMinimumTowerCount = Mathf.Max(0, eliteMinimumTowerCount);
+        eliteTowerXPSinceLastThreshold = Mathf.Max(0, eliteTowerXPSinceLastThreshold);
+        eliteKillsSinceLastThreshold = Mathf.Max(0, eliteKillsSinceLastThreshold);
+        eliteConditionSpawnChance = Mathf.Min(Mathf.Clamp01(eliteConditionSpawnChance), EliteConditionSpawnChanceV1);
+        eliteRareChanceWithoutThreshold = Mathf.Min(Mathf.Clamp01(eliteRareChanceWithoutThreshold), EliteRareSpawnChanceV1);
+    }
+
+    private int GetEffectiveEliteStartWave()
+    {
+        return Mathf.Max(EliteMinimumStartWaveV1, eliteStartWave);
+    }
+
+    private int GetEffectiveEliteRareChanceStartWave()
+    {
+        return Mathf.Max(GetEffectiveEliteStartWave(), eliteRareChanceStartWave);
+    }
+
+    private float GetEffectiveEliteConditionSpawnChance()
+    {
+        return Mathf.Min(Mathf.Clamp01(eliteConditionSpawnChance), EliteConditionSpawnChanceV1);
+    }
+
+    private float GetEffectiveEliteRareSpawnChance()
+    {
+        return Mathf.Min(Mathf.Clamp01(eliteRareChanceWithoutThreshold), EliteRareSpawnChanceV1);
+    }
+
+    private void ClearInvalidPendingEliteWave(int safeWave, WaveScenario baseScenario)
+    {
+        if (lastEliteWaveNumber > 0 && lastEliteWaveNumber < GetEffectiveEliteStartWave())
+            lastEliteWaveNumber = 0;
+
+        if (pendingEliteWaveNumber <= 0)
+            return;
+
+        bool pendingBelowStart = pendingEliteWaveNumber < GetEffectiveEliteStartWave();
+        bool pendingCurrentBlockedSpecialWave = pendingEliteWaveNumber == safeWave &&
+            (baseScenario == WaveScenario.Boss || baseScenario == WaveScenario.MiniBoss || baseScenario == WaveScenario.Elite);
+
+        if (pendingBelowStart || pendingCurrentBlockedSpecialWave)
+            pendingEliteWaveNumber = 0;
+    }
+
+    private int CountActiveTowersForElite()
+    {
+        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        return towers != null ? towers.Length : 0;
+    }
+
+    private int GetCurrentTotalTowerXPForElite()
+    {
+        if (gameManager == null)
+            gameManager = FindObjectOfType<GameManager>();
+
+        if (gameManager == null)
+            return 0;
+
+        RunStatistics statistics = gameManager.GetRunStatistics();
+        return statistics != null ? Mathf.Max(0, statistics.totalTowerXPGranted) : 0;
+    }
+
+    private bool RollEliteConditionChanceForWave(int waveNumber, int currentKills)
+    {
+        float chance = GetEffectiveEliteConditionSpawnChance();
+
+        if (chance <= 0f)
+            return false;
+
+        unchecked
+        {
+            int seed = eliteRandomSeedSalt;
+            seed = seed * 31 + 1009;
+            seed = seed * 31 + Mathf.Max(1, waveNumber);
+            seed = seed * 31 + currentKills;
+            seed = seed * 31 + lastEliteWaveNumber;
+            seed = seed * 31 + CountActiveTowersForElite();
+
+            System.Random rng = new System.Random(seed);
+            return rng.NextDouble() < chance;
+        }
+    }
+
+    private int GetCurrentTotalKillsForElite()
+    {
+        if (gameManager == null)
+            gameManager = FindObjectOfType<GameManager>();
+
+        if (gameManager == null)
+            return 0;
+
+        WaveHistory history = gameManager.GetWaveHistory();
+        return history != null ? Mathf.Max(0, history.GetTotalKills()) : 0;
+    }
+
+    private bool RollEliteRareChanceForWave(int waveNumber, int currentTowerXP, int currentKills)
+    {
+        float chance = GetEffectiveEliteRareSpawnChance();
+
+        if (chance <= 0f)
+            return false;
+
+        unchecked
+        {
+            int seed = eliteRandomSeedSalt;
+            seed = seed * 31 + Mathf.Max(1, waveNumber);
+            seed = seed * 31 + currentTowerXP;
+            seed = seed * 31 + currentKills;
+            seed = seed * 31 + lastEliteWaveNumber;
+            seed = seed * 31 + CountActiveTowersForElite();
+
+            System.Random rng = new System.Random(seed);
+            return rng.NextDouble() < chance;
+        }
+    }
+
+    public bool IsEliteWaveForWave(int waveNumber)
+    {
+        return GetWaveScenario(waveNumber) == WaveScenario.Elite;
+    }
+
+    public void RegisterEliteWaveCompleted(WaveCompletionResult result)
+    {
+        if (result == null || !result.isEliteWave)
+            return;
+
+        int safeWave = Mathf.Max(1, result.waveNumber);
+        lastEliteWaveNumber = safeWave;
+
+        if (pendingEliteWaveNumber == safeWave)
+            pendingEliteWaveNumber = 0;
+
+        towerXPAtLastEliteWave = GetCurrentTotalTowerXPForElite();
+        killsAtLastEliteWave = GetCurrentTotalKillsForElite();
     }
 
     private bool TryAddFixedWaveOneToTenEntries(List<EnemySpawnEntry> entries, int waveNumber, WaveScenario scenario)
@@ -1716,6 +1986,14 @@ public class EnemySpawner : MonoBehaviour
         return false;
     }
 
+    private void AddEliteWaveEntries(List<EnemySpawnEntry> entries)
+    {
+        if (entries == null)
+            return;
+
+        AddEntry(entries, EnemyRole.Elite, 1, 1.5f);
+    }
+
     private void AddMiniBossWaveEntries(List<EnemySpawnEntry> entries, int waveNumber, int enemyCount)
     {
         if (entries == null)
@@ -1741,9 +2019,9 @@ public class EnemySpawner : MonoBehaviour
 
         enemiesBeforeMiniBoss = Mathf.Clamp(enemiesBeforeMiniBoss, 0, normalEnemies);
         int enemiesAfterMiniBoss = normalEnemies - enemiesBeforeMiniBoss;
-        AddScenarioEntriesForBackend(entries, GetWaveScenario(waveNumber), enemiesBeforeMiniBoss);
+        AddScenarioEntriesForBackend(entries, GetBaseWaveScenario(waveNumber), enemiesBeforeMiniBoss);
         AddEntry(entries, EnemyRole.MiniBoss, 1, 1.25f);
-        AddScenarioEntriesForBackend(entries, GetWaveScenario(waveNumber + 1), enemiesAfterMiniBoss);
+        AddScenarioEntriesForBackend(entries, GetBaseWaveScenario(waveNumber + 1), enemiesAfterMiniBoss);
     }
 
     private void AddBossWaveEntries(List<EnemySpawnEntry> entries, int waveNumber, int enemyCount)
@@ -1755,7 +2033,7 @@ public class EnemySpawner : MonoBehaviour
         int openerEnemies = Mathf.RoundToInt(normalEnemies * 0.7f);
         openerEnemies = Mathf.Clamp(openerEnemies, 0, normalEnemies);
         int finalPressureEnemies = normalEnemies - openerEnemies;
-        AddScenarioEntriesForBackend(entries, GetWaveScenario(waveNumber - 1), openerEnemies);
+        AddScenarioEntriesForBackend(entries, GetBaseWaveScenario(waveNumber - 1), openerEnemies);
         AddScenarioEntriesForBackend(entries, WaveScenario.Mixed, finalPressureEnemies);
         AddEntry(entries, EnemyRole.Boss, 1, 1.5f);
     }
@@ -1898,10 +2176,21 @@ public class EnemySpawner : MonoBehaviour
         List<Vector3> path = tileManager.GetWorldPath();
         enemy.Initialize(role, variantType, path, gameManager);
         enemy.ApplySpawnEntryEffects(spawnEntry);
+
+        if ((role == EnemyRole.Elite || enemy.isElite) && gameManager != null)
+            gameManager.OpenEliteSpawnWarning(enemy);
     }
 
     private GameObject GetEnemyPrefabForRole(EnemyRole role, EnemyVariantType variantType)
     {
+        if (useGeneratedEnemyPrefabs)
+        {
+            GameObject generatedPrefab = GetGeneratedEnemyPrefabForRole(role, variantType);
+
+            if (generatedPrefab != null)
+                return generatedPrefab;
+        }
+
         if (preferChaosVariantPrefabs && variantType == EnemyVariantType.Chaos)
         {
             GameObject chaosPrefab = GetChaosVariantPrefabForRole(role);
@@ -1911,6 +2200,40 @@ public class EnemySpawner : MonoBehaviour
         }
 
         return GetEnemyPrefabForRole(role);
+    }
+
+    private GameObject GetGeneratedEnemyPrefabForRole(EnemyRole role, EnemyVariantType variantType)
+    {
+#if UNITY_EDITOR
+        string prefabName = GetGeneratedEnemyPrefabName(role, variantType);
+
+        if (string.IsNullOrEmpty(prefabName))
+            return null;
+
+        return UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemys/Generated/" + prefabName + ".prefab");
+#else
+        return null;
+#endif
+    }
+
+    private string GetGeneratedEnemyPrefabName(EnemyRole role, EnemyVariantType variantType)
+    {
+        bool chaosVariant = variantType == EnemyVariantType.Chaos;
+
+        switch (role)
+        {
+            case EnemyRole.Standard: return chaosVariant ? "TD_Enemy_Standard_Chaos" : "TD_Enemy_Standard";
+            case EnemyRole.Runner: return chaosVariant ? "TD_Enemy_Runner_Chaos" : "TD_Enemy_Runner";
+            case EnemyRole.Tank: return chaosVariant ? "TD_Enemy_Tank_Chaos" : "TD_Enemy_Tank";
+            case EnemyRole.Knight: return chaosVariant ? "TD_Enemy_Knight_Chaos" : "TD_Enemy_Knight";
+            case EnemyRole.Mage: return chaosVariant ? "TD_Enemy_Mage_Chaos" : "TD_Enemy_Mage";
+            case EnemyRole.Learner: return chaosVariant ? "TD_Enemy_Learner_Chaos" : "TD_Enemy_Learner";
+            case EnemyRole.AllRounder: return chaosVariant ? "TD_Enemy_AllRounder_Chaos" : "TD_Enemy_AllRounder";
+            case EnemyRole.MiniBoss: return chaosVariant ? "TD_Enemy_MiniBoss_Chaos" : "TD_Enemy_MiniBoss";
+            case EnemyRole.Boss: return chaosVariant ? "TD_Enemy_Boss_Chaos" : "TD_Enemy_Boss";
+            case EnemyRole.Elite: return chaosVariant ? null : "TD_Enemy_Elite";
+            default: return null;
+        }
     }
 
     public GameObject GetChaosVariantPrefabForRole(EnemyRole role)
@@ -1924,6 +2247,8 @@ public class EnemySpawner : MonoBehaviour
             case EnemyRole.Mage: return chaosMageEnemyPrefab;
             case EnemyRole.Learner: return chaosLearnerEnemyPrefab;
             case EnemyRole.AllRounder: return chaosAllRounderEnemyPrefab;
+            case EnemyRole.MiniBoss: return chaosMiniBossEnemyPrefab;
+            case EnemyRole.Boss: return chaosBossEnemyPrefab;
             default: return null;
         }
     }
@@ -1941,6 +2266,14 @@ public class EnemySpawner : MonoBehaviour
             case EnemyRole.AllRounder: return allRounderEnemyPrefab;
             case EnemyRole.MiniBoss: return miniBossEnemyPrefab;
             case EnemyRole.Boss: return bossEnemyPrefab;
+            case EnemyRole.Elite:
+                if (eliteEnemyPrefab != null)
+                    return eliteEnemyPrefab;
+                if (miniBossEnemyPrefab != null)
+                    return miniBossEnemyPrefab;
+                if (bossEnemyPrefab != null)
+                    return bossEnemyPrefab;
+                return standardEnemyPrefab;
             default: return standardEnemyPrefab;
         }
     }
@@ -2099,6 +2432,9 @@ public class EnemySpawner : MonoBehaviour
 
     public bool HasHiddenPreviewModifierForWave(int waveNumber, WaveScenario scenario)
     {
+        if (scenario == WaveScenario.Elite)
+            return false;
+
         if (!usePreparedWaveModifiers || activeWaveModifiers == null)
             return false;
 
@@ -2141,6 +2477,7 @@ public class EnemySpawner : MonoBehaviour
             case WaveScenario.RunnerAttack: return "Runner Angriff";
             case WaveScenario.TankArmorCheck: return "Tank & Armor Check";
             case WaveScenario.EffectCheck: return "Effect Check";
+            case WaveScenario.Elite: return "Elite Check - allein";
             default: return scenario.ToString();
         }
     }
@@ -2163,6 +2500,7 @@ public class EnemySpawner : MonoBehaviour
             case WaveScenario.EffectCheck: return "Effekt-Wave. Achte auf Gegner, die Effekte umgehen oder stören.";
             case WaveScenario.PreBoss: return "Vor-Boss-Test: Prüft, ob dein Schaden für den Boss reicht.";
             case WaveScenario.Boss: return "Boss erscheint am Ende. Boss zerstört keine Tower und gibt globale XP.";
+            case WaveScenario.Elite: return "Elite erscheint allein. Leak: -5 Leben und ein starker Tower wird zerstört.";
             case WaveScenario.Mixed:
             default: return "Gemischte Wave. Gutes Targeting ist wichtig.";
         }
@@ -2220,6 +2558,7 @@ public class EnemySpawner : MonoBehaviour
             EnemyRole.Mage,
             EnemyRole.Learner,
             EnemyRole.AllRounder,
+            EnemyRole.Elite,
             EnemyRole.MiniBoss,
             EnemyRole.Boss
         };
@@ -2271,6 +2610,7 @@ public class EnemySpawner : MonoBehaviour
             case EnemyRole.Mage: return "Mage";
             case EnemyRole.Learner: return "Learner";
             case EnemyRole.AllRounder: return "AllRounder";
+            case EnemyRole.Elite: return "Elite";
             case EnemyRole.MiniBoss: return "MiniBoss";
             case EnemyRole.Boss: return "Boss";
             default: return role.ToString();

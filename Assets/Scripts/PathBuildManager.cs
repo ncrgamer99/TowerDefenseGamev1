@@ -58,6 +58,10 @@ public class PathBuildManager : MonoBehaviour
     [Header("Available Random Options")]
     public List<PathBuildOption> randomOptions = new List<PathBuildOption>();
 
+    [Header("Elite Tile Quality V1")]
+    public List<PathBuildOption> eliteQualityOptions = new List<PathBuildOption>();
+    public int pendingEliteTileQualityBoosts = 0;
+
     [Header("Special Tile Selection Timing")]
     public int specialTileSelectionWaveInterval = 5;
 
@@ -757,6 +761,18 @@ public class PathBuildManager : MonoBehaviour
         }
     }
 
+    public void AddEliteTileQualityBoosts(int amount)
+    {
+        int safeAmount = Mathf.Max(0, amount);
+
+        if (safeAmount <= 0)
+            return;
+
+        pendingEliteTileQualityBoosts = Mathf.Max(0, pendingEliteTileQualityBoosts + safeAmount);
+        optionsGeneratedForCurrentBuildPhase = false;
+        Debug.Log("Elite-Reward: +" + safeAmount + " Qualitätsladung(en) für spätere Tile-Auswahlen vorgemerkt.");
+    }
+
     private void GenerateCurrentOptions()
     {
         currentOptions[0] = new PathBuildOption
@@ -767,6 +783,10 @@ public class PathBuildManager : MonoBehaviour
         };
 
         List<PathBuildOption> optionPool = CreateSpecialOptionPool();
+
+        if (TryApplyPendingEliteQualityOptions(optionPool))
+            return;
+
         currentOptions[1] = DrawRandomOptionFromPool(optionPool);
         currentOptions[2] = DrawRandomOptionFromPool(optionPool);
     }
@@ -790,6 +810,61 @@ public class PathBuildManager : MonoBehaviour
             optionPool.Add(CreateFallbackSpecialOption());
 
         return optionPool;
+    }
+
+    private bool TryApplyPendingEliteQualityOptions(List<PathBuildOption> fallbackOptionPool)
+    {
+        if (pendingEliteTileQualityBoosts <= 0)
+            return false;
+
+        List<PathBuildOption> qualityPool = CreateEliteQualityOptionPool();
+
+        if (qualityPool.Count == 0)
+        {
+            Debug.Log("Elite-Reward: Auswahlqualität ist vorgemerkt, aber der Qualitäts-Pool enthält noch keine Tiles.");
+            return false;
+        }
+
+        currentOptions[1] = DrawRandomOptionFromPool(qualityPool);
+        RemoveOptionTypeFromPool(fallbackOptionPool, currentOptions[1]);
+
+        currentOptions[2] = qualityPool.Count > 0
+            ? DrawRandomOptionFromPool(qualityPool)
+            : DrawRandomOptionFromPool(fallbackOptionPool);
+
+        pendingEliteTileQualityBoosts = Mathf.Max(0, pendingEliteTileQualityBoosts - 1);
+        Debug.Log("Elite-Reward: Auswahlqualität auf diese Tile-Auswahl angewendet.");
+        return true;
+    }
+
+    private List<PathBuildOption> CreateEliteQualityOptionPool()
+    {
+        List<PathBuildOption> optionPool = new List<PathBuildOption>();
+
+        if (eliteQualityOptions == null)
+            return optionPool;
+
+        foreach (PathBuildOption option in eliteQualityOptions)
+        {
+            if (IsSupportedSpecialOption(option))
+                AddOptionIfTypeMissing(optionPool, CreateDisplayOption(option));
+        }
+
+        return optionPool;
+    }
+
+    private void RemoveOptionTypeFromPool(List<PathBuildOption> optionPool, PathBuildOption selectedOption)
+    {
+        if (optionPool == null || selectedOption == null)
+            return;
+
+        for (int i = optionPool.Count - 1; i >= 0; i--)
+        {
+            PathBuildOption option = optionPool[i];
+
+            if (option != null && option.optionType == selectedOption.optionType)
+                optionPool.RemoveAt(i);
+        }
     }
 
     private PathBuildOption DrawRandomOptionFromPool(List<PathBuildOption> optionPool)
@@ -923,7 +998,7 @@ public class PathBuildManager : MonoBehaviour
             new PathBuildOption
             {
                 displayName = "Knock Tile",
-                description = "Knock-Tile: Weg-Tile. Wirft normale Gegner zurück; Boss/MiniBoss immun.",
+                description = "Knock-Tile: Weg-Tile. Wirft normale Gegner zurück; Boss/MiniBoss/Elite immun.",
                 optionType = PathBuildOptionType.KnockTile
             },
             new PathBuildOption
