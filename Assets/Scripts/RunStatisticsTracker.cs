@@ -174,6 +174,349 @@ public class RunStatistics
 }
 
 [System.Serializable]
+public class RunWaveTowerStatsRecord
+{
+    [Header("Identity")]
+    public int instanceId = 0;
+    public string towerName = "Tower";
+    public TowerRole towerRole = TowerRole.Basic;
+    public Tower towerReference;
+
+    [Header("Wave Impact")]
+    public int kills = 0;
+    public int assists = 0;
+    public float damageDealt = 0f;
+    public int xpGained = 0;
+    public int levelAtEnd = 1;
+
+    public void InitializeFromTower(Tower tower)
+    {
+        towerReference = tower;
+
+        if (tower == null)
+            return;
+
+        instanceId = tower.GetInstanceID();
+        towerName = string.IsNullOrEmpty(tower.towerName) ? tower.name : tower.towerName;
+        towerRole = tower.towerRole;
+        RefreshFromTower();
+    }
+
+    public void RefreshFromTower()
+    {
+        if (towerReference == null)
+            return;
+
+        towerName = string.IsNullOrEmpty(towerReference.towerName) ? towerReference.name : towerReference.towerName;
+        towerRole = towerReference.towerRole;
+        kills = Mathf.Max(kills, towerReference.currentWaveKills);
+        assists = Mathf.Max(assists, towerReference.currentWaveAssists);
+        damageDealt = Mathf.Max(damageDealt, towerReference.currentWaveDamageDealt);
+        levelAtEnd = Mathf.Max(levelAtEnd, towerReference.level);
+    }
+
+    public int GetImpactScore()
+    {
+        RefreshFromTower();
+        int damageScore = Mathf.RoundToInt(damageDealt * 0.10f);
+        int xpScore = Mathf.RoundToInt(xpGained * 0.50f);
+        return kills * 10 + assists * 4 + damageScore + xpScore + levelAtEnd * 2;
+    }
+
+    public string GetCompactLine()
+    {
+        RefreshFromTower();
+        return towerName +
+               " | Lvl " + levelAtEnd +
+               " | K " + kills +
+               " | A " + assists +
+               " | Dmg " + Mathf.RoundToInt(damageDealt) +
+               " | XP " + xpGained;
+    }
+
+    public RunWaveTowerStatsRecord CreateCopy()
+    {
+        return new RunWaveTowerStatsRecord
+        {
+            instanceId = instanceId,
+            towerName = towerName,
+            towerRole = towerRole,
+            towerReference = null,
+            kills = kills,
+            assists = assists,
+            damageDealt = damageDealt,
+            xpGained = xpGained,
+            levelAtEnd = levelAtEnd
+        };
+    }
+}
+
+[System.Serializable]
+public class RunWaveStatistics
+{
+    [Header("State")]
+    public bool initialized = false;
+    public bool isActiveTracking = false;
+
+    [Header("Wave")]
+    public int waveNumber = 0;
+    public string scenarioName = "";
+    public bool survivedWave = false;
+    public bool waveCompleted = false;
+    public int totalSpawnCount = 0;
+    public int kills = 0;
+    public int baseDamageTaken = 0;
+    public EnemyRole topBaseDamageRole = EnemyRole.Standard;
+    public int topBaseDamageAmount = 0;
+
+    [Header("Rewards")]
+    public int goldEarned = 0;
+    public int xpEarned = 0;
+
+    [Header("Chaos")]
+    public List<WaveModifier> activeRiskModifiers = new List<WaveModifier>();
+
+    [Header("Tower")]
+    public List<RunWaveTowerStatsRecord> strongestTowerRecords = new List<RunWaveTowerStatsRecord>();
+
+    public void Clear()
+    {
+        initialized = false;
+        isActiveTracking = false;
+        waveNumber = 0;
+        scenarioName = "";
+        survivedWave = false;
+        waveCompleted = false;
+        totalSpawnCount = 0;
+        kills = 0;
+        baseDamageTaken = 0;
+        topBaseDamageRole = EnemyRole.Standard;
+        topBaseDamageAmount = 0;
+        goldEarned = 0;
+        xpEarned = 0;
+
+        if (activeRiskModifiers == null)
+            activeRiskModifiers = new List<WaveModifier>();
+        else
+            activeRiskModifiers.Clear();
+
+        if (strongestTowerRecords == null)
+            strongestTowerRecords = new List<RunWaveTowerStatsRecord>();
+        else
+            strongestTowerRecords.Clear();
+    }
+
+    public void InitializeFromResult(WaveCompletionResult result)
+    {
+        Clear();
+        initialized = true;
+        isActiveTracking = true;
+        CaptureFromResult(result, false);
+    }
+
+    public void CaptureFromResult(WaveCompletionResult result, bool survived)
+    {
+        if (result == null)
+            return;
+
+        initialized = true;
+        waveNumber = result.waveNumber;
+        scenarioName = string.IsNullOrEmpty(result.scenarioName) ? result.scenario.ToString() : result.scenarioName;
+        survivedWave = survived;
+        waveCompleted = result.waveCompleted;
+        totalSpawnCount = result.totalSpawnCount;
+        kills = result.enemiesKilled;
+        baseDamageTaken = result.baseDamageTaken;
+        CaptureTopBaseDamageRole(result);
+        SetActiveRiskModifiers(result.activeRiskModifiersAtWaveStart);
+    }
+
+    public void FinishTracking(WaveCompletionResult result, bool survived)
+    {
+        CaptureFromResult(result, survived);
+        isActiveTracking = false;
+    }
+
+    public void CopyFrom(RunWaveStatistics other)
+    {
+        Clear();
+
+        if (other == null || !other.initialized)
+            return;
+
+        initialized = other.initialized;
+        isActiveTracking = false;
+        waveNumber = other.waveNumber;
+        scenarioName = other.scenarioName;
+        survivedWave = other.survivedWave;
+        waveCompleted = other.waveCompleted;
+        totalSpawnCount = other.totalSpawnCount;
+        kills = other.kills;
+        baseDamageTaken = other.baseDamageTaken;
+        topBaseDamageRole = other.topBaseDamageRole;
+        topBaseDamageAmount = other.topBaseDamageAmount;
+        goldEarned = other.goldEarned;
+        xpEarned = other.xpEarned;
+
+        if (other.activeRiskModifiers != null)
+        {
+            foreach (WaveModifier modifier in other.activeRiskModifiers)
+            {
+                if (modifier != null)
+                    activeRiskModifiers.Add(modifier.CreateCopy());
+            }
+        }
+
+        if (other.strongestTowerRecords != null)
+        {
+            foreach (RunWaveTowerStatsRecord record in other.strongestTowerRecords)
+            {
+                if (record != null)
+                    strongestTowerRecords.Add(record.CreateCopy());
+            }
+        }
+    }
+
+    public RunWaveTowerStatsRecord GetOrCreateTowerRecord(Tower tower)
+    {
+        if (tower == null)
+            return null;
+
+        if (strongestTowerRecords == null)
+            strongestTowerRecords = new List<RunWaveTowerStatsRecord>();
+
+        int instanceId = tower.GetInstanceID();
+
+        foreach (RunWaveTowerStatsRecord record in strongestTowerRecords)
+        {
+            if (record != null && record.instanceId == instanceId)
+                return record;
+        }
+
+        RunWaveTowerStatsRecord newRecord = new RunWaveTowerStatsRecord();
+        newRecord.InitializeFromTower(tower);
+        strongestTowerRecords.Add(newRecord);
+        return newRecord;
+    }
+
+    public string GetDetailText()
+    {
+        if (!initialized)
+            return "Noch keine Wave-Daten gespeichert.";
+
+        string text =
+            "<b>Wave " + waveNumber + (string.IsNullOrEmpty(scenarioName) ? "" : " - " + scenarioName) + "</b>\n" +
+            "Überlebt: <b>" + (survivedWave ? "Ja" : "Nein") + "</b>\n" +
+            "Kills: <b>" + kills + "</b> / " + totalSpawnCount + "\n" +
+            "Erhaltene XP: <b>" + xpEarned + "</b>\n" +
+            "Erhaltenes Gold: <b>" + goldEarned + "</b>\n" +
+            "Base-Schaden: " + baseDamageTaken + "\n" +
+            "Gegner-Typ mit meistem Base-Schaden: " + GetTopBaseDamageText() + "\n\n" +
+            "<b>Stärkste 5 Tower</b>\n" +
+            GetStrongestTowerText() +
+            "<b>Chaos-Modifikatoren</b>\n" +
+            GetChaosModifierText();
+
+        return text;
+    }
+
+    public string GetStrongestTowerText()
+    {
+        if (strongestTowerRecords == null || strongestTowerRecords.Count == 0)
+            return "Keine Tower-Daten für diese Wave.\n\n";
+
+        SortAndLimitTowerRecords(5);
+        string text = "";
+
+        for (int i = 0; i < strongestTowerRecords.Count; i++)
+        {
+            RunWaveTowerStatsRecord record = strongestTowerRecords[i];
+
+            if (record == null)
+                continue;
+
+            text += "- " + record.GetCompactLine() + "\n";
+        }
+
+        return string.IsNullOrEmpty(text) ? "Keine Tower-Daten für diese Wave.\n\n" : text + "\n";
+    }
+
+    public string GetChaosModifierText()
+    {
+        if (activeRiskModifiers == null || activeRiskModifiers.Count == 0)
+            return "Keine aktiven Chaos-Modifikatoren.";
+
+        string text = "";
+
+        foreach (WaveModifier modifier in activeRiskModifiers)
+        {
+            if (modifier == null || !modifier.IsValid())
+                continue;
+
+            if (!string.IsNullOrEmpty(text))
+                text += "\n";
+
+            text += "- " + modifier.GetDisplayNameWithLevel();
+        }
+
+        return string.IsNullOrEmpty(text) ? "Keine aktiven Chaos-Modifikatoren." : text;
+    }
+
+    public void SortAndLimitTowerRecords(int maxRecords)
+    {
+        if (strongestTowerRecords == null)
+            strongestTowerRecords = new List<RunWaveTowerStatsRecord>();
+
+        strongestTowerRecords.RemoveAll(record => record == null);
+        strongestTowerRecords.Sort((a, b) => b.GetImpactScore().CompareTo(a.GetImpactScore()));
+
+        int safeMax = Mathf.Max(1, maxRecords);
+        if (strongestTowerRecords.Count > safeMax)
+            strongestTowerRecords.RemoveRange(safeMax, strongestTowerRecords.Count - safeMax);
+    }
+
+    private void CaptureTopBaseDamageRole(WaveCompletionResult result)
+    {
+        EnemyRoleDamageCount topDamage = result.GetTopBaseDamageRole();
+
+        if (topDamage == null)
+        {
+            topBaseDamageRole = EnemyRole.Standard;
+            topBaseDamageAmount = 0;
+            return;
+        }
+
+        topBaseDamageRole = topDamage.role;
+        topBaseDamageAmount = Mathf.Max(0, topDamage.damage);
+    }
+
+    private void SetActiveRiskModifiers(List<WaveModifier> modifiers)
+    {
+        if (activeRiskModifiers == null)
+            activeRiskModifiers = new List<WaveModifier>();
+
+        activeRiskModifiers.Clear();
+
+        if (modifiers == null)
+            return;
+
+        foreach (WaveModifier modifier in modifiers)
+        {
+            if (modifier != null && modifier.IsValid())
+                activeRiskModifiers.Add(modifier.CreateCopy());
+        }
+    }
+
+    private string GetTopBaseDamageText()
+    {
+        if (topBaseDamageAmount <= 0)
+            return "Keiner";
+
+        return topBaseDamageRole + " (" + topBaseDamageAmount + ")";
+    }
+}
+
+[System.Serializable]
 public class RunTowerStatsRecord
 {
     [Header("Identity")]
@@ -261,6 +604,8 @@ public class RunTowerStatsRecord
 
 public class RunStatisticsTracker : MonoBehaviour
 {
+    private const string LastWaveStatisticsPlayerPrefsKey = "TD_LastGame_LastWaveStatistics_V1";
+
     [Header("Phase 6 Version Check")]
     public string phase6Version = "Phase6 V1 Step13 - Economy/Tower Run Stats V1 - 2026-05-13";
 
@@ -309,6 +654,12 @@ public class RunStatisticsTracker : MonoBehaviour
     [Header("Tower Records")]
     public List<RunTowerStatsRecord> towerRecords = new List<RunTowerStatsRecord>();
 
+    [Header("Last Wave")]
+    public RunWaveStatistics activeWaveStatistics = new RunWaveStatistics();
+    public RunWaveStatistics lastWaveStatistics = new RunWaveStatistics();
+
+    private bool lastWaveStatisticsLoadedFromPrefs = false;
+
     private void Awake()
     {
         EnsureLists();
@@ -353,6 +704,14 @@ public class RunStatisticsTracker : MonoBehaviour
 
         if (towerRecords == null)
             towerRecords = new List<RunTowerStatsRecord>();
+
+        if (activeWaveStatistics == null)
+            activeWaveStatistics = new RunWaveStatistics();
+
+        if (lastWaveStatistics == null)
+            lastWaveStatistics = new RunWaveStatistics();
+
+        LoadPersistedLastWaveStatisticsIfNeeded();
     }
 
     public void ClearRunStats()
@@ -385,6 +744,36 @@ public class RunStatisticsTracker : MonoBehaviour
         lastEliteDestroyedTowerName = "";
         lastEliteRewardName = "";
         towerRecords.Clear();
+        activeWaveStatistics.Clear();
+        lastWaveStatistics.Clear();
+    }
+
+    public void BeginWaveTracking(WaveCompletionResult result)
+    {
+        EnsureLists();
+
+        if (result == null)
+            return;
+
+        activeWaveStatistics.Clear();
+        activeWaveStatistics.InitializeFromResult(result);
+    }
+
+    public void CompleteWaveTracking(WaveCompletionResult result, bool survivedWave)
+    {
+        EnsureLists();
+
+        if (result == null)
+            return;
+
+        if (!activeWaveStatistics.initialized || activeWaveStatistics.waveNumber != result.waveNumber)
+            activeWaveStatistics.InitializeFromResult(result);
+
+        activeWaveStatistics.FinishTracking(result, survivedWave);
+        CaptureActiveTowerWaveStats();
+        activeWaveStatistics.SortAndLimitTowerRecords(5);
+        lastWaveStatistics.CopyFrom(activeWaveStatistics);
+        SavePersistedLastWaveStatistics();
     }
 
     public void RecordGoldEarned(int finalAmount, int baseAmount, RunGoldSource source, bool rewardModifiersApplied)
@@ -398,6 +787,9 @@ public class RunStatisticsTracker : MonoBehaviour
 
         economy.totalGoldEarned += safeFinal;
         economy.baseGoldBeforeRewardModifiers += safeBase;
+
+        if (activeWaveStatistics != null && activeWaveStatistics.isActiveTracking)
+            activeWaveStatistics.goldEarned += safeFinal;
 
         if (rewardModifiersApplied)
             economy.goldAddedByRewardModifiers += Mathf.Max(0, safeFinal - safeBase);
@@ -507,6 +899,7 @@ public class RunStatisticsTracker : MonoBehaviour
 
         RunTowerStatsRecord record = GetOrCreateTowerRecord(tower);
         record.RefreshFromTower();
+        CaptureTowerForActiveWave(tower);
         SyncStatisticsSnapshot();
 
         if (logRunStatEvents)
@@ -555,6 +948,15 @@ public class RunStatisticsTracker : MonoBehaviour
             return;
 
         totalTowerXPGained += safeAmount;
+
+        if (activeWaveStatistics != null && activeWaveStatistics.isActiveTracking)
+        {
+            activeWaveStatistics.xpEarned += safeAmount;
+            RunWaveTowerStatsRecord waveRecord = activeWaveStatistics.GetOrCreateTowerRecord(tower);
+
+            if (waveRecord != null)
+                waveRecord.xpGained += safeAmount;
+        }
 
         RunTowerStatsRecord record = GetOrCreateTowerRecord(tower);
         record.towerXPGained += safeAmount;
@@ -717,6 +1119,24 @@ public class RunStatisticsTracker : MonoBehaviour
             "Upgrades: Gold " + totalGoldUpgradesPurchased + " | Punkte " + totalPointUpgradesPurchased + "\n";
     }
 
+    public bool HasLastWaveStatistics()
+    {
+        EnsureLists();
+        LoadPersistedLastWaveStatisticsIfNeeded();
+        return lastWaveStatistics != null && lastWaveStatistics.initialized;
+    }
+
+    public string GetLastWaveStatisticsText()
+    {
+        EnsureLists();
+        LoadPersistedLastWaveStatisticsIfNeeded();
+
+        if (!HasLastWaveStatistics())
+            return "Noch keine Wave-Daten gespeichert.";
+
+        return lastWaveStatistics.GetDetailText();
+    }
+
     public bool HasAnyTrackedData()
     {
         return economy.totalGoldEarned > 0 ||
@@ -767,7 +1187,7 @@ public class RunStatisticsTracker : MonoBehaviour
     {
         if (autoDiscoverExistingTowers)
         {
-            Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude);
+            Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 
             foreach (Tower tower in towers)
                 GetOrCreateTowerRecord(tower).RefreshFromTower();
@@ -783,6 +1203,72 @@ public class RunStatisticsTracker : MonoBehaviour
         }
 
         SyncStatisticsSnapshot();
+    }
+
+    private void CaptureActiveTowerWaveStats()
+    {
+        if (activeWaveStatistics == null || !activeWaveStatistics.initialized)
+            return;
+
+        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+
+        foreach (Tower tower in towers)
+            CaptureTowerForActiveWave(tower);
+    }
+
+    private void CaptureTowerForActiveWave(Tower tower)
+    {
+        if (tower == null || activeWaveStatistics == null || !activeWaveStatistics.initialized)
+            return;
+
+        RunWaveTowerStatsRecord record = activeWaveStatistics.GetOrCreateTowerRecord(tower);
+
+        if (record != null)
+            record.RefreshFromTower();
+    }
+
+    private void LoadPersistedLastWaveStatisticsIfNeeded()
+    {
+        if (lastWaveStatisticsLoadedFromPrefs)
+            return;
+
+        lastWaveStatisticsLoadedFromPrefs = true;
+
+        if (lastWaveStatistics != null && lastWaveStatistics.initialized)
+            return;
+
+        if (!PlayerPrefs.HasKey(LastWaveStatisticsPlayerPrefsKey))
+            return;
+
+        string json = PlayerPrefs.GetString(LastWaveStatisticsPlayerPrefsKey, "");
+
+        if (string.IsNullOrEmpty(json))
+            return;
+
+        RunWaveStatistics loadedStatistics = JsonUtility.FromJson<RunWaveStatistics>(json);
+
+        if (loadedStatistics == null || !loadedStatistics.initialized)
+            return;
+
+        if (lastWaveStatistics == null)
+            lastWaveStatistics = new RunWaveStatistics();
+
+        lastWaveStatistics.CopyFrom(loadedStatistics);
+    }
+
+    private void SavePersistedLastWaveStatistics()
+    {
+        if (lastWaveStatistics == null || !lastWaveStatistics.initialized)
+            return;
+
+        string json = JsonUtility.ToJson(lastWaveStatistics);
+
+        if (string.IsNullOrEmpty(json))
+            return;
+
+        PlayerPrefs.SetString(LastWaveStatisticsPlayerPrefsKey, json);
+        PlayerPrefs.Save();
+        lastWaveStatisticsLoadedFromPrefs = true;
     }
 
     private void SyncTowerPeakValues(RunTowerStatsRecord record)

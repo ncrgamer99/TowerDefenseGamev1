@@ -636,7 +636,7 @@ public class BlockedEventManager : MonoBehaviour
         return new BlockedEventOption
         {
             displayName = "Neue Basis",
-            description = "Setze die Basis auf ein gültiges Build-Feld am Weg. Der alte Wegschwanz samt nahen Towern wird entfernt.",
+            description = "Setze die Basis auf ein gültiges Build-Feld am Weg. Der Weg bis zur neuen Basis wird zurückgebaut; Tower ohne Path-Anbindung werden zerstört.",
             eventType = BlockedEventType.RelocateBaseTile
         };
     }
@@ -646,7 +646,7 @@ public class BlockedEventManager : MonoBehaviour
         return new BlockedEventOption
         {
             displayName = "Teleporter",
-            description = "Eine neue Basis erscheint zufällig nahe am Weg. Ein Teleporter verbindet alte und neue Basis dauerhaft.",
+            description = "Eine neue Basis erscheint zufällig nahe am Weg. Gegner teleportieren direkt vom alten zum neuen Basis-Tile.",
             eventType = BlockedEventType.TeleporterBase
         };
     }

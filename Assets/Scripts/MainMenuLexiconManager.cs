@@ -908,29 +908,29 @@ public class MainMenuLexiconManager : MonoBehaviour
             "Wirft normale Gegner 3 Weg-Tiles zurück. Boss, MiniBoss und Elite sind immun.");
 
         AddPathTileEntryIfMissing("range_tile", PathBuildOptionType.RangeTile, "Range Tile", 40,
-            "Support-Tile neben dem Weg.",
+            "Bebaubares Support-Tile neben dem Weg.",
             "Support-Tile",
-            "Nahe Tower erhalten +1 Reichweite. Mehrere Range Tiles stacken bis +3.");
+            "Baue einen Tower direkt auf dieses Tile. Nur dieser Tower erhaelt +1 Reichweite.");
 
         AddPathTileEntryIfMissing("damage_tile", PathBuildOptionType.DamageTile, "Damage Tile", 50,
-            "Support-Tile neben dem Weg.",
+            "Bebaubares Support-Tile neben dem Weg.",
             "Support-Tile",
-            "Nahe Tower verursachen +20% Schaden. Stacking-Cap: +75%.");
+            "Baue einen Tower direkt auf dieses Tile. Nur dieser Tower verursacht +20% Schaden.");
 
         AddPathTileEntryIfMissing("rate_tile", PathBuildOptionType.RateTile, "Rate Tile", 60,
-            "Support-Tile neben dem Weg.",
+            "Bebaubares Support-Tile neben dem Weg.",
             "Support-Tile",
-            "Nahe Tower feuern +20% schneller. Stacking-Cap: +75%.");
+            "Baue einen Tower direkt auf dieses Tile. Nur dieser Tower feuert +20% schneller.");
 
         AddPathTileEntryIfMissing("xp_tile", PathBuildOptionType.XPTile, "XP Tile", 70,
-            "Support-Tile neben dem Weg.",
+            "Bebaubares Support-Tile neben dem Weg.",
             "Support-Tile",
-            "Nahe Tower erhalten +25% XP. Stacking-Cap: +100%.");
+            "Baue einen Tower direkt auf dieses Tile. Nur dieser Tower erhaelt +25% XP.");
 
         AddPathTileEntryIfMissing("upgrade_tile", PathBuildOptionType.UpgradeTile, "Upgrade Tile", 80,
-            "Support-Tile neben dem Weg.",
+            "Bebaubares Support-Tile neben dem Weg.",
             "Support-Tile",
-            "Point-Upgrades naher Tower sind +1 stärker. Stacking-Cap: +2.");
+            "Baue einen Tower direkt auf dieses Tile. Nur dessen Point-Upgrades sind +1 staerker.");
 
         AddPathTileEntryIfMissing("combo_tile", PathBuildOptionType.ComboTile, "Combo Tile", 90,
             "Weg-Tile für Effekt-Kombos.",

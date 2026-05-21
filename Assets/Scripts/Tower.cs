@@ -704,7 +704,7 @@ public class Tower : MonoBehaviour
 
     private Enemy FindTarget()
     {
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude);
+        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 
         if (!IsTargetModeAvailable(targetMode))
         {

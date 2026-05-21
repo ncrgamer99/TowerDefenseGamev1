@@ -1004,31 +1004,31 @@ public class PathBuildManager : MonoBehaviour
             new PathBuildOption
             {
                 displayName = "Range Tile",
-                description = "Range-Tile: kein Weg. Nahe Tower erhalten mehr Reichweite.",
+                description = "Range-Tile: kein Weg. Baue einen Tower darauf: +1 Reichweite.",
                 optionType = PathBuildOptionType.RangeTile
             },
             new PathBuildOption
             {
                 displayName = "Damage Tile",
-                description = "Damage-Tile: kein Weg. Nahe Tower verursachen mehr Schaden.",
+                description = "Damage-Tile: kein Weg. Baue einen Tower darauf: +20% Schaden.",
                 optionType = PathBuildOptionType.DamageTile
             },
             new PathBuildOption
             {
                 displayName = "Rate Tile",
-                description = "Rate-Tile: kein Weg. Nahe Tower feuern schneller.",
+                description = "Rate-Tile: kein Weg. Baue einen Tower darauf: +20% Feuerrate.",
                 optionType = PathBuildOptionType.RateTile
             },
             new PathBuildOption
             {
                 displayName = "XP Tile",
-                description = "XP-Tile: kein Weg. Nahe Tower erhalten mehr XP.",
+                description = "XP-Tile: kein Weg. Baue einen Tower darauf: +25% XP.",
                 optionType = PathBuildOptionType.XPTile
             },
             new PathBuildOption
             {
                 displayName = "Upgrade Tile",
-                description = "Upgrade-Tile: kein Weg. Point-Upgrades naher Tower sind stärker.",
+                description = "Upgrade-Tile: kein Weg. Baue einen Tower darauf: Point-Upgrades +1 staerker.",
                 optionType = PathBuildOptionType.UpgradeTile
             },
             new PathBuildOption

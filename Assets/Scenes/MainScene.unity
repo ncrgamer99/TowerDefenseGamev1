@@ -10142,9 +10142,17 @@ MonoBehaviour:
   generatedPathTileForwardYawOffset: 0
   generatedTileGroundLocalY: -0.05
   trapTilePrefab: {fileID: 6100565347807413038, guid: 597de1442ee138247bd92ef5fcb851b3, type: 3}
+  slowTilePrefab: {fileID: 6100565347807413038, guid: 8b0e247791c64f2a99fca1a50b420101, type: 3}
+  knockTilePrefab: {fileID: 6100565347807413038, guid: 0a35edfb3db54d2bb41f958ecfdc0102, type: 3}
+  comboTilePrefab: {fileID: 6100565347807413038, guid: 2ab4200f6f7e48189ca9d69f46bc0103, type: 3}
   specialTilePrefab: {fileID: 6306817060694791946, guid: d5c606dd8c97b124181d7b0b3fe46209, type: 3}
   bridgeTilePrefab: {fileID: 1731564795444416399, guid: 545a85e6866c25847a2b6e465a4d0e65, type: 3}
   goldTilePrefab: {fileID: 3927349088991019906, guid: cf602eb3091d25c4598d1baaa621755d, type: 3}
+  rangeTilePrefab: {fileID: 6100565347807413038, guid: b2a9736c8de9432c9fb9dfd6a8c20104, type: 3}
+  damageTilePrefab: {fileID: 6100565347807413038, guid: 24ca62176f9d4debb14e6f4a0fd00105, type: 3}
+  rateTilePrefab: {fileID: 6100565347807413038, guid: c96d9489f8a242e08ecf601d772d0106, type: 3}
+  xpTilePrefab: {fileID: 6100565347807413038, guid: d0db7c716e2b478b90c8a1ea095d0107, type: 3}
+  upgradeTilePrefab: {fileID: 6100565347807413038, guid: e7c385f50a4d478e9e2f6d680e8b0108, type: 3}
   blockedTilePrefab: {fileID: 4687535001054656413, guid: f4a0f7c613011ab4bb87c4015ebae75c, type: 3}
   gameManager: {fileID: 652380030}
   tileSize: 1
@@ -17864,14 +17872,34 @@ MonoBehaviour:
   choiceDescriptionFontSize: 16
   randomOptions:
   - displayName: Trap Tile
-    description: 'Gefaehrliches Pfad-Tile. V1: zaehlt als Pfad-Variante.'
+    description: 'Trap-Tile: Weg-Tile. Gegner bluten 20s lang: 2 Schaden alle 3s.'
     optionType: 1
-  - displayName: KnockTile
-    description: "Platzhalter f\xFCr eine sp\xE4tere Br\xFCcke."
-    optionType: 6
-  - displayName: SlowTile
-    description: "Platzhalter f\xFCr ein sp\xE4teres Bonus-Tile."
+  - displayName: Slow Tile
+    description: 'Slow-Tile: Weg-Tile. Gegner werden kurz stark verlangsamt.'
     optionType: 5
+  - displayName: Knock Tile
+    description: 'Knock-Tile: Weg-Tile. Wirft normale Gegner zurueck; Boss/MiniBoss/Elite
+      immun.'
+    optionType: 6
+  - displayName: Range Tile
+    description: 'Range-Tile: kein Weg. Baue einen Tower darauf: +1 Reichweite.'
+    optionType: 7
+  - displayName: Damage Tile
+    description: 'Damage-Tile: kein Weg. Baue einen Tower darauf: +20% Schaden.'
+    optionType: 8
+  - displayName: Rate Tile
+    description: 'Rate-Tile: kein Weg. Baue einen Tower darauf: +20% Feuerrate.'
+    optionType: 9
+  - displayName: XP Tile
+    description: 'XP-Tile: kein Weg. Baue einen Tower darauf: +25% XP.'
+    optionType: 10
+  - displayName: Upgrade Tile
+    description: 'Upgrade-Tile: kein Weg. Baue einen Tower darauf: Point-Upgrades +1 staerker.'
+    optionType: 11
+  - displayName: Combo Tile
+    description: 'Combo-Tile: Darkness, wenn Gegner Burn, Poison und Bleed gleichzeitig
+      haben.'
+    optionType: 12
   eliteQualityOptions: []
   pendingEliteTileQualityBoosts: 0
   specialTileSelectionWaveInterval: 5
@@ -18065,9 +18093,17 @@ MonoBehaviour:
   baseTilePrefab: {fileID: 7855524045932270641, guid: ed326680dc22cd24a829bf3a4fc18c45, type: 3}
   buildTilePrefab: {fileID: 8826887482101949205, guid: debe1451d32472548a25025a7a4083ee, type: 3}
   trapTilePrefab: {fileID: 6100565347807413038, guid: 597de1442ee138247bd92ef5fcb851b3, type: 3}
+  slowTilePrefab: {fileID: 6100565347807413038, guid: 8b0e247791c64f2a99fca1a50b420101, type: 3}
+  knockTilePrefab: {fileID: 6100565347807413038, guid: 0a35edfb3db54d2bb41f958ecfdc0102, type: 3}
+  comboTilePrefab: {fileID: 6100565347807413038, guid: 2ab4200f6f7e48189ca9d69f46bc0103, type: 3}
   specialTilePrefab: {fileID: 6306817060694791946, guid: d5c606dd8c97b124181d7b0b3fe46209, type: 3}
   bridgeTilePrefab: {fileID: 1731564795444416399, guid: 545a85e6866c25847a2b6e465a4d0e65, type: 3}
   goldTilePrefab: {fileID: 3927349088991019906, guid: cf602eb3091d25c4598d1baaa621755d, type: 3}
+  rangeTilePrefab: {fileID: 6100565347807413038, guid: b2a9736c8de9432c9fb9dfd6a8c20104, type: 3}
+  damageTilePrefab: {fileID: 6100565347807413038, guid: 24ca62176f9d4debb14e6f4a0fd00105, type: 3}
+  rateTilePrefab: {fileID: 6100565347807413038, guid: c96d9489f8a242e08ecf601d772d0106, type: 3}
+  xpTilePrefab: {fileID: 6100565347807413038, guid: d0db7c716e2b478b90c8a1ea095d0107, type: 3}
+  upgradeTilePrefab: {fileID: 6100565347807413038, guid: e7c385f50a4d478e9e2f6d680e8b0108, type: 3}
   pathGhostTilePrefab: {fileID: 1740532298637763642, guid: 7a9138d57791eed40bb4ad25c006a212, type: 3}
   blockedTilePrefab: {fileID: 4687535001054656413, guid: f4a0f7c613011ab4bb87c4015ebae75c, type: 3}
 --- !u!4 &1695257726

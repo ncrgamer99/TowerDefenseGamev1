@@ -1,15 +1,15 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 public class TowerSupportTileEffect : MonoBehaviour
 {
-    private static readonly List<TowerSupportTileEffect> activeSupportTiles = new List<TowerSupportTileEffect>();
-
     [Header("Support Tile")]
     public PathBuildOptionType tileType = PathBuildOptionType.RangeTile;
     public Vector2Int gridPosition;
     public float tileSize = 1f;
-    public float auraRadius = 1.5f;
+
+    [Header("Build State")]
+    public bool isOccupied = false;
+    public Tower occupyingTower;
 
     [Header("Buff Values")]
     public float rangeBonus = 1.0f;
@@ -18,7 +18,7 @@ public class TowerSupportTileEffect : MonoBehaviour
     public float xpMultiplierBonus = 0.25f;
     public int pointUpgradePowerBonus = 1;
 
-    [Header("Stack Caps")]
+    [Header("Bonus Caps")]
     public float maxRangeBonus = 3.0f;
     public float maxDamageMultiplierBonus = 0.75f;
     public float maxFireRateMultiplierBonus = 0.75f;
@@ -30,73 +30,134 @@ public class TowerSupportTileEffect : MonoBehaviour
         tileType = newTileType;
         gridPosition = newGridPosition;
         tileSize = Mathf.Max(0.1f, newTileSize);
-        auraRadius = Mathf.Max(tileSize * 1.5f, auraRadius);
-        RegisterIfNeeded();
     }
 
-    private void OnEnable()
+    public bool IsTowerSupportTile()
     {
-        RegisterIfNeeded();
+        return IsTowerSupportTileType(tileType);
     }
 
-    private void OnDisable()
+    public bool IsAvailableForBuild()
     {
-        activeSupportTiles.Remove(this);
+        if (!IsTowerSupportTile())
+            return false;
+
+        if (occupyingTower == null)
+            isOccupied = false;
+
+        return !isOccupied;
     }
 
-    private void RegisterIfNeeded()
+    public bool TryBuildTowerOnTile(BuildOption option, GameManager gameManager, TileManager tileManager)
     {
-        if (!activeSupportTiles.Contains(this))
-            activeSupportTiles.Add(this);
+        if (!IsTowerSupportTile())
+            return false;
+
+        if (option == null || option.prefab == null)
+        {
+            Debug.Log("Kein Tower ausgewaehlt!");
+            return false;
+        }
+
+        if (option.placementType != PlacementType.BuildTile)
+        {
+            Debug.Log("Diese Auswahl kann nicht auf SupportTiles platziert werden.");
+            return false;
+        }
+
+        if (tileManager == null || !tileManager.IsBuildAllowed())
+        {
+            Debug.Log("Bauen ist aktuell nicht erlaubt.");
+            return false;
+        }
+
+        if (!IsAvailableForBuild())
+        {
+            Debug.Log("Dieses SupportTile ist bereits belegt.");
+            return false;
+        }
+
+        if (gameManager == null)
+        {
+            Debug.LogError("TowerSupportTileEffect: GameManager fehlt!");
+            return false;
+        }
+
+        if (!gameManager.SpendGold(option.cost, RunGoldSpendSource.TowerBuild))
+            return false;
+
+        if (gridPosition == Vector2Int.zero)
+            gridPosition = tileManager.WorldToGridPublic(transform.position);
+
+        Vector3 towerPosition = transform.position + Vector3.up * 0.5f;
+        GameObject towerObject = Instantiate(option.prefab, towerPosition, Quaternion.identity);
+        Tower builtTower = towerObject != null ? towerObject.GetComponent<Tower>() : null;
+
+        if (builtTower != null)
+        {
+            builtTower.InitializeBuildData(option.cost, gridPosition);
+            ApplyToTower(builtTower);
+        }
+
+        occupyingTower = builtTower;
+        isOccupied = builtTower != null;
+
+        gameManager.RegisterTowerBuilt(builtTower, option.cost, gridPosition, towerPosition);
+        tileManager.RegisterTowerPosition(transform.position);
+
+        Debug.Log("Tower auf " + GetDisplayName(tileType) + " gebaut.");
+        return true;
+    }
+
+    public void ApplyToTower(Tower tower)
+    {
+        if (tower == null)
+            return;
+
+        TowerSupportTileBonus bonus = tower.GetComponent<TowerSupportTileBonus>();
+        if (bonus == null)
+            bonus = tower.gameObject.AddComponent<TowerSupportTileBonus>();
+
+        bonus.ConfigureFromTile(this);
+    }
+
+    public void ClearOccupyingTower(Tower tower)
+    {
+        if (occupyingTower != null && tower != null && occupyingTower != tower)
+            return;
+
+        occupyingTower = null;
+        isOccupied = false;
     }
 
     public static float GetRangeBonus(Tower tower)
     {
-        float bonus = 0f;
-        float cap = 0f;
-
-        foreach (TowerSupportTileEffect tile in activeSupportTiles)
-        {
-            if (!IsValidTileForTower(tile, tower, PathBuildOptionType.RangeTile))
-                continue;
-
-            bonus += Mathf.Max(0f, tile.rangeBonus);
-            cap = Mathf.Max(cap, tile.maxRangeBonus);
-        }
-
-        return cap > 0f ? Mathf.Min(bonus, cap) : bonus;
+        TowerSupportTileBonus bonus = GetDirectBonus(tower, PathBuildOptionType.RangeTile);
+        return bonus != null ? Mathf.Min(Mathf.Max(0f, bonus.rangeBonus), Mathf.Max(0f, bonus.maxRangeBonus)) : 0f;
     }
 
     public static float GetDamageMultiplier(Tower tower)
     {
-        return 1f + GetCappedMultiplierBonus(tower, PathBuildOptionType.DamageTile, tile => tile.damageMultiplierBonus, tile => tile.maxDamageMultiplierBonus);
+        TowerSupportTileBonus bonus = GetDirectBonus(tower, PathBuildOptionType.DamageTile);
+        return 1f + GetClampedMultiplierBonus(bonus != null ? bonus.damageMultiplierBonus : 0f, bonus != null ? bonus.maxDamageMultiplierBonus : 0f);
     }
 
     public static float GetFireRateMultiplier(Tower tower)
     {
-        return 1f + GetCappedMultiplierBonus(tower, PathBuildOptionType.RateTile, tile => tile.fireRateMultiplierBonus, tile => tile.maxFireRateMultiplierBonus);
+        TowerSupportTileBonus bonus = GetDirectBonus(tower, PathBuildOptionType.RateTile);
+        return 1f + GetClampedMultiplierBonus(bonus != null ? bonus.fireRateMultiplierBonus : 0f, bonus != null ? bonus.maxFireRateMultiplierBonus : 0f);
     }
 
     public static float GetXPMultiplier(Tower tower)
     {
-        return 1f + GetCappedMultiplierBonus(tower, PathBuildOptionType.XPTile, tile => tile.xpMultiplierBonus, tile => tile.maxXPMultiplierBonus);
+        TowerSupportTileBonus bonus = GetDirectBonus(tower, PathBuildOptionType.XPTile);
+        return 1f + GetClampedMultiplierBonus(bonus != null ? bonus.xpMultiplierBonus : 0f, bonus != null ? bonus.maxXPMultiplierBonus : 0f);
     }
 
     public static int GetPointUpgradePowerBonus(Tower tower)
     {
-        int bonus = 0;
-        int cap = 0;
-
-        foreach (TowerSupportTileEffect tile in activeSupportTiles)
-        {
-            if (!IsValidTileForTower(tile, tower, PathBuildOptionType.UpgradeTile))
-                continue;
-
-            bonus += Mathf.Max(0, tile.pointUpgradePowerBonus);
-            cap = Mathf.Max(cap, tile.maxPointUpgradePowerBonus);
-        }
-
-        return cap > 0 ? Mathf.Min(bonus, cap) : bonus;
+        TowerSupportTileBonus bonus = GetDirectBonus(tower, PathBuildOptionType.UpgradeTile);
+        return bonus != null ? Mathf.Min(Mathf.Max(0, bonus.pointUpgradePowerBonus), Mathf.Max(0, bonus.maxPointUpgradePowerBonus)) : 0;
     }
 
     public static int ApplyXPMultiplier(Tower tower, int amount)
@@ -110,32 +171,70 @@ public class TowerSupportTileEffect : MonoBehaviour
         return Mathf.Max(1, roundedAmount);
     }
 
-    private static float GetCappedMultiplierBonus(Tower tower, PathBuildOptionType type, System.Func<TowerSupportTileEffect, float> getBonus, System.Func<TowerSupportTileEffect, float> getCap)
+    public static string GetDisplayName(PathBuildOptionType type)
     {
-        float bonus = 0f;
-        float cap = 0f;
-
-        foreach (TowerSupportTileEffect tile in activeSupportTiles)
+        switch (type)
         {
-            if (!IsValidTileForTower(tile, tower, type))
-                continue;
-
-            bonus += Mathf.Max(0f, getBonus(tile));
-            cap = Mathf.Max(cap, getCap(tile));
+            case PathBuildOptionType.RangeTile:
+                return "Range Tile";
+            case PathBuildOptionType.DamageTile:
+                return "Damage Tile";
+            case PathBuildOptionType.RateTile:
+                return "Rate Tile";
+            case PathBuildOptionType.XPTile:
+                return "XP Tile";
+            case PathBuildOptionType.UpgradeTile:
+                return "Upgrade Tile";
+            default:
+                return type.ToString();
         }
-
-        return cap > 0f ? Mathf.Min(bonus, cap) : bonus;
     }
 
-    private static bool IsValidTileForTower(TowerSupportTileEffect tile, Tower tower, PathBuildOptionType type)
+    public static string GetEffectDescription(PathBuildOptionType type)
     {
-        if (tile == null || tower == null)
-            return false;
+        switch (type)
+        {
+            case PathBuildOptionType.RangeTile:
+                return "Der Tower auf diesem Tile erhaelt +1 Reichweite.";
+            case PathBuildOptionType.DamageTile:
+                return "Der Tower auf diesem Tile verursacht +20% Schaden.";
+            case PathBuildOptionType.RateTile:
+                return "Der Tower auf diesem Tile feuert +20% schneller.";
+            case PathBuildOptionType.XPTile:
+                return "Der Tower auf diesem Tile erhaelt +25% XP.";
+            case PathBuildOptionType.UpgradeTile:
+                return "Point-Upgrades des Towers auf diesem Tile sind +1 staerker.";
+            default:
+                return "Dieses Tile hat keinen Tower-Bonus.";
+        }
+    }
 
-        if (tile.tileType != type)
-            return false;
+    public static bool IsTowerSupportTileType(PathBuildOptionType type)
+    {
+        return type == PathBuildOptionType.RangeTile ||
+               type == PathBuildOptionType.DamageTile ||
+               type == PathBuildOptionType.RateTile ||
+               type == PathBuildOptionType.XPTile ||
+               type == PathBuildOptionType.UpgradeTile;
+    }
 
-        float radius = Mathf.Max(tile.tileSize, tile.auraRadius);
-        return Vector3.Distance(tile.transform.position, tower.transform.position) <= radius;
+    private static TowerSupportTileBonus GetDirectBonus(Tower tower, PathBuildOptionType type)
+    {
+        if (tower == null)
+            return null;
+
+        TowerSupportTileBonus bonus = tower.GetComponent<TowerSupportTileBonus>();
+
+        if (bonus == null || bonus.tileType != type)
+            return null;
+
+        return bonus;
+    }
+
+    private static float GetClampedMultiplierBonus(float bonus, float cap)
+    {
+        float safeBonus = Mathf.Max(0f, bonus);
+        float safeCap = Mathf.Max(0f, cap);
+        return safeCap > 0f ? Mathf.Min(safeBonus, safeCap) : safeBonus;
     }
 }

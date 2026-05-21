@@ -15,6 +15,19 @@ public class EnemyRoleCount
 }
 
 [System.Serializable]
+public class EnemyRoleDamageCount
+{
+    public EnemyRole role;
+    public int damage;
+
+    public EnemyRoleDamageCount(EnemyRole role, int damage)
+    {
+        this.role = role;
+        this.damage = damage;
+    }
+}
+
+[System.Serializable]
 public class WaveCompletionResult
 {
     [Header("Wave Info")]
@@ -43,6 +56,7 @@ public class WaveCompletionResult
     [Header("Role Stats")]
     public List<EnemyRoleCount> killedRoles = new List<EnemyRoleCount>();
     public List<EnemyRoleCount> leakedRoles = new List<EnemyRoleCount>();
+    public List<EnemyRoleDamageCount> baseDamageByRole = new List<EnemyRoleDamageCount>();
 
     [Header("Chaos Variants V1")]
     public int chaosVariantSpawnCount = 0;
@@ -110,6 +124,7 @@ public class WaveCompletionResult
 
         killedRoles.Clear();
         leakedRoles.Clear();
+        baseDamageByRole.Clear();
         killedChaosVariantRoles.Clear();
         leakedChaosVariantRoles.Clear();
     }
@@ -271,6 +286,7 @@ public class WaveCompletionResult
         baseDamageTaken += Mathf.Max(0, damage);
 
         AddRoleCount(leakedRoles, role, 1);
+        AddRoleDamage(baseDamageByRole, role, damage);
 
         if (role == EnemyRole.Elite)
             eliteReachedBase = true;
@@ -311,6 +327,25 @@ public class WaveCompletionResult
     public int GetLeakedRoleCount(EnemyRole role)
     {
         return GetRoleCount(leakedRoles, role);
+    }
+
+    public EnemyRoleDamageCount GetTopBaseDamageRole()
+    {
+        if (baseDamageByRole == null || baseDamageByRole.Count == 0)
+            return null;
+
+        EnemyRoleDamageCount best = null;
+
+        foreach (EnemyRoleDamageCount entry in baseDamageByRole)
+        {
+            if (entry == null || entry.damage <= 0)
+                continue;
+
+            if (best == null || entry.damage > best.damage)
+                best = entry;
+        }
+
+        return best;
     }
 
     public float GetKillPercent()
@@ -577,6 +612,31 @@ public class WaveCompletionResult
         }
 
         list.Add(new EnemyRoleCount(role, amount));
+    }
+
+    private void AddRoleDamage(List<EnemyRoleDamageCount> list, EnemyRole role, int damage)
+    {
+        if (list == null)
+            return;
+
+        int safeDamage = Mathf.Max(0, damage);
+
+        if (safeDamage <= 0)
+            return;
+
+        foreach (EnemyRoleDamageCount entry in list)
+        {
+            if (entry == null)
+                continue;
+
+            if (entry.role == role)
+            {
+                entry.damage += safeDamage;
+                return;
+            }
+        }
+
+        list.Add(new EnemyRoleDamageCount(role, safeDamage));
     }
 
     private int GetRoleCount(List<EnemyRoleCount> list, EnemyRole role)

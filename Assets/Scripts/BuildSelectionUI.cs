@@ -126,6 +126,8 @@ public class BuildSelectionUI : MonoBehaviour
     private bool selectionOpen = false;
     private BuildOption selectedOption;
     private readonly Dictionary<string, Sprite> generatedIconCache = new Dictionary<string, Sprite>();
+    private TowerSupportTileEffect supportTileBuildTarget;
+    private TowerSupportTileBuildUI supportTileBuildUI;
 
     private void Start()
     {
@@ -917,12 +919,46 @@ public class BuildSelectionUI : MonoBehaviour
     public void CloseSelectionPanel()
     {
         selectionOpen = false;
+        supportTileBuildTarget = null;
+        supportTileBuildUI = null;
         EnsureOpenSelectionButtonVisible();
 
         if (selectionPanel != null)
             selectionPanel.SetActive(false);
 
         HideTooltip();
+    }
+
+    public void OpenForSupportTile(TowerSupportTileEffect targetTile, TowerSupportTileBuildUI ownerUI)
+    {
+        if (targetTile == null || !targetTile.IsTowerSupportTile())
+            return;
+
+        if (IsBlockedByModalUI())
+        {
+            CloseSelectionPanel();
+            return;
+        }
+
+        supportTileBuildTarget = targetTile;
+        supportTileBuildUI = ownerUI;
+        selectedOption = null;
+
+        if (buildManager != null)
+            buildManager.ClearCurrentSelection();
+
+        OpenSelectionPanel();
+
+        if (selectedWindow != null)
+        {
+            ApplySelectedWindowTopRightLayout();
+            selectedWindow.SetActive(true);
+        }
+
+        if (selectedText != null)
+            selectedText.text = TowerSupportTileEffect.GetDisplayName(targetTile.tileType) + ": Tower waehlen";
+
+        RefreshSlotSelectionVisuals();
     }
 
 
@@ -939,6 +975,8 @@ public class BuildSelectionUI : MonoBehaviour
         CloseSelectionPanel();
         HideTooltip();
         selectedOption = null;
+        supportTileBuildTarget = null;
+        supportTileBuildUI = null;
         ClearSelectionText();
 
         if (rightClickAlsoClearsCurrentBuildSelection && buildManager != null)
@@ -970,6 +1008,12 @@ public class BuildSelectionUI : MonoBehaviour
         if (option == null)
             return;
 
+        if (supportTileBuildTarget != null)
+        {
+            SelectOptionForSupportTile(option);
+            return;
+        }
+
         selectedOption = option;
 
         if (buildManager != null)
@@ -977,6 +1021,45 @@ public class BuildSelectionUI : MonoBehaviour
 
         UpdateSelectedWindow(option);
         CloseSelectionPanel();
+        RefreshSlotSelectionVisuals();
+    }
+
+    private void SelectOptionForSupportTile(BuildOption option)
+    {
+        TowerSupportTileEffect targetTile = supportTileBuildTarget;
+        TowerSupportTileBuildUI ownerUI = supportTileBuildUI;
+
+        if (targetTile == null)
+        {
+            supportTileBuildTarget = null;
+            supportTileBuildUI = null;
+            return;
+        }
+
+        GameManager targetGameManager = buildManager != null ? buildManager.gameManager : FindObjectOfType<GameManager>();
+        TileManager targetTileManager = buildManager != null ? buildManager.tileManager : FindObjectOfType<TileManager>();
+        bool built = targetTile.TryBuildTowerOnTile(option, targetGameManager, targetTileManager);
+
+        HideTooltip();
+
+        if (built)
+        {
+            supportTileBuildTarget = null;
+            supportTileBuildUI = null;
+            selectedOption = null;
+            CloseSelectionPanel();
+            ClearSelectionText();
+
+            if (ownerUI != null)
+                ownerUI.Show(targetTile);
+        }
+        else
+        {
+            supportTileBuildTarget = targetTile;
+            supportTileBuildUI = ownerUI;
+            OpenSelectionPanel();
+        }
+
         RefreshSlotSelectionVisuals();
     }
 

@@ -611,13 +611,25 @@ public static class GeneratedTowerPrefabSetup
             if (prefabController == null || !prefabController.applyGeneratedModelRotationFix)
                 return true;
 
+            if (Vector3.Distance(prefabController.generatedModelEulerCorrection, new Vector3(-90f, 0f, 0f)) > 0.001f)
+                return true;
+
             Transform visualRoot = prefab.transform.Find("VisualRoot");
             Transform aimPivot = visualRoot != null ? visualRoot.Find("AimPivot") : null;
 
             if (visualRoot == null || aimPivot == null)
                 return true;
 
-            if (visualRoot.Find("BaseModelRoot") == null || aimPivot.Find("AimModelRoot") == null)
+            Transform baseModelRoot = visualRoot.Find("BaseModelRoot");
+            Transform aimModelRoot = aimPivot.Find("AimModelRoot");
+
+            if (baseModelRoot == null || aimModelRoot == null)
+                return true;
+
+            Quaternion expectedModelRootRotation = Quaternion.Euler(-90f, 0f, 0f);
+
+            if (Quaternion.Angle(baseModelRoot.localRotation, expectedModelRootRotation) > 0.1f ||
+                Quaternion.Angle(aimModelRoot.localRotation, expectedModelRootRotation) > 0.1f)
                 return true;
         }
 

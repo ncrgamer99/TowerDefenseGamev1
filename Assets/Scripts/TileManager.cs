@@ -20,9 +20,17 @@ public class TileManager : MonoBehaviour
     public float generatedPathTileForwardYawOffset = 0f;
     public float generatedTileGroundLocalY = -0.05f;
     public GameObject trapTilePrefab;
+    public GameObject slowTilePrefab;
+    public GameObject knockTilePrefab;
+    public GameObject comboTilePrefab;
     public GameObject specialTilePrefab;
     public GameObject bridgeTilePrefab;
     public GameObject goldTilePrefab;
+    public GameObject rangeTilePrefab;
+    public GameObject damageTilePrefab;
+    public GameObject rateTilePrefab;
+    public GameObject xpTilePrefab;
+    public GameObject upgradeTilePrefab;
     public GameObject blockedTilePrefab;
 
     [Header("Managers")]
@@ -30,6 +38,9 @@ public class TileManager : MonoBehaviour
 
     [Header("Settings")]
     public float tileSize = 1f;
+
+    [Header("Run Initialization")]
+    public bool createPathOnStart = false;
 
     [Header("World Visual Size")]
     public bool scaleWorldVisualOnStart = true;
@@ -87,6 +98,8 @@ public class TileManager : MonoBehaviour
     private float reservedPathExtensionWarningTimer = 0f;
 
     private bool baseRelocationModeActive = false;
+    private bool worldVisualScaleApplied = false;
+    private bool pathInitialized = false;
     private readonly List<Vector2Int> teleporterEntryPositions = new List<Vector2Int>();
     private readonly List<Vector2Int> teleporterExitPositions = new List<Vector2Int>();
     private readonly List<GameObject> teleporterObjects = new List<GameObject>();
@@ -100,7 +113,9 @@ public class TileManager : MonoBehaviour
     private void Start()
     {
         ScaleWorldVisualIfNeeded();
-        CreateStartPath();
+
+        if (createPathOnStart)
+            InitializeRunPath();
     }
 
     private void Update()
@@ -116,6 +131,11 @@ public class TileManager : MonoBehaviour
 
     private void ScaleWorldVisualIfNeeded()
     {
+        if (worldVisualScaleApplied)
+            return;
+
+        worldVisualScaleApplied = true;
+
         if (!scaleWorldVisualOnStart)
             return;
 
@@ -151,9 +171,17 @@ public class TileManager : MonoBehaviour
         AssignGeneratedPrefabIfAvailable(ref baseTilePrefab, generatedTilePrefabSet.baseTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref buildTilePrefab, generatedTilePrefabSet.buildTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref trapTilePrefab, generatedTilePrefabSet.trapTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref slowTilePrefab, generatedTilePrefabSet.slowTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref knockTilePrefab, generatedTilePrefabSet.knockTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref comboTilePrefab, generatedTilePrefabSet.comboTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref specialTilePrefab, generatedTilePrefabSet.specialTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref bridgeTilePrefab, generatedTilePrefabSet.bridgeTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref goldTilePrefab, generatedTilePrefabSet.goldTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref rangeTilePrefab, generatedTilePrefabSet.rangeTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref damageTilePrefab, generatedTilePrefabSet.damageTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref rateTilePrefab, generatedTilePrefabSet.rateTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref xpTilePrefab, generatedTilePrefabSet.xpTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref upgradeTilePrefab, generatedTilePrefabSet.upgradeTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref blockedTilePrefab, generatedTilePrefabSet.blockedTilePrefab);
     }
 
@@ -174,6 +202,10 @@ public class TileManager : MonoBehaviour
             return;
 
         visual.localRotation = Quaternion.identity;
+        Vector3 visualLocalPosition = visual.localPosition;
+        visualLocalPosition.x = 0f;
+        visualLocalPosition.z = 0f;
+        visual.localPosition = visualLocalPosition;
         AlignGeneratedTileVisualToGround(tileObject, visual);
     }
 
@@ -250,6 +282,9 @@ public class TileManager : MonoBehaviour
 
     private void CreateStartPath()
     {
+        if (pathInitialized)
+            return;
+
         startPosition = new Vector2Int(0, 0);
 
         GameObject startPrefab = GetStartTilePrefab();
@@ -272,6 +307,7 @@ public class TileManager : MonoBehaviour
         ConfigureGeneratedStartTileRails();
 
         basePosition = new Vector2Int(6, 0);
+        pathInitialized = true;
         PlaceBaseTile();
         RefreshPathRailings();
 
@@ -288,6 +324,21 @@ public class TileManager : MonoBehaviour
         return currentDirection;
     }
 
+    public bool IsRunPathInitialized()
+    {
+        return pathInitialized;
+    }
+
+    public bool InitializeRunPath()
+    {
+        if (pathInitialized)
+            return true;
+
+        ScaleWorldVisualIfNeeded();
+        CreateStartPath();
+        return pathInitialized;
+    }
+
     public Vector3 GridToWorldPublic(Vector2Int gridPosition)
     {
         return GridToWorld(gridPosition);
@@ -298,6 +349,33 @@ public class TileManager : MonoBehaviour
         return WorldToGrid(worldPosition);
     }
 
+    public bool TryGetTeleporterExitWorld(Vector3 entryWorldPosition, out Vector3 exitWorldPosition)
+    {
+        exitWorldPosition = Vector3.zero;
+
+        if (!pathInitialized)
+            return false;
+
+        if (teleporterEntryPositions == null || teleporterExitPositions == null)
+            return false;
+
+        Vector2Int entryPosition = WorldToGrid(entryWorldPosition);
+
+        for (int i = teleporterEntryPositions.Count - 1; i >= 0; i--)
+        {
+            if (i >= teleporterExitPositions.Count)
+                continue;
+
+            if (teleporterEntryPositions[i] != entryPosition)
+                continue;
+
+            exitWorldPosition = GridToWorld(teleporterExitPositions[i]);
+            return true;
+        }
+
+        return false;
+    }
+
     public bool IsBuildAllowed()
     {
         return canBuild;
@@ -305,6 +383,9 @@ public class TileManager : MonoBehaviour
 
     public bool CanExtendTo(Vector2Int targetPosition)
     {
+        if (!pathInitialized)
+            return false;
+
         if (!canBuild)
             return false;
 
@@ -555,11 +636,17 @@ public class TileManager : MonoBehaviour
 
     public bool HasAnyValidExtension()
     {
+        if (!pathInitialized)
+            return false;
+
         return GetValidExtensionPositions().Count > 0;
     }
 
     public Vector2Int[] GetPossibleExtensionPositions()
     {
+        if (!pathInitialized)
+            return new Vector2Int[0];
+
         Vector2Int forward = basePosition + currentDirection;
         Vector2Int left = basePosition + new Vector2Int(-currentDirection.y, currentDirection.x);
         Vector2Int right = basePosition + new Vector2Int(currentDirection.y, -currentDirection.x);
@@ -827,9 +914,12 @@ public class TileManager : MonoBehaviour
             if (tower == null)
                 continue;
 
-            Vector2Int towerGridPosition = WorldToGrid(tower.transform.position);
+            Vector2Int towerGridPosition = tower.hasBuildGridPosition ? tower.builtGridPosition : WorldToGrid(tower.transform.position);
 
             if (!affectedBuildPositions.Contains(towerGridPosition))
+                continue;
+
+            if (HasNeighborPath(towerGridPosition))
                 continue;
 
             towerPositions.Remove(towerGridPosition);
@@ -845,7 +935,10 @@ public class TileManager : MonoBehaviour
         HashSet<Vector2Int> affectedBuildPositions = GetBuildPositionsAround(removedPathPositions);
 
         foreach (Vector2Int position in affectedBuildPositions)
-            specialBlockedPositions.Remove(position);
+        {
+            if (!HasNeighborPath(position))
+                specialBlockedPositions.Remove(position);
+        }
 
         for (int i = specialTileObjects.Count - 1; i >= 0; i--)
         {
@@ -860,6 +953,9 @@ public class TileManager : MonoBehaviour
             Vector2Int specialTilePosition = WorldToGrid(specialTileObject.transform.position);
 
             if (!affectedBuildPositions.Contains(specialTilePosition))
+                continue;
+
+            if (HasNeighborPath(specialTilePosition))
                 continue;
 
             Destroy(specialTileObject);
@@ -977,12 +1073,28 @@ public class TileManager : MonoBehaviour
                 return pathTilePrefab;
             case PathBuildOptionType.TrapTile:
                 return trapTilePrefab;
+            case PathBuildOptionType.SlowTile:
+                return slowTilePrefab;
+            case PathBuildOptionType.KnockTile:
+                return knockTilePrefab;
+            case PathBuildOptionType.ComboTile:
+                return comboTilePrefab;
             case PathBuildOptionType.SpecialTile:
                 return specialTilePrefab;
             case PathBuildOptionType.BridgeTile:
                 return bridgeTilePrefab;
             case PathBuildOptionType.GoldTile:
                 return goldTilePrefab;
+            case PathBuildOptionType.RangeTile:
+                return rangeTilePrefab;
+            case PathBuildOptionType.DamageTile:
+                return damageTilePrefab;
+            case PathBuildOptionType.RateTile:
+                return rateTilePrefab;
+            case PathBuildOptionType.XPTile:
+                return xpTilePrefab;
+            case PathBuildOptionType.UpgradeTile:
+                return upgradeTilePrefab;
             default:
                 return null;
         }
@@ -1035,11 +1147,20 @@ public class TileManager : MonoBehaviour
                 ColorTile(pathTileObject, trapTileColor);
         }
         else if (pathTileType == PathBuildOptionType.SlowTile)
-            ColorTile(pathTileObject, slowTileColor);
+        {
+            if (!hasDedicatedGeneratedVisual)
+                ColorTile(pathTileObject, slowTileColor);
+        }
         else if (pathTileType == PathBuildOptionType.KnockTile)
-            ColorTile(pathTileObject, knockTileColor);
+        {
+            if (!hasDedicatedGeneratedVisual)
+                ColorTile(pathTileObject, knockTileColor);
+        }
         else if (pathTileType == PathBuildOptionType.ComboTile)
-            ColorTile(pathTileObject, comboTileColor);
+        {
+            if (!hasDedicatedGeneratedVisual)
+                ColorTile(pathTileObject, comboTileColor);
+        }
         else if (pathTileType == PathBuildOptionType.GoldTile)
         {
             if (!hasDedicatedGeneratedVisual)
@@ -1073,6 +1194,12 @@ public class TileManager : MonoBehaviour
         {
             case PathBuildOptionType.TrapTile:
                 return trapTilePrefab != null;
+            case PathBuildOptionType.SlowTile:
+                return slowTilePrefab != null;
+            case PathBuildOptionType.KnockTile:
+                return knockTilePrefab != null;
+            case PathBuildOptionType.ComboTile:
+                return comboTilePrefab != null;
             case PathBuildOptionType.SpecialTile:
                 return specialTilePrefab != null;
             case PathBuildOptionType.BridgeTile:
@@ -1137,6 +1264,24 @@ public class TileManager : MonoBehaviour
     private void CreateSupportTile(Vector2Int gridPosition, PathBuildOptionType supportTileType)
     {
         Vector3 worldPosition = GridToWorld(gridPosition);
+        GameObject generatedSupportPrefab = GetGeneratedTilePrefab(supportTileType);
+
+        if (generatedSupportPrefab != null)
+        {
+            GameObject generatedSupportTile = Instantiate(generatedSupportPrefab, worldPosition, Quaternion.identity);
+            generatedSupportTile.name = supportTileType.ToString();
+            NormalizeGeneratedTileVisual(generatedSupportTile);
+            HideGeneratedTileRailsAndCorners(generatedSupportTile);
+
+            TowerSupportTileEffect generatedEffect = generatedSupportTile.GetComponent<TowerSupportTileEffect>();
+            if (generatedEffect == null)
+                generatedEffect = generatedSupportTile.AddComponent<TowerSupportTileEffect>();
+
+            generatedEffect.Configure(supportTileType, gridPosition, tileSize);
+            specialTileObjects.Add(generatedSupportTile);
+            return;
+        }
+
         Color tileColor = GetSupportTileColor(supportTileType);
         GameObject tileObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
         tileObject.name = supportTileType.ToString();
@@ -1334,7 +1479,22 @@ public class TileManager : MonoBehaviour
     private void SetCornerPostVisibility(Transform root, string preferredNamePart, string fallbackNamePart, bool active)
     {
         if (!SetChildActiveByNameContains(root, preferredNamePart, active))
-            SetChildActiveByNameContains(root, fallbackNamePart, active);
+        {
+            if (!SetChildActiveByNameContains(root, fallbackNamePart, active))
+                SetGenericGeneratedCornerPostVisibility(root, preferredNamePart, active);
+        }
+    }
+
+    private void SetGenericGeneratedCornerPostVisibility(Transform root, string preferredNamePart, bool active)
+    {
+        if (preferredNamePart == "Corner_NE")
+            SetChildActiveByNameContains(root, "CornerPost_04", active);
+        else if (preferredNamePart == "Corner_NW")
+            SetChildActiveByNameContains(root, "CornerPost_03", active);
+        else if (preferredNamePart == "Corner_SE")
+            SetChildActiveByNameContains(root, "CornerPost_02", active);
+        else if (preferredNamePart == "Corner_SW")
+            SetChildActiveByNameContains(root, "CornerPost_01", active);
     }
 
     private bool HasGeneratedRailObjects(GameObject tileObject)
@@ -1414,8 +1574,31 @@ public class TileManager : MonoBehaviour
 
         bool foundDirectionalMarker = SetFlowMarkerVisibility(tileObject, direction);
 
-        if (!foundDirectionalMarker)
-            UpdatePathTileVisualRotation(position, tileObject);
+        if (foundDirectionalMarker)
+            return;
+
+        if (SetPathCenterLineRotation(tileObject, direction))
+            return;
+
+        if (HasGeneratedRailObjects(tileObject))
+            return;
+
+        UpdatePathTileVisualRotation(position, tileObject);
+    }
+
+    private bool SetPathCenterLineRotation(GameObject tileObject, Vector2Int direction)
+    {
+        Transform centerLine = FindChildByNameContains(tileObject.transform, "PathCenterLine");
+
+        if (centerLine == null)
+            centerLine = FindChildByNameContains(tileObject.transform, "CenterLine");
+
+        if (centerLine == null)
+            return false;
+
+        float localZRotation = direction.x != 0 ? 90f : 0f;
+        centerLine.localRotation = Quaternion.Euler(0f, 0f, localZRotation);
+        return true;
     }
 
     private bool SetFlowMarkerVisibility(GameObject tileObject, Vector2Int direction)
@@ -1567,6 +1750,9 @@ public class TileManager : MonoBehaviour
         buildTileObjects.Clear();
         buildTilePositions.Clear();
 
+        if (!pathInitialized)
+            return;
+
         UpdateReservedPathExtension();
 
         foreach (Vector2Int pathPos in pathPositions)
@@ -1688,6 +1874,9 @@ public class TileManager : MonoBehaviour
     public List<Vector3> GetWorldPath()
     {
         List<Vector3> worldPath = new List<Vector3>();
+
+        if (!pathInitialized)
+            return worldPath;
 
         foreach (Vector2Int gridPos in pathPositions)
         {

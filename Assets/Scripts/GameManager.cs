@@ -32,6 +32,9 @@ public class GameManager : MonoBehaviour
     public MainMenuLexiconManager mainMenuLexiconManager;
     public MainMenuLexiconUI mainMenuLexiconUI;
     public bool autoCreateMainMenuLexicon = true;
+    public MainMenuStatisticsManager mainMenuStatisticsManager;
+    public MainMenuStatisticsUI mainMenuStatisticsUI;
+    public bool autoCreateMainMenuStatistics = true;
     public RunStatisticsTracker runStatisticsTracker;
     public bool autoCreateRunStatisticsTracker = true;
     public BuildManager buildManager;
@@ -259,6 +262,7 @@ public class GameManager : MonoBehaviour
         FinalizeCurrentWaveResult();
         RegisterEliteWaveCompletionIfNeeded();
         GiveWaveCompletionReward();
+        RecordLastWaveStatistics(true);
         currentPhase = GamePhase.Build;
         RefreshWaveScenarioDebug();
         RefreshWaveDataDebug();
@@ -403,13 +407,14 @@ public class GameManager : MonoBehaviour
         if (startMenuRoot != null)
             startMenuRoot.SetActive(false);
 
-        if (mainMenuLexiconManager != null)
-            mainMenuLexiconManager.CloseLexicon();
-        else if (mainMenuLexiconUI != null)
-            mainMenuLexiconUI.CloseLexicon();
+        CloseMainMenuLexicon();
+        CloseMainMenuStatistics();
 
         if (tileManager != null)
+        {
+            tileManager.InitializeRunPath();
             tileManager.SetCanBuild(true);
+        }
 
         RefreshWaveScenarioDebug();
         RefreshWaveDataDebug();
@@ -657,7 +662,7 @@ public class GameManager : MonoBehaviour
 
         SetupPlaceholderStartMenuButton(startUnlocksButton, "Freischaltungen");
         SetupStartMenuLexiconButton();
-        SetupPlaceholderStartMenuButton(startStatsButton, "Statistik");
+        SetupStartMenuStatisticsButton();
         SetupPlaceholderStartMenuButton(startOptionsButton, "Optionen");
         SetupPlaceholderStartMenuButton(startResetButton, "Reset");
     }
@@ -671,6 +676,15 @@ public class GameManager : MonoBehaviour
         startLexiconButton.onClick.AddListener(OpenMainMenuLexicon);
     }
 
+    private void SetupStartMenuStatisticsButton()
+    {
+        if (startStatsButton == null)
+            return;
+
+        startStatsButton.onClick.RemoveAllListeners();
+        startStatsButton.onClick.AddListener(OpenMainMenuStatistics);
+    }
+
     private void SetupPlaceholderStartMenuButton(Button button, string label)
     {
         if (button == null)
@@ -682,6 +696,8 @@ public class GameManager : MonoBehaviour
 
     public void OpenMainMenuLexicon()
     {
+        CloseMainMenuStatistics();
+
         MainMenuLexiconManager manager = GetMainMenuLexiconManager();
 
         if (manager == null)
@@ -691,6 +707,37 @@ public class GameManager : MonoBehaviour
         }
 
         manager.OpenLexicon();
+    }
+
+    public void OpenMainMenuStatistics()
+    {
+        CloseMainMenuLexicon();
+
+        MainMenuStatisticsManager manager = GetMainMenuStatisticsManager();
+
+        if (manager == null)
+        {
+            OpenStartMenuPlaceholder("Statistik");
+            return;
+        }
+
+        manager.OpenStatistics();
+    }
+
+    public void CloseMainMenuLexicon()
+    {
+        if (mainMenuLexiconManager != null)
+            mainMenuLexiconManager.CloseLexicon();
+        else if (mainMenuLexiconUI != null)
+            mainMenuLexiconUI.CloseLexicon();
+    }
+
+    public void CloseMainMenuStatistics()
+    {
+        if (mainMenuStatisticsManager != null)
+            mainMenuStatisticsManager.CloseStatistics();
+        else if (mainMenuStatisticsUI != null)
+            mainMenuStatisticsUI.CloseStatistics();
     }
 
     private void RefreshStartMenuTexts()
@@ -921,6 +968,10 @@ public class GameManager : MonoBehaviour
 
         if (manager != null)
             manager.ApplySnapshotToWaveResult(currentWaveResult);
+
+        RunStatisticsTracker stats = GetRunStatisticsTracker();
+        if (stats != null)
+            stats.BeginWaveTracking(currentWaveResult);
     }
 
     private void FinalizeCurrentWaveResult()
@@ -1712,6 +1763,8 @@ public class GameManager : MonoBehaviour
         if (eliteSpawnWarningManager != null)
             eliteSpawnWarningManager.CloseWarningAndRestoreTime();
 
+        RecordLastWaveStatistics(false);
+
         if (fireWaveBackendEvents)
             WaveEventBus.RaiseGameOverTriggered();
 
@@ -1812,12 +1865,23 @@ public class GameManager : MonoBehaviour
         return mainMenuLexiconUI != null && mainMenuLexiconUI.IsOpen;
     }
 
+    public bool IsMainMenuStatisticsOpen()
+    {
+        if (mainMenuStatisticsManager != null && mainMenuStatisticsManager.IsOpen)
+            return true;
+
+        if (mainMenuStatisticsUI == null)
+            mainMenuStatisticsUI = FindObjectOfType<MainMenuStatisticsUI>();
+
+        return mainMenuStatisticsUI != null && mainMenuStatisticsUI.IsOpen;
+    }
+
     public bool IsGameplayInputLockedByModalUI()
     {
         if (isGameOver)
             return false;
 
-        return startMenuOpen || blockedBaseRelocationPending || IsEliteSpawnWarningOpen() || IsChaosJusticeChoiceOpen() || IsEliteRewardChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen() || IsMainMenuLexiconOpen();
+        return startMenuOpen || blockedBaseRelocationPending || IsEliteSpawnWarningOpen() || IsChaosJusticeChoiceOpen() || IsEliteRewardChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen() || IsMainMenuLexiconOpen() || IsMainMenuStatisticsOpen();
     }
 
     public bool CanOpenAuxiliaryModalUI()
@@ -1825,7 +1889,7 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return true;
 
-        return !startMenuOpen && !blockedBaseRelocationPending && !IsEliteSpawnWarningOpen() && !IsChaosJusticeChoiceOpen() && !IsEliteRewardChoiceOpen() && !IsBlockedEventSelectionOpen() && !IsMainMenuLexiconOpen();
+        return !startMenuOpen && !blockedBaseRelocationPending && !IsEliteSpawnWarningOpen() && !IsChaosJusticeChoiceOpen() && !IsEliteRewardChoiceOpen() && !IsBlockedEventSelectionOpen() && !IsChaosLexiconOpen() && !IsChaosUnlockOpen() && !IsMainMenuLexiconOpen() && !IsMainMenuStatisticsOpen();
     }
 
     public bool IsPathInputLockedByModalUI()
@@ -1833,7 +1897,7 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return true;
 
-        return startMenuOpen || blockedBaseRelocationPending || isBaseBlocked || isTimedBlockedBuildPhase || IsEliteSpawnWarningOpen() || IsChaosJusticeChoiceOpen() || IsEliteRewardChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen() || IsMainMenuLexiconOpen();
+        return startMenuOpen || blockedBaseRelocationPending || isBaseBlocked || isTimedBlockedBuildPhase || IsEliteSpawnWarningOpen() || IsChaosJusticeChoiceOpen() || IsEliteRewardChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen() || IsMainMenuLexiconOpen() || IsMainMenuStatisticsOpen();
     }
 
     public void ClosePathAndBuildSelectionsForModal()
@@ -1893,6 +1957,16 @@ public class GameManager : MonoBehaviour
     {
         RunStatisticsTracker stats = GetRunStatisticsTracker();
         return stats != null ? stats.GetRunStatistics() : null;
+    }
+
+    private void RecordLastWaveStatistics(bool survivedWave)
+    {
+        RunStatisticsTracker stats = GetRunStatisticsTracker();
+
+        if (stats == null || currentWaveResult == null)
+            return;
+
+        stats.CompleteWaveTracking(currentWaveResult, survivedWave && !isGameOver);
     }
 
     public EliteRewardChoiceManager GetEliteRewardChoiceManager()
@@ -2051,6 +2125,41 @@ public class GameManager : MonoBehaviour
 
         mainMenuLexiconManager = manager;
         mainMenuLexiconUI = ui;
+        manager.EnsureInitialized();
+        return manager;
+    }
+
+    public MainMenuStatisticsManager GetMainMenuStatisticsManager()
+    {
+        if (mainMenuStatisticsManager == null)
+            mainMenuStatisticsManager = FindObjectOfType<MainMenuStatisticsManager>();
+
+        if (mainMenuStatisticsManager == null && autoCreateMainMenuStatistics)
+            mainMenuStatisticsManager = CreateMainMenuStatisticsManager();
+
+        return mainMenuStatisticsManager;
+    }
+
+    private MainMenuStatisticsManager CreateMainMenuStatisticsManager()
+    {
+        if (startMenuCanvas == null)
+            startMenuCanvas = FindObjectOfType<Canvas>();
+
+        GameObject systemObject = new GameObject("MainMenuStatisticsSystem");
+        MainMenuStatisticsManager manager = systemObject.AddComponent<MainMenuStatisticsManager>();
+        MainMenuStatisticsUI ui = systemObject.AddComponent<MainMenuStatisticsUI>();
+
+        manager.gameManager = this;
+        manager.statisticsUI = ui;
+        manager.targetCanvas = startMenuCanvas;
+        manager.rootParent = startMenuRoot != null ? startMenuRoot.transform : null;
+
+        ui.manager = manager;
+        ui.targetCanvas = startMenuCanvas;
+        ui.rootParent = manager.rootParent;
+
+        mainMenuStatisticsManager = manager;
+        mainMenuStatisticsUI = ui;
         manager.EnsureInitialized();
         return manager;
     }

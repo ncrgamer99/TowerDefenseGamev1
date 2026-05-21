@@ -124,6 +124,8 @@ public class ChaosJusticeBalanceSnapshot
 
 public class ChaosJusticeManager : MonoBehaviour
 {
+    private const int FixedChaosRiskModifierOfferCount = 3;
+
     [Header("Phase 6 Version Check")]
     public string phase6Version = "Phase6 V1 Step14 - Grund-Freischaltungen Content-Pool V1 - 2026-05-13";
 
@@ -153,7 +155,7 @@ public class ChaosJusticeManager : MonoBehaviour
     public bool useCompletelyRandomRiskSelection = false;
     public bool allowImmediateRiskRepeats = false;
     public bool logRandomRiskSelection = false;
-    public int riskOfferCount = 4;
+    public int riskOfferCount = FixedChaosRiskModifierOfferCount;
     public bool allowDuplicateRiskCardsInSameOffer = false;
     public bool showNoModifierOption = true;
     public bool allowNoModifierAtMaxChaos = true;
@@ -246,6 +248,9 @@ public class ChaosJusticeManager : MonoBehaviour
 
     private void Awake()
     {
+        riskOfferCount = FixedChaosRiskModifierOfferCount;
+        showNoModifierOption = true;
+
         if (runData == null)
             runData = new ChaosJusticeRunData();
 
@@ -535,7 +540,7 @@ public class ChaosJusticeManager : MonoBehaviour
         currentOptions.Clear();
         currentRiskOffers.Clear();
 
-        List<WaveModifier> offers = GenerateRandomRiskOffers(Mathf.Max(1, riskOfferCount));
+        List<WaveModifier> offers = GenerateRandomRiskOffers(GetFixedChaosRiskModifierOfferCount());
 
         foreach (WaveModifier offer in offers)
         {
@@ -546,8 +551,7 @@ public class ChaosJusticeManager : MonoBehaviour
             currentOptions.Add(CreateChaosRiskOption(offer));
         }
 
-        if (showNoModifierOption && (allowNoModifierAtMaxChaos || runData.chaosLevel < runData.maxChaosLevel))
-            currentOptions.Add(CreateNoModifierOption());
+        currentOptions.Add(CreateNoModifierOption());
 
         if (currentOptions.Count == 0)
             currentOptions.Add(CreateNoModifierOption());
@@ -692,6 +696,11 @@ public class ChaosJusticeManager : MonoBehaviour
     private int GetNextChaosLevelPreview()
     {
         return Mathf.Min(runData.maxChaosLevel, runData.chaosLevel + 1);
+    }
+
+    private int GetFixedChaosRiskModifierOfferCount()
+    {
+        return FixedChaosRiskModifierOfferCount;
     }
 
     private List<WaveModifier> GenerateRandomRiskOffers(int requestedCount, bool consumeOffers = true)
@@ -3252,7 +3261,7 @@ public class ChaosJusticeManager : MonoBehaviour
 
     public string GetNextChaosRiskPreviewText()
     {
-        List<WaveModifier> offers = GenerateRandomRiskOffers(Mathf.Max(1, riskOfferCount), false);
+        List<WaveModifier> offers = GenerateRandomRiskOffers(GetFixedChaosRiskModifierOfferCount(), false);
 
         if (offers == null || offers.Count == 0)
             return "Keine Risiko-Modifikatoren verfügbar.";
@@ -3270,8 +3279,7 @@ public class ChaosJusticeManager : MonoBehaviour
             text += "\n[" + (i + 1) + "] " + modifier.GetDisplayNameWithLevel() + ": " + GetModifierImpactPreviewText(modifier);
         }
 
-        if (showNoModifierOption && (allowNoModifierAtMaxChaos || runData.chaosLevel < runData.maxChaosLevel))
-            text += "\n[" + (offers.Count + 1) + "] " + (runData.chaosLevel >= runData.maxChaosLevel ? "Chaos halten" : "Kein Modifikator") + ": kein Zusatzrisiko, kein Gerechtigkeits-Rückbau und keine Zusatzbelohnung.";
+        text += "\n[" + (offers.Count + 1) + "] " + (runData.chaosLevel >= runData.maxChaosLevel ? "Chaos halten" : "Kein Modifikator") + ": kein Zusatzrisiko, kein Gerechtigkeits-Rückbau und keine Zusatzbelohnung.";
 
         return text;
     }

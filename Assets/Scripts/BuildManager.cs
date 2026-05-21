@@ -10,6 +10,7 @@ public class BuildManager : MonoBehaviour
     public TowerUI towerUI;
     public BuildSelectionUI buildSelectionUI;
     public PathBuildManager pathBuildManager;
+    public TowerSupportTileBuildUI supportTileBuildUI;
 
     [Header("Build Selection")]
     [System.NonSerialized]
@@ -35,6 +36,9 @@ public class BuildManager : MonoBehaviour
         {
             buildSelectionUI.ClearSelectionText();
         }
+
+        if (supportTileBuildUI == null)
+            supportTileBuildUI = TowerSupportTileBuildUI.EnsureExists(this);
     }
 
     private void Update()
@@ -114,6 +118,9 @@ public class BuildManager : MonoBehaviour
             tileManager.SetBuildTilesVisible(false);
         }
 
+        if (supportTileBuildUI != null)
+            supportTileBuildUI.Hide();
+
         if (buildSelectionUI != null)
         {
             buildSelectionUI.ClearSelectionText();
@@ -136,6 +143,9 @@ public class BuildManager : MonoBehaviour
 
         if (buildSelectionUI != null)
             buildSelectionUI.CloseSelectionPanel();
+
+        if (supportTileBuildUI != null)
+            supportTileBuildUI.Hide();
 
         if (hadSelection && buildSelectionUI != null)
             buildSelectionUI.ClearSelectionText();
@@ -278,6 +288,14 @@ public class BuildManager : MonoBehaviour
             return;
         }
 
+        TowerSupportTileEffect supportTile = hit.collider.GetComponentInParent<TowerSupportTileEffect>();
+
+        if (supportTile != null && supportTile.IsTowerSupportTile())
+        {
+            ShowSupportTileUI(supportTile);
+            return;
+        }
+
         BuildTile buildTile = hit.collider.GetComponent<BuildTile>();
 
         if (buildTile == null)
@@ -313,6 +331,28 @@ public class BuildManager : MonoBehaviour
         {
             ClearSelection();
         }
+    }
+
+    private void ShowSupportTileUI(TowerSupportTileEffect supportTile)
+    {
+        if (supportTile == null)
+            return;
+
+        selectedBuildOption = null;
+        buildTilesCurrentlyVisible = false;
+        ClearHoveredBuildTile();
+
+        if (tileManager != null)
+            tileManager.SetBuildTilesVisible(false);
+
+        if (buildSelectionUI != null)
+            buildSelectionUI.ClearSelectionText();
+
+        if (supportTileBuildUI == null)
+            supportTileBuildUI = TowerSupportTileBuildUI.EnsureExists(this);
+
+        if (supportTileBuildUI != null)
+            supportTileBuildUI.Show(supportTile);
     }
 
     private void TrySelectTowerUnderMouse()

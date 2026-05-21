@@ -186,6 +186,7 @@ public class Enemy : MonoBehaviour
     public GameManager gameManager;
     public System.Action<Enemy> OnEnemyFinished;
 
+    private TileManager cachedTileManager;
     private int currentPathIndex = 0;
     private float distanceTravelled = 0f;
     private bool roleStatsApplied = false;
@@ -612,6 +613,14 @@ public class Enemy : MonoBehaviour
             return;
         }
 
+        if (TryUseCurrentPathTeleporter())
+        {
+            if (currentPathIndex >= pathPoints.Count)
+                ReachBase();
+
+            return;
+        }
+
         Vector3 oldPosition = transform.position;
         Vector3 targetPosition = pathPoints[currentPathIndex];
         float finalSpeed = Mathf.Max(0.05f, speed * currentSlowMultiplier * temporarySpeedMultiplier);
@@ -625,10 +634,64 @@ public class Enemy : MonoBehaviour
         {
             currentPathIndex++;
             SpecialPathTileEffect.TryApplyAtWorldPosition(targetPosition, this);
+            TryUsePathTeleporter(targetPosition);
 
             if (currentPathIndex >= pathPoints.Count)
                 ReachBase();
         }
+    }
+
+    private bool TryUseCurrentPathTeleporter()
+    {
+        if (currentPathIndex <= 0 || currentPathIndex >= pathPoints.Count)
+            return false;
+
+        Vector3 entryPosition = pathPoints[currentPathIndex - 1];
+        if (Vector3.Distance(transform.position, entryPosition) > 0.03f)
+            return false;
+
+        return TryUsePathTeleporter(entryPosition);
+    }
+
+    private bool TryUsePathTeleporter(Vector3 entryPosition)
+    {
+        if (pathPoints == null || currentPathIndex >= pathPoints.Count)
+            return false;
+
+        TileManager tileManager = ResolveTileManager();
+        if (tileManager == null)
+            return false;
+
+        if (!tileManager.TryGetTeleporterExitWorld(entryPosition, out Vector3 exitPosition))
+            return false;
+
+        Vector3 expectedExitPosition = pathPoints[currentPathIndex];
+        if (Vector3.Distance(expectedExitPosition, exitPosition) > 0.05f)
+            return false;
+
+        transform.position = exitPosition;
+        currentPathIndex++;
+        SpecialPathTileEffect.TryApplyAtWorldPosition(exitPosition, this);
+
+        if (currentPathIndex < pathPoints.Count)
+            UpdateMovementFacing(pathPoints[currentPathIndex], true);
+
+        return true;
+    }
+
+    private TileManager ResolveTileManager()
+    {
+        if (cachedTileManager != null)
+            return cachedTileManager;
+
+        if (gameManager != null && gameManager.tileManager != null)
+        {
+            cachedTileManager = gameManager.tileManager;
+            return cachedTileManager;
+        }
+
+        cachedTileManager = FindObjectOfType<TileManager>();
+        return cachedTileManager;
     }
 
     private void UpdateMovementFacing(Vector3 targetPosition, bool instant)
@@ -1186,7 +1249,7 @@ public class Enemy : MonoBehaviour
         if (globalXPReward <= 0)
             return;
 
-        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude);
+        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 
         foreach (Tower tower in towers)
         {

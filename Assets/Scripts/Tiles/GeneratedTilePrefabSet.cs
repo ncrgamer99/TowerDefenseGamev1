@@ -8,9 +8,17 @@ public class GeneratedTilePrefabSet : MonoBehaviour
     public GameObject baseTilePrefab;
     public GameObject buildTilePrefab;
     public GameObject trapTilePrefab;
+    public GameObject slowTilePrefab;
+    public GameObject knockTilePrefab;
+    public GameObject comboTilePrefab;
     public GameObject specialTilePrefab;
     public GameObject bridgeTilePrefab;
     public GameObject goldTilePrefab;
+    public GameObject rangeTilePrefab;
+    public GameObject damageTilePrefab;
+    public GameObject rateTilePrefab;
+    public GameObject xpTilePrefab;
+    public GameObject upgradeTilePrefab;
     public GameObject pathGhostTilePrefab;
     public GameObject blockedTilePrefab;
 
@@ -22,12 +30,28 @@ public class GeneratedTilePrefabSet : MonoBehaviour
                 return pathTilePrefab;
             case PathBuildOptionType.TrapTile:
                 return trapTilePrefab;
+            case PathBuildOptionType.SlowTile:
+                return slowTilePrefab;
+            case PathBuildOptionType.KnockTile:
+                return knockTilePrefab;
+            case PathBuildOptionType.ComboTile:
+                return comboTilePrefab;
             case PathBuildOptionType.SpecialTile:
                 return specialTilePrefab;
             case PathBuildOptionType.BridgeTile:
                 return bridgeTilePrefab;
             case PathBuildOptionType.GoldTile:
                 return goldTilePrefab;
+            case PathBuildOptionType.RangeTile:
+                return rangeTilePrefab;
+            case PathBuildOptionType.DamageTile:
+                return damageTilePrefab;
+            case PathBuildOptionType.RateTile:
+                return rateTilePrefab;
+            case PathBuildOptionType.XPTile:
+                return xpTilePrefab;
+            case PathBuildOptionType.UpgradeTile:
+                return upgradeTilePrefab;
             default:
                 return null;
         }
@@ -51,9 +75,17 @@ public class GeneratedTilePrefabSet : MonoBehaviour
         AddMissing(missing, baseTilePrefab, "Base Tile");
         AddMissing(missing, buildTilePrefab, "Build Tile");
         AddMissing(missing, trapTilePrefab, "Trap Tile");
+        AddMissing(missing, slowTilePrefab, "Slow Tile");
+        AddMissing(missing, knockTilePrefab, "Knock Tile");
+        AddMissing(missing, comboTilePrefab, "Combo Tile");
         AddMissing(missing, specialTilePrefab, "Special Tile");
         AddMissing(missing, bridgeTilePrefab, "Bridge Tile");
         AddMissing(missing, goldTilePrefab, "Gold Tile");
+        AddMissing(missing, rangeTilePrefab, "Range Tile");
+        AddMissing(missing, damageTilePrefab, "Damage Tile");
+        AddMissing(missing, rateTilePrefab, "Rate Tile");
+        AddMissing(missing, xpTilePrefab, "XP Tile");
+        AddMissing(missing, upgradeTilePrefab, "Upgrade Tile");
         AddMissing(missing, pathGhostTilePrefab, "Path Ghost Tile");
         AddMissing(missing, blockedTilePrefab, "Blocked Tile");
 

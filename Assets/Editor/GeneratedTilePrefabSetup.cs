@@ -15,6 +15,7 @@ public static class GeneratedTilePrefabSetup
     private const string AutoRepairSessionKey = "GeneratedTilePrefabSetup.AutoRepairRanV7";
     private static readonly Vector3 GeneratedModelEulerCorrection = Vector3.zero;
     private const float VisualBottomLocalY = -0.05f;
+    private static readonly Vector3 GeneratedVisualLocalPosition = new Vector3(0f, VisualBottomLocalY, 0f);
 
     private static readonly TileDefinition[] TileDefinitions =
     {
@@ -23,9 +24,17 @@ public static class GeneratedTilePrefabSetup
         new TileDefinition("TD_BaseTile", new Color32(220, 70, 70, 255), false, false),
         new TileDefinition("TD_BuildTile", new Color32(70, 120, 220, 255), true, false),
         new TileDefinition("TD_TrapTile", new Color32(170, 40, 40, 255), false, false),
+        new TileDefinition("TD_SlowTile", new Color32(70, 180, 255, 255), false, false),
+        new TileDefinition("TD_KnockTile", new Color32(255, 170, 45, 255), false, false),
+        new TileDefinition("TD_ComboTile", new Color32(210, 80, 230, 255), false, false),
         new TileDefinition("TD_SpecialTile", new Color32(190, 80, 220, 255), false, false),
         new TileDefinition("TD_BridgeTile", new Color32(120, 90, 55, 255), false, false),
         new TileDefinition("TD_GoldTile", new Color32(245, 190, 40, 255), false, false),
+        new TileDefinition("TD_RangeTile", new Color32(65, 155, 255, 255), false, false),
+        new TileDefinition("TD_DamageTile", new Color32(235, 70, 70, 255), false, false),
+        new TileDefinition("TD_RateTile", new Color32(75, 235, 130, 255), false, false),
+        new TileDefinition("TD_XpTile", new Color32(155, 105, 255, 255), false, false),
+        new TileDefinition("TD_UpgradeTile", new Color32(255, 245, 120, 255), false, false),
         new TileDefinition("TD_PathGhostTile", new Color32(90, 210, 255, 120), false, true),
         new TileDefinition("TD_BlockedTile", new Color32(80, 85, 95, 255), false, false)
     };
@@ -202,19 +211,15 @@ public static class GeneratedTilePrefabSetup
         if (visual == null)
             return;
 
-        if (!TryGetRendererBounds(visual, out Bounds bounds))
+        if (!TryGetRendererBounds(visual, out Bounds alignedBounds))
         {
             Debug.LogWarning("GeneratedTilePrefabSetup: Konnte Visual-Bounds nicht bestimmen: " + definition.ModelPath);
             return;
         }
 
-        Vector3 localPosition = visual.transform.localPosition;
-        localPosition.x -= bounds.center.x;
-        localPosition.y += VisualBottomLocalY - bounds.min.y;
-        localPosition.z -= bounds.center.z;
-        visual.transform.localPosition = localPosition;
+        visual.transform.localPosition = GeneratedVisualLocalPosition;
 
-        if (!TryGetRendererBounds(visual, out Bounds alignedBounds))
+        if (!TryGetRendererBounds(visual, out alignedBounds))
             return;
 
         Debug.Log(
@@ -418,9 +423,17 @@ public static class GeneratedTilePrefabSetup
         prefabSet.baseTilePrefab = LoadGeneratedPrefab("TD_BaseTile");
         prefabSet.buildTilePrefab = LoadGeneratedPrefab("TD_BuildTile");
         prefabSet.trapTilePrefab = LoadGeneratedPrefab("TD_TrapTile");
+        prefabSet.slowTilePrefab = LoadGeneratedPrefab("TD_SlowTile");
+        prefabSet.knockTilePrefab = LoadGeneratedPrefab("TD_KnockTile");
+        prefabSet.comboTilePrefab = LoadGeneratedPrefab("TD_ComboTile");
         prefabSet.specialTilePrefab = LoadGeneratedPrefab("TD_SpecialTile");
         prefabSet.bridgeTilePrefab = LoadGeneratedPrefab("TD_BridgeTile");
         prefabSet.goldTilePrefab = LoadGeneratedPrefab("TD_GoldTile");
+        prefabSet.rangeTilePrefab = LoadGeneratedPrefab("TD_RangeTile");
+        prefabSet.damageTilePrefab = LoadGeneratedPrefab("TD_DamageTile");
+        prefabSet.rateTilePrefab = LoadGeneratedPrefab("TD_RateTile");
+        prefabSet.xpTilePrefab = LoadGeneratedPrefab("TD_XpTile");
+        prefabSet.upgradeTilePrefab = LoadGeneratedPrefab("TD_UpgradeTile");
         prefabSet.pathGhostTilePrefab = LoadGeneratedPrefab("TD_PathGhostTile");
         prefabSet.blockedTilePrefab = LoadGeneratedPrefab("TD_BlockedTile");
     }
@@ -497,9 +510,17 @@ public static class GeneratedTilePrefabSetup
                 AssignIfNotNull(ref tileManager.baseTilePrefab, prefabSet.baseTilePrefab);
                 AssignIfNotNull(ref tileManager.buildTilePrefab, prefabSet.buildTilePrefab);
                 AssignIfNotNull(ref tileManager.trapTilePrefab, prefabSet.trapTilePrefab);
+                AssignIfNotNull(ref tileManager.slowTilePrefab, prefabSet.slowTilePrefab);
+                AssignIfNotNull(ref tileManager.knockTilePrefab, prefabSet.knockTilePrefab);
+                AssignIfNotNull(ref tileManager.comboTilePrefab, prefabSet.comboTilePrefab);
                 AssignIfNotNull(ref tileManager.specialTilePrefab, prefabSet.specialTilePrefab);
                 AssignIfNotNull(ref tileManager.bridgeTilePrefab, prefabSet.bridgeTilePrefab);
                 AssignIfNotNull(ref tileManager.goldTilePrefab, prefabSet.goldTilePrefab);
+                AssignIfNotNull(ref tileManager.rangeTilePrefab, prefabSet.rangeTilePrefab);
+                AssignIfNotNull(ref tileManager.damageTilePrefab, prefabSet.damageTilePrefab);
+                AssignIfNotNull(ref tileManager.rateTilePrefab, prefabSet.rateTilePrefab);
+                AssignIfNotNull(ref tileManager.xpTilePrefab, prefabSet.xpTilePrefab);
+                AssignIfNotNull(ref tileManager.upgradeTilePrefab, prefabSet.upgradeTilePrefab);
                 AssignIfNotNull(ref tileManager.blockedTilePrefab, prefabSet.blockedTilePrefab);
             }
 
@@ -519,6 +540,14 @@ public static class GeneratedTilePrefabSetup
 
         RemoveRemovedPathBuildOptions(options);
         AddOrUpdatePathOption(options, PathBuildOptionType.TrapTile, "Trap Tile", "Gefaehrliches Pfad-Tile. V1: zaehlt als Pfad-Variante.");
+        AddOrUpdatePathOption(options, PathBuildOptionType.SlowTile, "Slow Tile", "Slow-Tile: Weg-Tile. Gegner werden kurz stark verlangsamt.");
+        AddOrUpdatePathOption(options, PathBuildOptionType.KnockTile, "Knock Tile", "Knock-Tile: Weg-Tile. Wirft normale Gegner zurueck; Boss/MiniBoss/Elite immun.");
+        AddOrUpdatePathOption(options, PathBuildOptionType.RangeTile, "Range Tile", "Range-Tile: kein Weg. Baue einen Tower darauf: +1 Reichweite.");
+        AddOrUpdatePathOption(options, PathBuildOptionType.DamageTile, "Damage Tile", "Damage-Tile: kein Weg. Baue einen Tower darauf: +20% Schaden.");
+        AddOrUpdatePathOption(options, PathBuildOptionType.RateTile, "Rate Tile", "Rate-Tile: kein Weg. Baue einen Tower darauf: +20% Feuerrate.");
+        AddOrUpdatePathOption(options, PathBuildOptionType.XPTile, "XP Tile", "XP-Tile: kein Weg. Baue einen Tower darauf: +25% XP.");
+        AddOrUpdatePathOption(options, PathBuildOptionType.UpgradeTile, "Upgrade Tile", "Upgrade-Tile: kein Weg. Baue einen Tower darauf: Point-Upgrades +1 staerker.");
+        AddOrUpdatePathOption(options, PathBuildOptionType.ComboTile, "Combo Tile", "Combo-Tile: Darkness, wenn Gegner Burn, Poison und Bleed gleichzeitig haben.");
         RemoveDuplicatePathOptions(options);
     }
 
@@ -608,6 +637,22 @@ public static class GeneratedTilePrefabSetup
 
         string normalized = displayName.Trim().ToLowerInvariant();
         return normalized == "trap tile" ||
+               normalized == "slow tile" ||
+               normalized == "slowtile" ||
+               normalized == "knock tile" ||
+               normalized == "knocktile" ||
+               normalized == "range tile" ||
+               normalized == "rangetile" ||
+               normalized == "damage tile" ||
+               normalized == "damagetile" ||
+               normalized == "rate tile" ||
+               normalized == "ratetile" ||
+               normalized == "xp tile" ||
+               normalized == "xptile" ||
+               normalized == "upgrade tile" ||
+               normalized == "upgradetile" ||
+               normalized == "combo tile" ||
+               normalized == "combotile" ||
                normalized == "special tile" ||
                normalized == "bridge tile" ||
                normalized == "gold tile";
@@ -938,10 +983,7 @@ public static class GeneratedTilePrefabSetup
         if (visual == null)
             return true;
 
-        if (!TryGetRendererBounds(visual.gameObject, out Bounds bounds))
-            return true;
-
-        return Mathf.Abs(bounds.min.y - VisualBottomLocalY) > 0.01f;
+        return Vector3.Distance(visual.localPosition, GeneratedVisualLocalPosition) > 0.01f;
     }
 
     private static bool GeneratedModelIsNewerThanPrefab(TileDefinition definition)
@@ -1017,9 +1059,17 @@ public static class GeneratedTilePrefabSetup
                !IsGeneratedPrefab(prefabSet.baseTilePrefab, "TD_BaseTile") ||
                !IsGeneratedPrefab(prefabSet.buildTilePrefab, "TD_BuildTile") ||
                !IsGeneratedPrefab(prefabSet.trapTilePrefab, "TD_TrapTile") ||
+               !IsGeneratedPrefab(prefabSet.slowTilePrefab, "TD_SlowTile") ||
+               !IsGeneratedPrefab(prefabSet.knockTilePrefab, "TD_KnockTile") ||
+               !IsGeneratedPrefab(prefabSet.comboTilePrefab, "TD_ComboTile") ||
                !IsGeneratedPrefab(prefabSet.specialTilePrefab, "TD_SpecialTile") ||
                !IsGeneratedPrefab(prefabSet.bridgeTilePrefab, "TD_BridgeTile") ||
                !IsGeneratedPrefab(prefabSet.goldTilePrefab, "TD_GoldTile") ||
+               !IsGeneratedPrefab(prefabSet.rangeTilePrefab, "TD_RangeTile") ||
+               !IsGeneratedPrefab(prefabSet.damageTilePrefab, "TD_DamageTile") ||
+               !IsGeneratedPrefab(prefabSet.rateTilePrefab, "TD_RateTile") ||
+               !IsGeneratedPrefab(prefabSet.xpTilePrefab, "TD_XpTile") ||
+               !IsGeneratedPrefab(prefabSet.upgradeTilePrefab, "TD_UpgradeTile") ||
                !IsGeneratedPrefab(prefabSet.pathGhostTilePrefab, "TD_PathGhostTile") ||
                !IsGeneratedPrefab(prefabSet.blockedTilePrefab, "TD_BlockedTile");
     }
@@ -1049,9 +1099,17 @@ public static class GeneratedTilePrefabSetup
                !IsGeneratedPrefab(tileManager.baseTilePrefab, "TD_BaseTile") ||
                !IsGeneratedPrefab(tileManager.buildTilePrefab, "TD_BuildTile") ||
                !IsGeneratedPrefab(tileManager.trapTilePrefab, "TD_TrapTile") ||
+               !IsGeneratedPrefab(tileManager.slowTilePrefab, "TD_SlowTile") ||
+               !IsGeneratedPrefab(tileManager.knockTilePrefab, "TD_KnockTile") ||
+               !IsGeneratedPrefab(tileManager.comboTilePrefab, "TD_ComboTile") ||
                !IsGeneratedPrefab(tileManager.specialTilePrefab, "TD_SpecialTile") ||
                !IsGeneratedPrefab(tileManager.bridgeTilePrefab, "TD_BridgeTile") ||
                !IsGeneratedPrefab(tileManager.goldTilePrefab, "TD_GoldTile") ||
+               !IsGeneratedPrefab(tileManager.rangeTilePrefab, "TD_RangeTile") ||
+               !IsGeneratedPrefab(tileManager.damageTilePrefab, "TD_DamageTile") ||
+               !IsGeneratedPrefab(tileManager.rateTilePrefab, "TD_RateTile") ||
+               !IsGeneratedPrefab(tileManager.xpTilePrefab, "TD_XpTile") ||
+               !IsGeneratedPrefab(tileManager.upgradeTilePrefab, "TD_UpgradeTile") ||
                !IsGeneratedPrefab(tileManager.blockedTilePrefab, "TD_BlockedTile");
     }
 
@@ -1067,7 +1125,15 @@ public static class GeneratedTilePrefabSetup
             return true;
 
         return HasRemovedPathBuildOption(pathBuildManager.randomOptions) ||
-               !HasPathBuildOption(pathBuildManager.randomOptions, PathBuildOptionType.TrapTile);
+               !HasPathBuildOption(pathBuildManager.randomOptions, PathBuildOptionType.TrapTile) ||
+               !HasPathBuildOption(pathBuildManager.randomOptions, PathBuildOptionType.SlowTile) ||
+               !HasPathBuildOption(pathBuildManager.randomOptions, PathBuildOptionType.KnockTile) ||
+               !HasPathBuildOption(pathBuildManager.randomOptions, PathBuildOptionType.RangeTile) ||
+               !HasPathBuildOption(pathBuildManager.randomOptions, PathBuildOptionType.DamageTile) ||
+               !HasPathBuildOption(pathBuildManager.randomOptions, PathBuildOptionType.RateTile) ||
+               !HasPathBuildOption(pathBuildManager.randomOptions, PathBuildOptionType.XPTile) ||
+               !HasPathBuildOption(pathBuildManager.randomOptions, PathBuildOptionType.UpgradeTile) ||
+               !HasPathBuildOption(pathBuildManager.randomOptions, PathBuildOptionType.ComboTile);
     }
 
     private static bool IsGeneratedPrefab(GameObject prefab, string prefabName)
