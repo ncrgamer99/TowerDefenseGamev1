@@ -41,7 +41,7 @@ public class ChaosUnlockManager : MonoBehaviour
     public bool enableUnlockUI = true;
     public KeyCode toggleKey = KeyCode.F2;
     public bool closeWithEscape = true;
-    public bool allowOpeningDuringWave = true;
+    public bool allowOpeningDuringWave = false;
     public bool closeGameplayPanelsWhenOpening = true;
 
     [Header("Entries")]
@@ -119,13 +119,26 @@ public class ChaosUnlockManager : MonoBehaviour
 
         ResolveReferences();
 
-        if (gameManager != null && !gameManager.CanOpenAuxiliaryModalUI())
+        if (gameManager != null && gameManager.gameStarted && !gameManager.isGameOver && gameManager.currentPhase == GamePhase.Wave)
             return;
 
-        if (!allowOpeningDuringWave && gameManager != null && gameManager.currentPhase == GamePhase.Wave)
+        if (gameManager != null)
+        {
+            if (gameManager.startMenuOpen)
+            {
+                gameManager.CloseMainMenuLexicon();
+                gameManager.CloseMainMenuStatistics();
+            }
+            else if (!gameManager.CanOpenAuxiliaryModalUI())
+            {
+                return;
+            }
+        }
+
+        if (!allowOpeningDuringWave && gameManager != null && gameManager.gameStarted && !gameManager.isGameOver && gameManager.currentPhase == GamePhase.Wave)
             return;
 
-        if (closeGameplayPanelsWhenOpening && gameManager != null)
+        if (closeGameplayPanelsWhenOpening && gameManager != null && !gameManager.startMenuOpen)
         {
             gameManager.ClosePathAndBuildSelectionsForModal();
             gameManager.CloseTowerUIForModal();

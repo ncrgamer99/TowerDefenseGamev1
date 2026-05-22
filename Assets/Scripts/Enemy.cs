@@ -203,6 +203,13 @@ public class Enemy : MonoBehaviour
     private bool isTowerSlowed = false;
     private bool isTileSlowed = false;
     private bool isBeingKnockedBack = false;
+    private float basicAnchorMarkedUntil = -1f;
+    private float rapidEscapeMarkedUntil = -1f;
+    private float rapidNeedleMarksExpireAt = -1f;
+    private int rapidNeedleMarks = 0;
+    private float heavyArmorBreakMarkedUntil = -1f;
+    private float heavyArmorWeakenedUntil = -1f;
+    private float heavyImpactStaggerUntil = -1f;
     private EnemyHealthBarEffectMode healthBarEffectMode = EnemyHealthBarEffectMode.None;
     private float currentSlowMultiplier = 1f;
     private float towerSlowMultiplier = 1f;
@@ -623,7 +630,8 @@ public class Enemy : MonoBehaviour
 
         Vector3 oldPosition = transform.position;
         Vector3 targetPosition = pathPoints[currentPathIndex];
-        float finalSpeed = Mathf.Max(0.05f, speed * currentSlowMultiplier * temporarySpeedMultiplier);
+        float heavyStaggerMultiplier = Time.time <= heavyImpactStaggerUntil ? 0.1f : 1f;
+        float finalSpeed = Mathf.Max(0.05f, speed * currentSlowMultiplier * temporarySpeedMultiplier * heavyStaggerMultiplier);
 
         UpdateMovementFacing(targetPosition, false);
         transform.position = Vector3.MoveTowards(transform.position, targetPosition, finalSpeed * Time.deltaTime);
@@ -731,15 +739,25 @@ public class Enemy : MonoBehaviour
 
     public void TakeDamage(float damage, Tower sourceTower, bool ignoreArmor)
     {
-        TakeDamageInternal(damage, sourceTower, ignoreArmor, true);
+        TakeDamageInternal(damage, sourceTower, ignoreArmor, 0, true);
+    }
+
+    public void TakeDamage(float damage, Tower sourceTower, bool ignoreArmor, int armorPierce)
+    {
+        TakeDamageInternal(damage, sourceTower, ignoreArmor, Mathf.Max(0, armorPierce), true);
     }
 
     private void TakeDamageInternal(float damage, Tower sourceTower, bool ignoreArmor, bool canTriggerOnHitEffects)
     {
-        TakeDamageInternal(damage, sourceTower, ignoreArmor, canTriggerOnHitEffects, true);
+        TakeDamageInternal(damage, sourceTower, ignoreArmor, 0, canTriggerOnHitEffects, true);
     }
 
-    private void TakeDamageInternal(float damage, Tower sourceTower, bool ignoreArmor, bool canTriggerOnHitEffects, bool useArmorMinimumDamage)
+    private void TakeDamageInternal(float damage, Tower sourceTower, bool ignoreArmor, int armorPierce, bool canTriggerOnHitEffects)
+    {
+        TakeDamageInternal(damage, sourceTower, ignoreArmor, armorPierce, canTriggerOnHitEffects, true);
+    }
+
+    private void TakeDamageInternal(float damage, Tower sourceTower, bool ignoreArmor, int armorPierce, bool canTriggerOnHitEffects, bool useArmorMinimumDamage)
     {
         if (isDead || reachedBase)
             return;
@@ -748,7 +766,7 @@ public class Enemy : MonoBehaviour
             return;
 
         RegisterContributor(sourceTower, damage);
-        float finalDamage = CalculateFinalDamage(damage, ignoreArmor, useArmorMinimumDamage);
+        float finalDamage = CalculateFinalDamage(damage, ignoreArmor, armorPierce, useArmorMinimumDamage);
         float previousHealth = currentHealth;
         currentHealth -= finalDamage;
         currentHealth = Mathf.Max(0f, currentHealth);
@@ -769,12 +787,13 @@ public class Enemy : MonoBehaviour
             Die(sourceTower);
     }
 
-    private float CalculateFinalDamage(float damage, bool ignoreArmor, bool useArmorMinimumDamage)
+    private float CalculateFinalDamage(float damage, bool ignoreArmor, int armorPierce, bool useArmorMinimumDamage)
     {
         if (ignoreArmor || armor <= 0)
             return damage;
 
-        float armoredDamage = damage - armor;
+        int effectiveArmor = Mathf.Max(0, armor - Mathf.Max(0, armorPierce));
+        float armoredDamage = damage - effectiveArmor;
 
         if (!useArmorMinimumDamage)
             return Mathf.Max(0f, armoredDamage);
@@ -838,6 +857,9 @@ public class Enemy : MonoBehaviour
 
         if (!CanReceiveBurnStack())
             return;
+
+        if (sourceTower != null && sourceTower.towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager fireMasteryManager))
+            fireMasteryManager.RecordFireBurnApplied(sourceTower, this);
 
         burnRoutine = StartCoroutine(BurnDamageOverTimeRoutine(damagePerSecond, duration, sourceTower));
     }
@@ -976,15 +998,38 @@ public class Enemy : MonoBehaviour
 
             if (tickDamage > 0f)
             {
+                FireTowerMasteryManager fireMasteryManager = null;
+                bool useFireMastery = sourceTower != null && sourceTower.towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out fireMasteryManager);
+
+                if (useFireMastery)
+                    tickDamage = fireMasteryManager.ModifyFireBurnTickDamage(sourceTower, this, tickDamage);
+
                 if (IsChaosVariantRole(EnemyRole.Learner))
                 {
                     float reducedDamage = tickDamage * Mathf.Clamp01(chaosLearnerDotDamageMultiplier);
+                    float healAmount = tickDamage * Mathf.Max(0f, chaosLearnerDotHealMultiplier);
+
+                    if (useFireMastery)
+                    {
+                        reducedDamage = fireMasteryManager.ModifyFireChaosLearnerBurnDamage(sourceTower, this, tickDamage, reducedDamage);
+                        healAmount = fireMasteryManager.ModifyFireChaosLearnerHeal(sourceTower, healAmount);
+                    }
+
+                    float previousHealth = currentHealth;
                     TakeDamageInternal(reducedDamage, sourceTower, true, false);
-                    HealChaosVariant(tickDamage * Mathf.Max(0f, chaosLearnerDotHealMultiplier));
+
+                    if (useFireMastery)
+                        fireMasteryManager.RecordFireBurnDamage(sourceTower, this, Mathf.Max(0f, previousHealth - currentHealth));
+
+                    HealChaosVariant(healAmount);
                 }
                 else
                 {
+                    float previousHealth = currentHealth;
                     TakeDamageInternal(tickDamage, sourceTower, true, false);
+
+                    if (useFireMastery)
+                        fireMasteryManager.RecordFireBurnDamage(sourceTower, this, Mathf.Max(0f, previousHealth - currentHealth));
                 }
             }
 
@@ -1197,6 +1242,26 @@ public class Enemy : MonoBehaviour
         if (killingTower != null)
             killingTower.RegisterKill(enemyRole);
 
+        TowerMasteryManager towerMasteryManager = TowerMasteryManager.GetOrCreate(gameManager);
+        if (towerMasteryManager != null)
+            towerMasteryManager.RecordEnemyDefeated(this, killingTower, contributingTowers.Keys);
+
+        RapidTowerMasteryManager rapidMasteryManager = RapidTowerMasteryManager.GetOrCreate(gameManager);
+        if (rapidMasteryManager != null)
+            rapidMasteryManager.RecordEnemyDefeated(this, killingTower, contributingTowers.Keys);
+
+        HeavyTowerMasteryManager heavyMasteryManager = HeavyTowerMasteryManager.GetOrCreate(gameManager);
+        if (heavyMasteryManager != null)
+            heavyMasteryManager.RecordEnemyDefeated(this, killingTower, contributingTowers.Keys);
+
+        FireTowerMasteryManager fireMasteryManager = FireTowerMasteryManager.GetOrCreate(gameManager);
+        if (fireMasteryManager != null)
+            fireMasteryManager.RecordEnemyDefeated(this, killingTower, contributingTowers.Keys);
+
+        BasicTowerMasteryManager masteryManager = BasicTowerMasteryManager.GetOrCreate(gameManager);
+        if (masteryManager != null)
+            masteryManager.RecordEnemyDefeated(this, killingTower, contributingTowers.Keys);
+
         NotifyGameManagerEnemyKilled();
         GiveGoldReward();
         GiveXPRewards(killingTower);
@@ -1342,6 +1407,102 @@ public class Enemy : MonoBehaviour
     public float GetPathProgress()
     {
         return currentPathIndex + distanceTravelled * 0.001f;
+    }
+
+    public float GetPathProgressPercent()
+    {
+        if (pathPoints == null || pathPoints.Count <= 1)
+            return reachedBase ? 1f : 0f;
+
+        return Mathf.Clamp01(currentPathIndex / (float)(pathPoints.Count - 1));
+    }
+
+    public void ApplyBasicAnchorMark(float duration, Tower sourceTower)
+    {
+        if (isDead || reachedBase)
+            return;
+
+        RegisterContributor(sourceTower, 0.1f);
+        basicAnchorMarkedUntil = Mathf.Max(basicAnchorMarkedUntil, Time.time + Mathf.Max(0.1f, duration));
+    }
+
+    public bool HasBasicAnchorMark()
+    {
+        return Time.time <= basicAnchorMarkedUntil;
+    }
+
+    public void ApplyRapidEscapeMark(float duration, Tower sourceTower)
+    {
+        if (isDead || reachedBase)
+            return;
+
+        RegisterContributor(sourceTower, 0.1f);
+        rapidEscapeMarkedUntil = Mathf.Max(rapidEscapeMarkedUntil, Time.time + Mathf.Max(0.1f, duration));
+    }
+
+    public bool HasRapidEscapeMark()
+    {
+        return Time.time <= rapidEscapeMarkedUntil;
+    }
+
+    public bool ApplyRapidNeedleMarks(int applications, int triggerThreshold, float duration, Tower sourceTower)
+    {
+        if (isDead || reachedBase)
+            return false;
+
+        int safeThreshold = Mathf.Max(1, triggerThreshold);
+        int safeApplications = Mathf.Max(1, applications);
+
+        if (Time.time > rapidNeedleMarksExpireAt)
+            rapidNeedleMarks = 0;
+
+        RegisterContributor(sourceTower, 0.1f);
+        rapidNeedleMarks += safeApplications;
+        rapidNeedleMarksExpireAt = Time.time + Mathf.Max(0.1f, duration);
+
+        if (rapidNeedleMarks < safeThreshold)
+            return false;
+
+        rapidNeedleMarks = 0;
+        rapidNeedleMarksExpireAt = -1f;
+        return true;
+    }
+
+    public void ApplyHeavyArmorBreakMark(float duration, Tower sourceTower)
+    {
+        if (isDead || reachedBase)
+            return;
+
+        RegisterContributor(sourceTower, 0.1f);
+        heavyArmorBreakMarkedUntil = Mathf.Max(heavyArmorBreakMarkedUntil, Time.time + Mathf.Max(0.1f, duration));
+    }
+
+    public bool HasHeavyArmorBreakMark()
+    {
+        return Time.time <= heavyArmorBreakMarkedUntil;
+    }
+
+    public void ApplyHeavyArmorWeaken(float duration, Tower sourceTower)
+    {
+        if (isDead || reachedBase)
+            return;
+
+        RegisterContributor(sourceTower, 0.1f);
+        heavyArmorWeakenedUntil = Mathf.Max(heavyArmorWeakenedUntil, Time.time + Mathf.Max(0.1f, duration));
+    }
+
+    public bool HasHeavyArmorWeaken()
+    {
+        return Time.time <= heavyArmorWeakenedUntil;
+    }
+
+    public void ApplyHeavyImpactStagger(float duration, Tower sourceTower)
+    {
+        if (isDead || reachedBase || IsBossOrMiniBossTarget())
+            return;
+
+        RegisterContributor(sourceTower, 0.1f);
+        heavyImpactStaggerUntil = Mathf.Max(heavyImpactStaggerUntil, Time.time + Mathf.Max(0.05f, duration));
     }
 
     public bool HasEffect(EnemyEffectCheck effectCheck)
@@ -1885,6 +2046,16 @@ public class Enemy : MonoBehaviour
     public int GetCurrentHealth()
     {
         return Mathf.CeilToInt(currentHealth);
+    }
+
+    public int GetArmor()
+    {
+        return Mathf.Max(0, armor);
+    }
+
+    public float GetHealthPercent()
+    {
+        return maxHealth > 0f ? Mathf.Clamp01(currentHealth / maxHealth) : 0f;
     }
 
     public bool IsEliteTarget()

@@ -83,7 +83,9 @@ public class TowerSupportTileEffect : MonoBehaviour
             return false;
         }
 
-        if (!gameManager.SpendGold(option.cost, RunGoldSpendSource.TowerBuild))
+        int finalCost = BasicTowerMasteryManager.GetModifiedBuildCost(option.cost, option.prefab, option.displayName);
+
+        if (!gameManager.SpendGold(finalCost, RunGoldSpendSource.TowerBuild))
             return false;
 
         if (gridPosition == Vector2Int.zero)
@@ -95,14 +97,14 @@ public class TowerSupportTileEffect : MonoBehaviour
 
         if (builtTower != null)
         {
-            builtTower.InitializeBuildData(option.cost, gridPosition);
+            builtTower.InitializeBuildData(finalCost, gridPosition);
             ApplyToTower(builtTower);
         }
 
         occupyingTower = builtTower;
         isOccupied = builtTower != null;
 
-        gameManager.RegisterTowerBuilt(builtTower, option.cost, gridPosition, towerPosition);
+        gameManager.RegisterTowerBuilt(builtTower, finalCost, gridPosition, towerPosition);
         tileManager.RegisterTowerPosition(transform.position);
 
         Debug.Log("Tower auf " + GetDisplayName(tileType) + " gebaut.");

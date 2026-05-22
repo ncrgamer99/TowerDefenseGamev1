@@ -13,6 +13,24 @@ public class Projectile : MonoBehaviour
 {
     public float speed = 40f;
     public int damage = 1;
+    public bool ignoreArmor = false;
+    public int armorPierce = 0;
+    public bool applyBasicAnchorMark = false;
+    public bool applyRapidEscapeMark = false;
+    public float rapidEscapeMarkDuration = 2.5f;
+    public bool applyRapidNeedleMark = false;
+    public int rapidNeedleMarkThreshold = 0;
+    public int rapidNeedleMarkApplications = 1;
+    public float rapidNeedleMarkDuration = 3f;
+    public int rapidNeedleBonusDamage = 0;
+    public bool rapidNeedleBonusArmorPierce = false;
+    public int rapidNeedleHailDamage = 0;
+    public bool applyHeavyArmorBreakMark = false;
+    public float heavyArmorBreakMarkDuration = 4f;
+    public bool applyHeavyArmorWeaken = false;
+    public float heavyArmorWeakenDuration = 3f;
+    public bool applyHeavyImpactStagger = false;
+    public float heavyImpactStaggerDuration = 0.15f;
     public ProjectileBehavior behavior = ProjectileBehavior.Direct;
     public Color directProjectileColor = new Color32(255, 230, 90, 255);
     public Color lightningProjectileColor = new Color32(125, 220, 255, 255);
@@ -148,10 +166,59 @@ public class Projectile : MonoBehaviour
         if (enemy == null)
             return;
 
-        enemy.TakeDamage(hitDamage, ownerTower);
+        float healthBeforeHit = enemy.currentHealth;
+
+        if (ownerTower != null && ownerTower.towerRole == TowerRole.Heavy && HeavyTowerMasteryManager.TryGetActive(out HeavyTowerMasteryManager heavyMasteryManager))
+        {
+            heavyMasteryManager.RecordPotentialOverkill(ownerTower, enemy, hitDamage);
+            enemy.TakeDamage(hitDamage, ownerTower, ignoreArmor, armorPierce);
+            heavyMasteryManager.RecordHeavyHit(ownerTower, enemy);
+        }
+        else
+        {
+            enemy.TakeDamage(hitDamage, ownerTower, ignoreArmor, armorPierce);
+        }
+
+        if (ownerTower != null && ownerTower.towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager fireMasteryManager))
+            fireMasteryManager.RecordFireDirectDamage(ownerTower, enemy, Mathf.Max(0f, healthBeforeHit - enemy.currentHealth));
+
+        if (applyBasicAnchorMark)
+            enemy.ApplyBasicAnchorMark(3f, ownerTower);
+
+        if (applyRapidEscapeMark)
+            enemy.ApplyRapidEscapeMark(rapidEscapeMarkDuration, ownerTower);
+
+        if (applyRapidNeedleMark && enemy.ApplyRapidNeedleMarks(rapidNeedleMarkApplications, rapidNeedleMarkThreshold, rapidNeedleMarkDuration, ownerTower))
+        {
+            if (rapidNeedleBonusDamage > 0)
+                enemy.TakeDamage(rapidNeedleBonusDamage, ownerTower, false, rapidNeedleBonusArmorPierce ? 1 : 0);
+
+            if (rapidNeedleHailDamage > 0)
+                enemy.TakeDamage(rapidNeedleHailDamage, ownerTower, false, 0);
+        }
+
+        if (applyHeavyArmorBreakMark)
+            enemy.ApplyHeavyArmorBreakMark(heavyArmorBreakMarkDuration, ownerTower);
+
+        if (applyHeavyArmorWeaken)
+            enemy.ApplyHeavyArmorWeaken(heavyArmorWeakenDuration, ownerTower);
+
+        if (applyHeavyImpactStagger)
+            enemy.ApplyHeavyImpactStagger(heavyImpactStaggerDuration, ownerTower);
 
         if (appliesBurn)
-            enemy.ApplyBurn(burnDamage, burnDuration, ownerTower);
+        {
+            float finalBurnDamage = burnDamage;
+            float finalBurnDuration = burnDuration;
+
+            if (ownerTower != null && ownerTower.towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager burnMasteryManager))
+            {
+                finalBurnDamage = burnMasteryManager.GetModifiedFireBurnDamage(ownerTower, enemy, burnDamage);
+                finalBurnDuration = burnMasteryManager.GetModifiedFireBurnDuration(ownerTower, enemy, burnDuration);
+            }
+
+            enemy.ApplyBurn(finalBurnDamage, finalBurnDuration, ownerTower);
+        }
 
         if (appliesPoison)
             enemy.ApplyPoison(poisonDamage, poisonDuration, ownerTower);

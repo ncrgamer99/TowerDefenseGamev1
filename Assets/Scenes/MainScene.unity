@@ -2503,6 +2503,7 @@ MonoBehaviour:
   towerUI: {fileID: 900815697}
   buildSelectionUI: {fileID: 1157879198}
   pathBuildManager: {fileID: 1677539941}
+  supportTileBuildUI: {fileID: 0}
   highlightHoveredBuildTile: 1
 --- !u!4 &276326607
 Transform:
@@ -4724,9 +4725,12 @@ MonoBehaviour:
   titleText: {fileID: 0}
   summaryText: {fileID: 0}
   detailText: {fileID: 0}
+  sectionButtonContent: {fileID: 0}
   entryListContent: {fileID: 0}
   closeButton: {fileID: 0}
   refreshButton: {fileID: 0}
+  primaryActionButton: {fileID: 0}
+  primaryActionButtonText: {fileID: 0}
   notificationPanel: {fileID: 0}
   notificationText: {fileID: 0}
   notificationDuration: 4
@@ -7512,6 +7516,17 @@ MonoBehaviour:
   chaosLexiconUI: {fileID: 504844866}
   chaosUnlockManager: {fileID: 459103897}
   chaosUnlockUI: {fileID: 459103896}
+  towerMasteryManager: {fileID: 0}
+  basicTowerMasteryManager: {fileID: 0}
+  rapidTowerMasteryManager: {fileID: 0}
+  heavyTowerMasteryManager: {fileID: 0}
+  fireTowerMasteryManager: {fileID: 0}
+  mainMenuLexiconManager: {fileID: 0}
+  mainMenuLexiconUI: {fileID: 0}
+  autoCreateMainMenuLexicon: 1
+  mainMenuStatisticsManager: {fileID: 0}
+  mainMenuStatisticsUI: {fileID: 0}
+  autoCreateMainMenuStatistics: 1
   runStatisticsTracker: {fileID: 0}
   autoCreateRunStatisticsTracker: 1
   buildManager: {fileID: 276326606}
@@ -7627,6 +7642,7 @@ MonoBehaviour:
     baseDamageTaken: 0
     killedRoles: []
     leakedRoles: []
+    baseDamageByRole: []
     chaosVariantSpawnCount: 0
     chaosVariantKilledCount: 0
     chaosVariantReachedBaseCount: 0
@@ -7665,6 +7681,7 @@ MonoBehaviour:
     baseDamageTaken: 0
     killedRoles: []
     leakedRoles: []
+    baseDamageByRole: []
     chaosVariantSpawnCount: 0
     chaosVariantKilledCount: 0
     chaosVariantReachedBaseCount: 0
@@ -10156,6 +10173,7 @@ MonoBehaviour:
   blockedTilePrefab: {fileID: 4687535001054656413, guid: f4a0f7c613011ab4bb87c4015ebae75c, type: 3}
   gameManager: {fileID: 652380030}
   tileSize: 1
+  createPathOnStart: 0
   scaleWorldVisualOnStart: 1
   worldVisualRoot: {fileID: 794502104}
   worldVisualScaleMultiplier: 5
@@ -17894,7 +17912,8 @@ MonoBehaviour:
     description: 'XP-Tile: kein Weg. Baue einen Tower darauf: +25% XP.'
     optionType: 10
   - displayName: Upgrade Tile
-    description: 'Upgrade-Tile: kein Weg. Baue einen Tower darauf: Point-Upgrades +1 staerker.'
+    description: 'Upgrade-Tile: kein Weg. Baue einen Tower darauf: Point-Upgrades
+      +1 staerker.'
     optionType: 11
   - displayName: Combo Tile
     description: 'Combo-Tile: Darkness, wenn Gegner Burn, Poison und Bleed gleichzeitig

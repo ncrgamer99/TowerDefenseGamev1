@@ -96,6 +96,10 @@ public class Tower : MonoBehaviour
     private TowerVisualTierPrefabController visualTierPrefabController;
     private TowerAimController aimController;
     private Enemy currentTarget;
+    private int basicMasteryShotCounter = 0;
+    private int basicMasteryShotsSinceKill = 0;
+    private int rapidMasteryShotCounter = 0;
+    private int heavyMasteryShotCounter = 0;
 
     private bool visualTierBaseStatsCaptured = false;
     private int baseDamageBeforeVisualTier = 0;
@@ -638,7 +642,12 @@ public class Tower : MonoBehaviour
 
     public int GetSellRefundAmount()
     {
-        return Mathf.FloorToInt(Mathf.Max(0, originalBuildCost) * Mathf.Clamp01(sellRefundPercent));
+        float refundPercent = sellRefundPercent;
+
+        if (towerRole == TowerRole.Basic && BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager masteryManager))
+            refundPercent += masteryManager.GetBasicSellRefundBonus();
+
+        return Mathf.FloorToInt(Mathf.Max(0, originalBuildCost) * Mathf.Clamp01(refundPercent));
     }
 
     private void HandleWaveStarted(WaveData waveData)
@@ -652,12 +661,61 @@ public class Tower : MonoBehaviour
     {
         totalKills++;
         currentWaveKills++;
+
+        if (TowerMasteryManager.TryGetActive(out TowerMasteryManager towerMasteryManager))
+            towerMasteryManager.RecordTowerKill(this, killedRole);
+
+        if (towerRole == TowerRole.Rapid && RapidTowerMasteryManager.TryGetActive(out RapidTowerMasteryManager rapidMasteryManager))
+        {
+            rapidMasteryManager.RecordRapidKill(this, killedRole);
+
+            float readyBonus = rapidMasteryManager.GetCleanRetargetReadyBonus();
+            if (readyBonus > 0f)
+            {
+                float interval = 1f / Mathf.Max(0.01f, GetEffectiveFireRate());
+                fireCooldown = Mathf.Min(fireCooldown, interval * (1f - readyBonus));
+            }
+        }
+
+        if (towerRole == TowerRole.Heavy && HeavyTowerMasteryManager.TryGetActive(out HeavyTowerMasteryManager heavyMasteryManager))
+            heavyMasteryManager.RecordHeavyKill(this, killedRole);
+
+        if (towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager fireMasteryManager))
+            fireMasteryManager.RecordFireKill(this, killedRole);
+
+        if (towerRole == TowerRole.Basic && BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager masteryManager))
+        {
+            basicMasteryShotsSinceKill = 0;
+            masteryManager.RecordBasicKill(this, killedRole);
+
+            float readyBonus = masteryManager.GetCleanRetargetReadyBonus();
+            if (readyBonus > 0f)
+            {
+                float interval = 1f / Mathf.Max(0.01f, GetEffectiveFireRate());
+                fireCooldown = Mathf.Min(fireCooldown, interval * (1f - readyBonus));
+            }
+        }
     }
 
     public void RegisterAssist(EnemyRole assistedRole)
     {
         totalAssists++;
         currentWaveAssists++;
+
+        if (TowerMasteryManager.TryGetActive(out TowerMasteryManager towerMasteryManager))
+            towerMasteryManager.RecordTowerAssist(this, assistedRole);
+
+        if (towerRole == TowerRole.Rapid && RapidTowerMasteryManager.TryGetActive(out RapidTowerMasteryManager rapidMasteryManager))
+            rapidMasteryManager.RecordRapidAssist(this, assistedRole);
+
+        if (towerRole == TowerRole.Heavy && HeavyTowerMasteryManager.TryGetActive(out HeavyTowerMasteryManager heavyMasteryManager))
+            heavyMasteryManager.RecordHeavyAssist(this, assistedRole);
+
+        if (towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager fireMasteryManager))
+            fireMasteryManager.RecordFireAssist(this, assistedRole);
+
+        if (towerRole == TowerRole.Basic && BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager masteryManager))
+            masteryManager.RecordBasicAssist(this, assistedRole);
     }
 
     public void RegisterDamage(float amount)
@@ -667,6 +725,18 @@ public class Tower : MonoBehaviour
 
         totalDamageDealt += amount;
         currentWaveDamageDealt += amount;
+
+        if (TowerMasteryManager.TryGetActive(out TowerMasteryManager towerMasteryManager))
+            towerMasteryManager.RecordTowerDamage(this, amount);
+
+        if (towerRole == TowerRole.Rapid && RapidTowerMasteryManager.TryGetActive(out RapidTowerMasteryManager rapidMasteryManager))
+            rapidMasteryManager.RecordRapidDamage(this, amount);
+
+        if (towerRole == TowerRole.Heavy && HeavyTowerMasteryManager.TryGetActive(out HeavyTowerMasteryManager heavyMasteryManager))
+            heavyMasteryManager.RecordHeavyDamage(this, amount);
+
+        if (towerRole == TowerRole.Basic && BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager masteryManager))
+            masteryManager.RecordBasicDamage(this, amount);
     }
 
     private void RefreshProgressionValues()
@@ -931,10 +1001,101 @@ public class Tower : MonoBehaviour
 
     private void Shoot(Enemy target)
     {
+        if (towerRole == TowerRole.Basic && BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager masteryManager))
+        {
+            basicMasteryShotCounter++;
+            basicMasteryShotsSinceKill++;
+
+            BasicTowerMasteryShotContext context = masteryManager.PrepareBasicShot(this, target, basicMasteryShotCounter, basicMasteryShotsSinceKill);
+
+            if (context.primaryTarget != null)
+                target = context.primaryTarget;
+
+            int baseDamage = GetEffectiveDamage();
+            int primaryDamage = masteryManager.CalculateBasicShotDamage(this, target, baseDamage, context, 1f);
+            FireProjectile(target, primaryDamage, context.ignoreArmor, context.applyAnchorMark);
+
+            if (context.reloadShot)
+                basicMasteryShotsSinceKill = 0;
+
+            if (context.doubleTap && target != null)
+            {
+                int doubleTapDamage = masteryManager.CalculateBasicDoubleTapDamage(this, target, baseDamage, context);
+                FireProjectile(target, doubleTapDamage, false, false);
+            }
+
+            if (context.controlledSalvoTarget != null)
+            {
+                int controlledDamage = masteryManager.CalculateBasicControlledSalvoDamage(this, context.controlledSalvoTarget, baseDamage, context);
+                FireProjectile(context.controlledSalvoTarget, controlledDamage, false, false);
+            }
+
+            return;
+        }
+
+        if (towerRole == TowerRole.Rapid && RapidTowerMasteryManager.TryGetActive(out RapidTowerMasteryManager rapidMasteryManager))
+        {
+            rapidMasteryShotCounter++;
+
+            RapidTowerMasteryShotContext context = rapidMasteryManager.PrepareRapidShot(this, target, rapidMasteryShotCounter);
+
+            if (context.primaryTarget != null)
+                target = context.primaryTarget;
+
+            int baseDamage = GetEffectiveDamage();
+            int primaryDamage = rapidMasteryManager.CalculateRapidShotDamage(this, target, baseDamage, context, 1f);
+            Projectile projectile = FireProjectile(target, primaryDamage, false, false);
+            rapidMasteryManager.FillRapidProjectileData(projectile, context, baseDamage);
+            return;
+        }
+
+        if (towerRole == TowerRole.Heavy && HeavyTowerMasteryManager.TryGetActive(out HeavyTowerMasteryManager heavyMasteryManager))
+        {
+            heavyMasteryShotCounter++;
+
+            HeavyTowerMasteryShotContext context = heavyMasteryManager.PrepareHeavyShot(this, target, heavyMasteryShotCounter);
+
+            if (context.primaryTarget != null)
+                target = context.primaryTarget;
+
+            int baseDamage = GetEffectiveDamage();
+            int primaryDamage = heavyMasteryManager.CalculateHeavyShotDamage(this, target, baseDamage, context, 1f);
+            Projectile projectile = FireProjectile(target, primaryDamage, false, false);
+            heavyMasteryManager.FillHeavyProjectileData(projectile, context);
+
+            if (context.secondaryTarget != null)
+            {
+                HeavyTowerMasteryShotContext secondaryContext = context;
+                secondaryContext.consumeOverkillBonus = false;
+                secondaryContext.siegeDischarge = false;
+                secondaryContext.colossusStrike = false;
+                secondaryContext.applyArmorBreakMark = false;
+                secondaryContext.applyArmorWeaken = false;
+                int secondaryDamage = heavyMasteryManager.CalculateHeavyShotDamage(this, context.secondaryTarget, baseDamage, secondaryContext, context.secondaryDamageMultiplier);
+                Projectile secondaryProjectile = FireProjectile(context.secondaryTarget, secondaryDamage, false, false);
+                heavyMasteryManager.FillHeavyProjectileData(secondaryProjectile, secondaryContext);
+            }
+
+            return;
+        }
+
+        if (towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager fireMasteryManager))
+        {
+            int baseDamage = GetEffectiveDamage();
+            int fireDamage = fireMasteryManager.CalculateFireShotDamage(this, target, baseDamage);
+            FireProjectile(target, fireDamage, false, false);
+            return;
+        }
+
+        FireProjectile(target, GetEffectiveDamage(), false, false);
+    }
+
+    private Projectile FireProjectile(Enemy target, int projectileDamage, bool ignoreArmor, bool applyBasicAnchorMark)
+    {
         if (projectilePrefab == null || firePoint == null)
         {
             Debug.LogError("Tower fehlt ProjectilePrefab oder FirePoint!");
-            return;
+            return null;
         }
 
         GameObject projectileObject = Instantiate(projectilePrefab, firePoint.position, Quaternion.identity);
@@ -944,10 +1105,13 @@ public class Tower : MonoBehaviour
         {
             Debug.LogError("Projectile Script fehlt auf Projectile Prefab!");
             Destroy(projectileObject);
-            return;
+            return null;
         }
 
-        projectile.damage = GetEffectiveDamage();
+        projectile.damage = Mathf.Max(0, projectileDamage);
+        projectile.ignoreArmor = false;
+        projectile.armorPierce = ignoreArmor ? 1 : 0;
+        projectile.applyBasicAnchorMark = applyBasicAnchorMark;
         projectile.speed = GetProjectileSpeedForRole();
         projectile.behavior = GetProjectileBehaviorForRole();
         ConfigureRoleProjectile(projectile, target);
@@ -961,6 +1125,7 @@ public class Tower : MonoBehaviour
         projectile.slowAmount = slowAmount;
         projectile.slowDuration = slowDuration;
         projectile.SetTarget(target, this);
+        return projectile;
     }
 
     private float GetProjectileSpeedForRole()
@@ -1168,6 +1333,18 @@ public class Tower : MonoBehaviour
 
         int finalAmount = TowerSupportTileEffect.ApplyXPMultiplier(this, amount);
 
+        if (towerRole == TowerRole.Basic && BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager masteryManager))
+            finalAmount = Mathf.Max(0, Mathf.RoundToInt(finalAmount * masteryManager.GetBasicXPMultiplier()));
+
+        if (towerRole == TowerRole.Rapid && RapidTowerMasteryManager.TryGetActive(out RapidTowerMasteryManager rapidMasteryManager))
+            finalAmount = Mathf.Max(0, Mathf.RoundToInt(finalAmount * rapidMasteryManager.GetRapidXPMultiplier()));
+
+        if (towerRole == TowerRole.Heavy && HeavyTowerMasteryManager.TryGetActive(out HeavyTowerMasteryManager heavyMasteryManager))
+            finalAmount = Mathf.Max(0, Mathf.RoundToInt(finalAmount * heavyMasteryManager.GetHeavyXPMultiplier()));
+
+        if (towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager fireMasteryManager))
+            finalAmount = Mathf.Max(0, Mathf.RoundToInt(finalAmount * fireMasteryManager.GetFireXPMultiplier()));
+
         currentXP += finalAmount;
         RecordTowerXPGainedForRunStats(finalAmount);
 
@@ -1225,6 +1402,13 @@ public class Tower : MonoBehaviour
         PlayLevelUpVisual(gainedUpgradePoint);
         RefreshUpgradePointAvailableVisual();
         RecordTowerLevelUpForRunStats(gainedUpgradePoint, gainedMetaPoint, gainedVisualTier);
+
+        if (TowerMasteryManager.TryGetActive(out TowerMasteryManager towerMasteryManager))
+            towerMasteryManager.RecordTowerLevelReached(this, level);
+
+        if (towerRole == TowerRole.Basic && BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager masteryManager))
+            masteryManager.RecordBasicLevelReached(this, level);
+
         Debug.Log(message);
     }
 
@@ -1740,17 +1924,59 @@ public class Tower : MonoBehaviour
 
     public float GetEffectiveRange()
     {
-        return Mathf.Max(0f, range + TowerSupportTileEffect.GetRangeBonus(this));
+        float effectiveRange = range + TowerSupportTileEffect.GetRangeBonus(this);
+
+        if (towerRole == TowerRole.Basic && BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager masteryManager))
+            effectiveRange += masteryManager.GetBasicRangeBonus(this, effectiveRange);
+
+        if (towerRole == TowerRole.Rapid && RapidTowerMasteryManager.TryGetActive(out RapidTowerMasteryManager rapidMasteryManager))
+            effectiveRange += rapidMasteryManager.GetRapidRangeBonus();
+
+        if (towerRole == TowerRole.Heavy && HeavyTowerMasteryManager.TryGetActive(out HeavyTowerMasteryManager heavyMasteryManager))
+            effectiveRange += heavyMasteryManager.GetHeavyRangeBonus();
+
+        if (towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager fireMasteryManager))
+            effectiveRange += fireMasteryManager.GetFireRangeBonus();
+
+        return Mathf.Max(0f, effectiveRange);
     }
 
     public float GetEffectiveFireRate()
     {
-        return Mathf.Max(0.01f, fireRate * TowerSupportTileEffect.GetFireRateMultiplier(this));
+        float baseFireRate = fireRate;
+
+        if (towerRole == TowerRole.Basic && BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager masteryManager))
+            baseFireRate = (baseFireRate + masteryManager.GetBasicFireRateAdditive()) * masteryManager.GetBasicFireRateMultiplier(this);
+
+        if (towerRole == TowerRole.Rapid && RapidTowerMasteryManager.TryGetActive(out RapidTowerMasteryManager rapidMasteryManager))
+            baseFireRate = (baseFireRate + rapidMasteryManager.GetRapidFireRateAdditive()) * rapidMasteryManager.GetRapidFireRateMultiplier(this);
+
+        if (towerRole == TowerRole.Heavy && HeavyTowerMasteryManager.TryGetActive(out HeavyTowerMasteryManager heavyMasteryManager))
+            baseFireRate += heavyMasteryManager.GetHeavyFireRateAdditive();
+
+        if (towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager fireMasteryManager))
+            baseFireRate *= fireMasteryManager.GetFireFireRateMultiplier(this);
+
+        return Mathf.Max(0.01f, baseFireRate * TowerSupportTileEffect.GetFireRateMultiplier(this));
     }
 
     public int GetEffectiveDamage()
     {
-        return Mathf.Max(0, Mathf.RoundToInt(damage * TowerSupportTileEffect.GetDamageMultiplier(this)));
+        float baseDamage = damage;
+
+        if (towerRole == TowerRole.Basic && BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager masteryManager))
+            baseDamage += masteryManager.GetBasicDamageBaseBonus();
+
+        if (towerRole == TowerRole.Rapid && RapidTowerMasteryManager.TryGetActive(out RapidTowerMasteryManager rapidMasteryManager))
+            baseDamage += rapidMasteryManager.GetRapidDamageBaseBonus();
+
+        if (towerRole == TowerRole.Heavy && HeavyTowerMasteryManager.TryGetActive(out HeavyTowerMasteryManager heavyMasteryManager))
+            baseDamage += heavyMasteryManager.GetHeavyDamageBaseBonus();
+
+        if (towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager fireMasteryManager))
+            baseDamage += fireMasteryManager.GetFireDirectDamageBaseBonus();
+
+        return Mathf.Max(0, Mathf.RoundToInt(baseDamage * TowerSupportTileEffect.GetDamageMultiplier(this)));
     }
 
     private int GetEffectivePointUpgradePowerMultiplier()

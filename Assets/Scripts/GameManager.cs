@@ -29,6 +29,11 @@ public class GameManager : MonoBehaviour
     public ChaosLexiconUI chaosLexiconUI;
     public ChaosUnlockManager chaosUnlockManager;
     public ChaosUnlockUI chaosUnlockUI;
+    public TowerMasteryManager towerMasteryManager;
+    public BasicTowerMasteryManager basicTowerMasteryManager;
+    public RapidTowerMasteryManager rapidTowerMasteryManager;
+    public HeavyTowerMasteryManager heavyTowerMasteryManager;
+    public FireTowerMasteryManager fireTowerMasteryManager;
     public MainMenuLexiconManager mainMenuLexiconManager;
     public MainMenuLexiconUI mainMenuLexiconUI;
     public bool autoCreateMainMenuLexicon = true;
@@ -148,6 +153,11 @@ public class GameManager : MonoBehaviour
         GetChaosJusticeManager();
         GetRunStatisticsTracker();
         GetChaosUnlockManager();
+        GetTowerMasteryManager();
+        GetBasicTowerMasteryManager();
+        GetRapidTowerMasteryManager();
+        GetHeavyTowerMasteryManager();
+        GetFireTowerMasteryManager();
         GetEliteRewardChoiceManager();
         GetEliteSpawnWarningManager();
         EnsureEnemyWaveDebugWindow();
@@ -404,9 +414,30 @@ public class GameManager : MonoBehaviour
         postEliteRewardChoicePending = false;
         ApplyStartModeResources(mode);
 
+        TowerMasteryManager towerMasteryManager = GetTowerMasteryManager();
+        if (towerMasteryManager != null)
+            towerMasteryManager.StartNewRun();
+
+        BasicTowerMasteryManager basicMasteryManager = GetBasicTowerMasteryManager();
+        if (basicMasteryManager != null)
+            basicMasteryManager.StartNewRun();
+
+        RapidTowerMasteryManager rapidMasteryManager = GetRapidTowerMasteryManager();
+        if (rapidMasteryManager != null)
+            rapidMasteryManager.StartNewRun();
+
+        HeavyTowerMasteryManager heavyMasteryManager = GetHeavyTowerMasteryManager();
+        if (heavyMasteryManager != null)
+            heavyMasteryManager.StartNewRun();
+
+        FireTowerMasteryManager fireMasteryManager = GetFireTowerMasteryManager();
+        if (fireMasteryManager != null)
+            fireMasteryManager.StartNewRun();
+
         if (startMenuRoot != null)
             startMenuRoot.SetActive(false);
 
+        CloseMainMenuUnlocks();
         CloseMainMenuLexicon();
         CloseMainMenuStatistics();
 
@@ -660,11 +691,20 @@ public class GameManager : MonoBehaviour
             quitGameButton.onClick.AddListener(QuitGameFromStartMenu);
         }
 
-        SetupPlaceholderStartMenuButton(startUnlocksButton, "Freischaltungen");
+        SetupStartMenuUnlocksButton();
         SetupStartMenuLexiconButton();
         SetupStartMenuStatisticsButton();
         SetupPlaceholderStartMenuButton(startOptionsButton, "Optionen");
         SetupPlaceholderStartMenuButton(startResetButton, "Reset");
+    }
+
+    private void SetupStartMenuUnlocksButton()
+    {
+        if (startUnlocksButton == null)
+            return;
+
+        startUnlocksButton.onClick.RemoveAllListeners();
+        startUnlocksButton.onClick.AddListener(OpenMainMenuUnlocks);
     }
 
     private void SetupStartMenuLexiconButton()
@@ -696,6 +736,7 @@ public class GameManager : MonoBehaviour
 
     public void OpenMainMenuLexicon()
     {
+        CloseMainMenuUnlocks();
         CloseMainMenuStatistics();
 
         MainMenuLexiconManager manager = GetMainMenuLexiconManager();
@@ -711,6 +752,7 @@ public class GameManager : MonoBehaviour
 
     public void OpenMainMenuStatistics()
     {
+        CloseMainMenuUnlocks();
         CloseMainMenuLexicon();
 
         MainMenuStatisticsManager manager = GetMainMenuStatisticsManager();
@@ -722,6 +764,30 @@ public class GameManager : MonoBehaviour
         }
 
         manager.OpenStatistics();
+    }
+
+    public void OpenMainMenuUnlocks()
+    {
+        CloseMainMenuLexicon();
+        CloseMainMenuStatistics();
+
+        ChaosUnlockManager manager = GetChaosUnlockManager();
+
+        if (manager == null)
+        {
+            OpenStartMenuPlaceholder("Freischaltungen");
+            return;
+        }
+
+        manager.OpenUnlocks();
+    }
+
+    public void CloseMainMenuUnlocks()
+    {
+        if (chaosUnlockManager != null)
+            chaosUnlockManager.CloseUnlocks();
+        else if (chaosUnlockUI != null)
+            chaosUnlockUI.CloseUnlocks();
     }
 
     public void CloseMainMenuLexicon()
@@ -1722,7 +1788,16 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return;
 
-        lives -= amount;
+        int safeAmount = Mathf.Max(0, amount);
+
+        if (safeAmount > 0)
+        {
+            BasicTowerMasteryManager masteryManager = GetBasicTowerMasteryManager();
+            if (masteryManager != null)
+                masteryManager.NotifyLivesDamaged();
+        }
+
+        lives -= safeAmount;
 
         if (lives <= 0)
         {
@@ -2020,6 +2095,26 @@ public class GameManager : MonoBehaviour
 
         if (stats != null)
             stats.RecordTowerBuilt(tower, cost, waveNumber, gridPosition, worldPosition);
+
+        TowerMasteryManager towerMasteryManager = GetTowerMasteryManager();
+        if (towerMasteryManager != null)
+            towerMasteryManager.HandleTowerBuilt(tower);
+
+        BasicTowerMasteryManager basicMasteryManager = GetBasicTowerMasteryManager();
+        if (basicMasteryManager != null)
+            basicMasteryManager.HandleTowerBuilt(tower);
+
+        RapidTowerMasteryManager rapidMasteryManager = GetRapidTowerMasteryManager();
+        if (rapidMasteryManager != null)
+            rapidMasteryManager.HandleTowerBuilt(tower);
+
+        HeavyTowerMasteryManager heavyMasteryManager = GetHeavyTowerMasteryManager();
+        if (heavyMasteryManager != null)
+            heavyMasteryManager.HandleTowerBuilt(tower);
+
+        FireTowerMasteryManager fireMasteryManager = GetFireTowerMasteryManager();
+        if (fireMasteryManager != null)
+            fireMasteryManager.HandleTowerBuilt(tower);
     }
 
     public void RegisterTowerXPGained(Tower tower, int amount)
@@ -2092,6 +2187,61 @@ public class GameManager : MonoBehaviour
             chaosUnlockUI = FindObjectOfType<ChaosUnlockUI>();
 
         return chaosUnlockUI;
+    }
+
+    public TowerMasteryManager GetTowerMasteryManager()
+    {
+        if (towerMasteryManager == null)
+            towerMasteryManager = TowerMasteryManager.GetOrCreate(this);
+
+        if (towerMasteryManager != null && towerMasteryManager.gameManager == null)
+            towerMasteryManager.gameManager = this;
+
+        return towerMasteryManager;
+    }
+
+    public BasicTowerMasteryManager GetBasicTowerMasteryManager()
+    {
+        if (basicTowerMasteryManager == null)
+            basicTowerMasteryManager = BasicTowerMasteryManager.GetOrCreate(this);
+
+        if (basicTowerMasteryManager != null && basicTowerMasteryManager.gameManager == null)
+            basicTowerMasteryManager.gameManager = this;
+
+        return basicTowerMasteryManager;
+    }
+
+    public RapidTowerMasteryManager GetRapidTowerMasteryManager()
+    {
+        if (rapidTowerMasteryManager == null)
+            rapidTowerMasteryManager = RapidTowerMasteryManager.GetOrCreate(this);
+
+        if (rapidTowerMasteryManager != null && rapidTowerMasteryManager.gameManager == null)
+            rapidTowerMasteryManager.gameManager = this;
+
+        return rapidTowerMasteryManager;
+    }
+
+    public HeavyTowerMasteryManager GetHeavyTowerMasteryManager()
+    {
+        if (heavyTowerMasteryManager == null)
+            heavyTowerMasteryManager = HeavyTowerMasteryManager.GetOrCreate(this);
+
+        if (heavyTowerMasteryManager != null && heavyTowerMasteryManager.gameManager == null)
+            heavyTowerMasteryManager.gameManager = this;
+
+        return heavyTowerMasteryManager;
+    }
+
+    public FireTowerMasteryManager GetFireTowerMasteryManager()
+    {
+        if (fireTowerMasteryManager == null)
+            fireTowerMasteryManager = FireTowerMasteryManager.GetOrCreate(this);
+
+        if (fireTowerMasteryManager != null && fireTowerMasteryManager.gameManager == null)
+            fireTowerMasteryManager.gameManager = this;
+
+        return fireTowerMasteryManager;
     }
 
     public MainMenuLexiconManager GetMainMenuLexiconManager()

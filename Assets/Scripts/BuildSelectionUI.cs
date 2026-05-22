@@ -694,7 +694,7 @@ public class BuildSelectionUI : MonoBehaviour
         if (option == null)
             return "? Gold";
 
-        return Mathf.Max(0, option.cost) + " Gold";
+        return BasicTowerMasteryManager.GetModifiedBuildCost(option.cost, option.prefab, option.displayName) + " Gold";
     }
 
     private string GetShortTowerName(BuildOption option)
@@ -1181,7 +1181,7 @@ public class BuildSelectionUI : MonoBehaviour
             ? GetFallbackTowerDescription(option.displayName)
             : option.description;
 
-        return description + "\nKosten: " + option.cost + " Gold";
+        return description + "\nKosten: " + BasicTowerMasteryManager.GetModifiedBuildCost(option.cost, option.prefab, option.displayName) + " Gold";
     }
 
     private string GetFallbackTowerDescription(string towerName)

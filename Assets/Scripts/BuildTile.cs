@@ -65,7 +65,9 @@ public class BuildTile : MonoBehaviour
             return false;
         }
 
-        if (!gameManager.SpendGold(cost, RunGoldSpendSource.TowerBuild))
+        int finalCost = BasicTowerMasteryManager.GetModifiedBuildCost(cost, towerPrefab, towerPrefab.name);
+
+        if (!gameManager.SpendGold(finalCost, RunGoldSpendSource.TowerBuild))
             return false;
 
         Vector3 towerPosition = transform.position + Vector3.up * 0.5f;
@@ -74,9 +76,9 @@ public class BuildTile : MonoBehaviour
         Tower builtTower = towerObject != null ? towerObject.GetComponent<Tower>() : null;
 
         if (builtTower != null)
-            builtTower.InitializeBuildData(cost, gridPosition);
+            builtTower.InitializeBuildData(finalCost, gridPosition);
 
-        gameManager.RegisterTowerBuilt(builtTower, cost, gridPosition, towerPosition);
+        gameManager.RegisterTowerBuilt(builtTower, finalCost, gridPosition, towerPosition);
 
         tileManager.RegisterTowerPosition(transform.position);
 

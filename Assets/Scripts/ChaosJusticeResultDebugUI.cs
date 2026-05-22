@@ -574,6 +574,26 @@ public class ChaosJusticeResultDebugUI : MonoBehaviour
 
         string text = stats.GetEconomySummaryText() + "\n" + stats.GetTowerProgressionSummaryText();
 
+        TowerMasteryManager towerMastery = TowerMasteryManager.GetOrCreate(gameManager);
+        if (towerMastery != null)
+            text += "\n" + towerMastery.GetCompactSummaryText();
+
+        BasicTowerMasteryManager basicMastery = BasicTowerMasteryManager.GetOrCreate(gameManager);
+        if (basicMastery != null)
+            text += "\n" + basicMastery.GetCompactSummaryText() + "\n";
+
+        RapidTowerMasteryManager rapidMastery = RapidTowerMasteryManager.GetOrCreate(gameManager);
+        if (rapidMastery != null)
+            text += rapidMastery.GetCompactSummaryText() + "\n";
+
+        HeavyTowerMasteryManager heavyMastery = HeavyTowerMasteryManager.GetOrCreate(gameManager);
+        if (heavyMastery != null)
+            text += heavyMastery.GetCompactSummaryText() + "\n";
+
+        FireTowerMasteryManager fireMastery = FireTowerMasteryManager.GetOrCreate(gameManager);
+        if (fireMastery != null)
+            text += fireMastery.GetCompactSummaryText() + "\n";
+
         if (showTopTowerRecords)
             text += "\nTop-Tower:\n" + stats.GetTopTowerRecordsText(maxDisplayedTowerRecords);
 
