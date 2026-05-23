@@ -30,9 +30,10 @@ public class ChaosJusticeResultDebugUI : MonoBehaviour
     [Header("Behaviour")]
     public bool showOnGameOver = true;
     public bool closeOnStart = true;
-    public bool allowDebugToggleHotkey = true;
-    public KeyCode debugToggleKey = KeyCode.F10;
-    public bool closeWithEscape = true;
+    public bool allowManualResultControls = false;
+    public bool allowDebugToggleHotkey = false;
+    public KeyCode debugToggleKey = KeyCode.None;
+    public bool closeWithEscape = false;
     public bool suppressLegacyGameOverTextWhenClosingAfterGameOver = true;
 
     [Header("Result Sections V1")]
@@ -112,7 +113,7 @@ public class ChaosJusticeResultDebugUI : MonoBehaviour
 
     private void Update()
     {
-        if (allowDebugToggleHotkey && Input.GetKeyDown(debugToggleKey))
+        if (allowManualResultControls && allowDebugToggleHotkey && debugToggleKey != KeyCode.None && Input.GetKeyDown(debugToggleKey))
         {
             ResolveReferences();
 
@@ -122,7 +123,7 @@ public class ChaosJusticeResultDebugUI : MonoBehaviour
             return;
         }
 
-        if (resultOpen && closeWithEscape && Input.GetKeyDown(KeyCode.Escape))
+        if (allowManualResultControls && resultOpen && closeWithEscape && Input.GetKeyDown(KeyCode.Escape))
             CloseResult();
     }
 
@@ -164,9 +165,26 @@ public class ChaosJusticeResultDebugUI : MonoBehaviour
 
     private void SetupButtons()
     {
+        if (refreshButton != null)
+        {
+            refreshButton.onClick.RemoveAllListeners();
+            refreshButton.gameObject.SetActive(false);
+        }
+
+        if (!allowManualResultControls)
+        {
+            if (closeButton != null)
+            {
+                closeButton.onClick.RemoveAllListeners();
+                closeButton.gameObject.SetActive(false);
+            }
+
+            SetupButton(restartButton, ReturnToMainMenu, "Hauptmenü");
+            return;
+        }
+
         SetupButton(closeButton, CloseResult, "Schließen");
-        SetupButton(refreshButton, RefreshResultText, "Aktualisieren");
-        SetupButton(restartButton, RestartCurrentScene, "Neustart");
+        SetupButton(restartButton, ReturnToMainMenu, "Hauptmenü");
     }
 
     private void SetupButton(Button button, UnityEngine.Events.UnityAction action, string label)
@@ -313,6 +331,9 @@ public class ChaosJusticeResultDebugUI : MonoBehaviour
             text += SectionTitle("LETZTE WAVE - DETAILS") + BuildLastWaveText();
 
         if (showDebugFooter)
+            text += "\n<size=13><color=#" + ColorUtility.ToHtmlStringRGB(textSecondaryColor) + ">Diese Auswertung erscheint automatisch bei Game Over. Ergebnisdaten basieren auf gespeicherten Wave-Snapshots.</color></size>";
+
+        if (showDebugFooter && allowManualResultControls && debugToggleKey != KeyCode.None)
             text += "\n<size=13><color=#" + ColorUtility.ToHtmlStringRGB(textSecondaryColor) + ">Debug-Hotkey: " + debugToggleKey + " öffnet/schließt diese Ansicht. Ergebnisdaten basieren auf gespeicherten Wave-Snapshots.</color></size>";
 
         return text;
@@ -590,9 +611,37 @@ public class ChaosJusticeResultDebugUI : MonoBehaviour
         if (heavyMastery != null)
             text += heavyMastery.GetCompactSummaryText() + "\n";
 
+        SniperTowerMasteryManager sniperMastery = SniperTowerMasteryManager.GetOrCreate(gameManager);
+        if (sniperMastery != null)
+            text += sniperMastery.GetCompactSummaryText() + "\n";
+
+        AlchemistTowerMasteryManager alchemistMastery = AlchemistTowerMasteryManager.GetOrCreate(gameManager);
+        if (alchemistMastery != null)
+            text += alchemistMastery.GetCompactSummaryText() + "\n";
+
+        LightningTowerMasteryManager lightningMastery = LightningTowerMasteryManager.GetOrCreate(gameManager);
+        if (lightningMastery != null)
+            text += lightningMastery.GetCompactSummaryText() + "\n";
+
+        MortarTowerMasteryManager mortarMastery = MortarTowerMasteryManager.GetOrCreate(gameManager);
+        if (mortarMastery != null)
+            text += mortarMastery.GetCompactSummaryText() + "\n";
+
+        SpikeTowerMasteryManager spikeMastery = SpikeTowerMasteryManager.GetOrCreate(gameManager);
+        if (spikeMastery != null)
+            text += spikeMastery.GetCompactSummaryText() + "\n";
+
         FireTowerMasteryManager fireMastery = FireTowerMasteryManager.GetOrCreate(gameManager);
         if (fireMastery != null)
             text += fireMastery.GetCompactSummaryText() + "\n";
+
+        SlowTowerMasteryManager slowMastery = SlowTowerMasteryManager.GetOrCreate(gameManager);
+        if (slowMastery != null)
+            text += slowMastery.GetCompactSummaryText() + "\n";
+
+        PoisonTowerMasteryManager poisonMastery = PoisonTowerMasteryManager.GetOrCreate(gameManager);
+        if (poisonMastery != null)
+            text += poisonMastery.GetCompactSummaryText() + "\n";
 
         if (showTopTowerRecords)
             text += "\nTop-Tower:\n" + stats.GetTopTowerRecordsText(maxDisplayedTowerRecords);
@@ -887,8 +936,17 @@ public class ChaosJusticeResultDebugUI : MonoBehaviour
         );
     }
 
-    private void RestartCurrentScene()
+    private void ReturnToMainMenu()
     {
+        ResolveReferences();
+        Time.timeScale = 1f;
+
+        if (gameManager != null)
+        {
+            gameManager.AbortRunAndReturnToStartMenu();
+            return;
+        }
+
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 }

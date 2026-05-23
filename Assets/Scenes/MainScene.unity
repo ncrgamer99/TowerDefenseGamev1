@@ -4781,9 +4781,9 @@ MonoBehaviour:
   showGameplayOpenButton: 0
   openButton: {fileID: 0}
   openButtonText: {fileID: 0}
-  openButtonLabel: Freischaltungen (F2)
+  openButtonLabel: Freischaltungen (F1)
   enableUnlockUI: 1
-  toggleKey: 283
+  toggleKey: 282
   closeWithEscape: 1
   allowOpeningDuringWave: 1
   closeGameplayPanelsWhenOpening: 1
@@ -5614,9 +5614,9 @@ MonoBehaviour:
   showGameplayOpenButton: 0
   openButton: {fileID: 0}
   openButtonText: {fileID: 0}
-  openButtonLabel: Lexikon (F1)
+  openButtonLabel: Lexikon (F2)
   enableLexicon: 1
-  toggleKey: 282
+  toggleKey: 283
   closeWithEscape: 1
   allowOpeningDuringWave: 1
   closeGameplayPanelsWhenOpening: 1

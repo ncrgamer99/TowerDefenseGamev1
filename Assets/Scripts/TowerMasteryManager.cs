@@ -34,15 +34,25 @@ public class TowerMasteryRoleProfile
     public int masteryXP = 0;
     public int unspentPoints = 0;
     public int spentPoints = 0;
+    public int totalEarnedPoints = 0;
     public int bestLevelEver = 1;
     public bool reachedLevel10 = false;
     public bool reachedLevel20 = false;
+    public bool reachedLevel30 = false;
+    public bool reachedLevel40 = false;
+    public bool reachedLevel50 = false;
     public bool bossKillWithTower = false;
     public bool chaos3WaveWithTower = false;
     public bool chaos5BossOrEliteWithTower = false;
     public string activeKeystoneId = "";
     public int lastRunMasteryXPGained = 0;
     public int lastRunMasteryPointsGained = 0;
+    public int lastRunHighestLevel = 1;
+    public int lastRunTowerXP = 0;
+    public int lastRunImpactScore = 0;
+    public int lastRunWaveTier = 0;
+    public int lastRunLevelTier = 0;
+    public int lastRunImpactTier = 0;
     public List<TowerMasteryNodeState> nodeStates = new List<TowerMasteryNodeState>();
 }
 
@@ -58,33 +68,92 @@ public class TowerMasteryManager : MonoBehaviour
     [Header("Profiles")]
     public List<TowerMasteryRoleProfile> roleProfiles = new List<TowerMasteryRoleProfile>();
 
-    [Header("XP Rewards")]
-    public float damageToMasteryXPRatio = 0.04f;
-    public int maxDamageMasteryXPPerWave = 24;
-    public int killMasteryXP = 3;
-    public int assistMasteryXP = 1;
-    public int miniBossParticipationXP = 10;
-    public int bossParticipationXP = 25;
-    public int chaosWaveParticipationXP = 12;
-    public int chaos5BossParticipationXP = 80;
-
-    [Header("Run Point Rules")]
-    public int minimumWaveForPointPayout = 5;
+    [Header("Run-End Point Rules")]
     public int maxPointsPerRun = 5;
+    public int wavesPerPointTier = 5;
+    public int levelsPerPointTier = 10;
+    public int impactPerPointTier = 25;
+    public float killImpact = 6f;
+    public float assistImpact = 3f;
+    public float damageImpactDivisor = 50f;
+
+    [Header("Run-End XP Payout")]
+    public float towerXPToMasteryXPConversion = 0.35f;
+    public int maxBaseMasteryXPFromTowerXP = 500;
+    public int masteryXPPerEarnedPoint = 15;
+    public int miniBossParticipationXP = 20;
+    public int bossParticipationXP = 50;
+    public int maxBossMasteryXPPerRun = 150;
+    public int chaosWaveParticipationXP = 10;
+    public int maxChaosWaveMasteryXPPerRun = 150;
+    public int chaosVariantContributionXP = 2;
+    public int maxChaosVariantMasteryXPPerRun = 100;
+    public int maxRoleBonusMasteryXPPerRun = 500;
+
+    [Header("First-Time XP")]
+    public int firstLevel10MasteryXP = 50;
+    public int firstLevel20MasteryXP = 75;
+    public int firstLevel30MasteryXP = 100;
+    public int firstLevel40MasteryXP = 125;
+    public int firstLevel50MasteryXP = 150;
+    public int firstBossParticipationXP = 100;
+    public int firstChaos3WaveXP = 150;
+    public int firstChaos5BossOrEliteXP = 250;
+
+    [HideInInspector] public float damageToMasteryXPRatio = 0.04f;
+    [HideInInspector] public int maxDamageMasteryXPPerWave = 24;
+    [HideInInspector] public int killMasteryXP = 3;
+    [HideInInspector] public int assistMasteryXP = 1;
+    [HideInInspector] public int chaos5BossParticipationXP = 80;
+    [HideInInspector] public int minimumWaveForPointPayout = 5;
 
     private class TowerMasteryRunState
     {
         public int highestLevelThisRun = 1;
         public bool currentWaveHadContribution = false;
-        public float currentWaveDamageMasteryXP = 0f;
-        public float damageMasteryXPFraction = 0f;
-        public readonly HashSet<int> awardedLevelMilestonesThisRun = new HashSet<int>();
+        public int towerXPGainedThisRun = 0;
+        public int killsThisRun = 0;
+        public int assistsThisRun = 0;
+        public float damageThisRun = 0f;
+        public int builtCountThisRun = 0;
+        public int metaPointsPreparedThisRun = 0;
+        public int highestVisualTierThisRun = 0;
+        public int miniBossParticipationCount = 0;
+        public int bossParticipationCount = 0;
+        public int chaosWaveParticipationCount = 0;
+        public int chaosVariantContributionCount = 0;
+        public int pendingRoleBonusXP = 0;
+        public bool firstBossObjectiveThisRun = false;
+        public bool firstChaos3ObjectiveThisRun = false;
+        public bool firstChaos5ObjectiveThisRun = false;
+    }
+
+    private class TowerMasteryRoleRunSummary
+    {
+        public TowerRole role;
+        public int highestLevel = 1;
+        public int totalTowerXP = 0;
+        public int kills = 0;
+        public int assists = 0;
+        public float damage = 0f;
+        public int builtCount = 0;
+        public int metaPointsPrepared = 0;
+        public int highestVisualTier = 0;
+        public int miniBossParticipationCount = 0;
+        public int bossParticipationCount = 0;
+        public int chaosWaveParticipationCount = 0;
+        public int chaosVariantContributionCount = 0;
+        public int pendingRoleBonusXP = 0;
+        public bool firstBossObjectiveThisRun = false;
+        public bool firstChaos3ObjectiveThisRun = false;
+        public bool firstChaos5ObjectiveThisRun = false;
     }
 
     private readonly Dictionary<TowerRole, TowerMasteryRoleProfile> profileByRole = new Dictionary<TowerRole, TowerMasteryRoleProfile>();
     private readonly Dictionary<TowerRole, TowerMasteryRunState> runStateByRole = new Dictionary<TowerRole, TowerMasteryRunState>();
     private int currentWaveNumber = 0;
     private int highestWaveReachedThisRun = 0;
+    private int highestCompletedWaveThisRun = 0;
     private bool runFinalized = false;
 
     private void Awake()
@@ -211,20 +280,41 @@ public class TowerMasteryManager : MonoBehaviour
     {
         currentWaveNumber = 0;
         highestWaveReachedThisRun = 0;
+        highestCompletedWaveThisRun = 0;
         runFinalized = false;
 
         foreach (TowerRole role in GetOrderedTowerRoles())
         {
+            TowerMasteryRoleProfile profile = GetProfile(role);
+            LoadProfile(profile);
+
             TowerMasteryRunState state = GetRunState(role);
             state.highestLevelThisRun = 1;
             state.currentWaveHadContribution = false;
-            state.currentWaveDamageMasteryXP = 0f;
-            state.damageMasteryXPFraction = 0f;
-            state.awardedLevelMilestonesThisRun.Clear();
+            state.towerXPGainedThisRun = 0;
+            state.killsThisRun = 0;
+            state.assistsThisRun = 0;
+            state.damageThisRun = 0f;
+            state.builtCountThisRun = 0;
+            state.metaPointsPreparedThisRun = 0;
+            state.highestVisualTierThisRun = 0;
+            state.miniBossParticipationCount = 0;
+            state.bossParticipationCount = 0;
+            state.chaosWaveParticipationCount = 0;
+            state.chaosVariantContributionCount = 0;
+            state.pendingRoleBonusXP = 0;
+            state.firstBossObjectiveThisRun = false;
+            state.firstChaos3ObjectiveThisRun = false;
+            state.firstChaos5ObjectiveThisRun = false;
 
-            TowerMasteryRoleProfile profile = GetProfile(role);
             profile.lastRunMasteryXPGained = 0;
             profile.lastRunMasteryPointsGained = 0;
+            profile.lastRunHighestLevel = 1;
+            profile.lastRunTowerXP = 0;
+            profile.lastRunImpactScore = 0;
+            profile.lastRunWaveTier = 0;
+            profile.lastRunLevelTier = 0;
+            profile.lastRunImpactTier = 0;
         }
     }
 
@@ -233,30 +323,58 @@ public class TowerMasteryManager : MonoBehaviour
         if (runFinalized)
             return;
 
-        runFinalized = true;
         RefreshHighestLevelsFromActiveTowers();
+        SyncRunStateFromStatistics();
+        runFinalized = true;
+        int waveTier = Mathf.Clamp(highestCompletedWaveThisRun / Mathf.Max(1, wavesPerPointTier), 0, Mathf.Max(0, maxPointsPerRun));
 
         foreach (TowerRole role in GetOrderedTowerRoles())
         {
             TowerMasteryRoleProfile profile = GetProfile(role);
-            TowerMasteryRunState state = GetRunState(role);
+            TowerMasteryRoleRunSummary summary = BuildRoleRunSummary(role);
+            int levelTier = Mathf.Clamp(summary.highestLevel / Mathf.Max(1, levelsPerPointTier), 0, Mathf.Max(0, maxPointsPerRun));
+            int impact = CalculateRoleImpact(summary);
+            int impactTier = Mathf.Clamp(impact / Mathf.Max(1, impactPerPointTier), 0, Mathf.Max(0, maxPointsPerRun));
+            int earnedPoints = Mathf.Min(levelTier, waveTier, impactTier, Mathf.Max(0, maxPointsPerRun));
+            int masteryXP = CalculateRunEndMasteryXP(profile, summary, earnedPoints);
 
-            if (highestWaveReachedThisRun < Mathf.Max(1, minimumWaveForPointPayout))
+            profile.lastRunHighestLevel = summary.highestLevel;
+            profile.lastRunTowerXP = summary.totalTowerXP;
+            profile.lastRunImpactScore = impact;
+            profile.lastRunWaveTier = waveTier;
+            profile.lastRunLevelTier = levelTier;
+            profile.lastRunImpactTier = impactTier;
+
+            if (earnedPoints > 0)
             {
-                SaveProfile(profile);
-                continue;
+                profile.unspentPoints += earnedPoints;
+                profile.totalEarnedPoints += earnedPoints;
+                profile.lastRunMasteryPointsGained = earnedPoints;
             }
 
-            int points = Mathf.Clamp(state.highestLevelThisRun / 10, 0, Mathf.Max(0, maxPointsPerRun));
-
-            if (points > 0)
+            if (masteryXP > 0)
             {
-                profile.unspentPoints += points;
-                profile.lastRunMasteryPointsGained = points;
-                Debug.Log(GetTowerDisplayName(role) + " Mastery: +" + points + " Punkt(e) fuer hoechsten Tower Level " + state.highestLevelThisRun + ".");
+                profile.masteryXP += masteryXP;
+                profile.lastRunMasteryXPGained = masteryXP;
+            }
+
+            ApplyRunEndMilestoneProgress(profile, summary);
+
+            if (earnedPoints > 0 || masteryXP > 0)
+            {
+                Debug.Log(
+                    GetTowerDisplayName(role) +
+                    " Mastery Payout: +" + earnedPoints +
+                    " Punkt(e), +" + masteryXP +
+                    " XP | LevelTier " + levelTier +
+                    " | WaveTier " + waveTier +
+                    " | ImpactTier " + impactTier +
+                    " | Impact " + impact + "."
+                );
             }
 
             SaveProfile(profile);
+            SyncLegacyBasicProfileIfNeeded(role, profile);
         }
 
         PlayerPrefs.Save();
@@ -287,21 +405,22 @@ public class TowerMasteryManager : MonoBehaviour
     public bool IsMilestoneUnlocked(TowerRole role, TowerMasteryMilestone milestone)
     {
         TowerMasteryRoleProfile profile = GetProfile(role);
+        int masteryLevel = GetMasteryLevel(role);
 
         switch (milestone)
         {
             case TowerMasteryMilestone.None:
                 return true;
             case TowerMasteryMilestone.I:
-                return profile.spentPoints >= 10 && profile.reachedLevel10;
+                return profile.spentPoints >= 10 && masteryLevel >= 3 && profile.reachedLevel10;
             case TowerMasteryMilestone.II:
-                return profile.spentPoints >= 25 && profile.reachedLevel20;
+                return profile.spentPoints >= 25 && masteryLevel >= 8 && profile.reachedLevel20;
             case TowerMasteryMilestone.III:
-                return profile.spentPoints >= 50 && profile.bossKillWithTower;
+                return profile.spentPoints >= 50 && masteryLevel >= 15 && profile.bossKillWithTower;
             case TowerMasteryMilestone.IV:
-                return profile.spentPoints >= 85 && profile.chaos3WaveWithTower;
+                return profile.spentPoints >= 85 && masteryLevel >= 25 && profile.chaos3WaveWithTower;
             case TowerMasteryMilestone.V:
-                return profile.spentPoints >= 130 && profile.chaos5BossOrEliteWithTower;
+                return profile.spentPoints >= 130 && masteryLevel >= 40 && profile.chaos5BossOrEliteWithTower;
             default:
                 return false;
         }
@@ -317,6 +436,35 @@ public class TowerMasteryManager : MonoBehaviour
         return 0;
     }
 
+    public int GetMasteryLevel(TowerRole role)
+    {
+        TowerMasteryRoleProfile profile = GetProfile(role);
+        return CalculateMasteryLevelFromXP(profile != null ? profile.masteryXP : 0);
+    }
+
+    public int GetMasteryXPIntoCurrentLevel(TowerRole role)
+    {
+        TowerMasteryRoleProfile profile = GetProfile(role);
+        int remainingXP = profile != null ? Mathf.Max(0, profile.masteryXP) : 0;
+        int level = 1;
+
+        while (remainingXP >= GetXPToNextMasteryLevel(level))
+        {
+            remainingXP -= GetXPToNextMasteryLevel(level);
+            level++;
+
+            if (level > 999)
+                break;
+        }
+
+        return remainingXP;
+    }
+
+    public int GetXPToNextMasteryLevel(int currentMasteryLevel)
+    {
+        return 100 + Mathf.Max(1, currentMasteryLevel) * 25;
+    }
+
     public bool TrySetActiveKeystone(TowerRole role, string keystoneId)
     {
         if (!CanEditMetaProgression())
@@ -325,6 +473,7 @@ public class TowerMasteryManager : MonoBehaviour
         TowerMasteryRoleProfile profile = GetProfile(role);
         profile.activeKeystoneId = string.IsNullOrEmpty(keystoneId) ? "" : keystoneId;
         SaveProfile(profile);
+        SyncLegacyBasicProfileIfNeeded(role, profile);
         PlayerPrefs.Save();
         return true;
     }
@@ -347,17 +496,33 @@ public class TowerMasteryManager : MonoBehaviour
         profile.unspentPoints -= safeCost;
         profile.spentPoints += safeCost;
         SaveProfile(profile);
+        SyncLegacyBasicProfileIfNeeded(role, profile);
         PlayerPrefs.Save();
         return true;
     }
 
     public void AddRoleMasteryXP(TowerRole role, int amount)
     {
-        AddMasteryXP(role, amount);
+        int safeAmount = Mathf.Max(0, amount);
+
+        if (safeAmount <= 0)
+            return;
+
+        if (IsRunActiveForPayout())
+        {
+            TowerMasteryRunState state = GetRunState(role);
+            state.pendingRoleBonusXP += safeAmount;
+            return;
+        }
+
+        AddMasteryXP(role, safeAmount);
     }
 
     public void SaveRoleProfile(TowerRole role)
     {
+        if (IsRunActiveForPayout())
+            return;
+
         SaveProfile(GetProfile(role));
         PlayerPrefs.Save();
     }
@@ -381,6 +546,7 @@ public class TowerMasteryManager : MonoBehaviour
         profile.masteryXP = Mathf.Max(0, masteryXP);
         profile.unspentPoints = Mathf.Max(0, unspentPoints);
         profile.spentPoints = Mathf.Max(0, spentPoints);
+        profile.totalEarnedPoints = Mathf.Max(profile.totalEarnedPoints, profile.unspentPoints + profile.spentPoints);
         profile.bestLevelEver = Mathf.Max(1, bestLevelEver);
         profile.reachedLevel10 = reachedLevel10;
         profile.reachedLevel20 = reachedLevel20;
@@ -399,6 +565,8 @@ public class TowerMasteryManager : MonoBehaviour
         if (tower == null)
             return;
 
+        TowerMasteryRunState state = GetRunState(tower.towerRole);
+        state.builtCountThisRun++;
         RecordTowerLevelReached(tower, tower.level);
     }
 
@@ -407,29 +575,8 @@ public class TowerMasteryManager : MonoBehaviour
         if (tower == null || appliedDamage <= 0f)
             return;
 
-        TowerRole role = tower.towerRole;
         MarkContribution(tower);
-
-        TowerMasteryRunState state = GetRunState(role);
-
-        if (state.currentWaveDamageMasteryXP >= maxDamageMasteryXPPerWave)
-            return;
-
-        state.damageMasteryXPFraction += appliedDamage * Mathf.Max(0f, damageToMasteryXPRatio);
-        int wholeXP = Mathf.FloorToInt(state.damageMasteryXPFraction);
-
-        if (wholeXP <= 0)
-            return;
-
-        int remainingCap = Mathf.Max(0, maxDamageMasteryXPPerWave - Mathf.FloorToInt(state.currentWaveDamageMasteryXP));
-        int awarded = Mathf.Min(wholeXP, remainingCap);
-
-        if (awarded <= 0)
-            return;
-
-        state.damageMasteryXPFraction -= awarded;
-        state.currentWaveDamageMasteryXP += awarded;
-        AddMasteryXP(role, awarded);
+        GetRunState(tower.towerRole).damageThisRun += appliedDamage;
     }
 
     public void RecordTowerKill(Tower tower, EnemyRole killedRole)
@@ -438,7 +585,8 @@ public class TowerMasteryManager : MonoBehaviour
             return;
 
         MarkContribution(tower);
-        AddMasteryXP(tower.towerRole, killMasteryXP);
+        TowerMasteryRunState state = GetRunState(tower.towerRole);
+        state.killsThisRun++;
     }
 
     public void RecordTowerAssist(Tower tower, EnemyRole assistedRole)
@@ -447,7 +595,8 @@ public class TowerMasteryManager : MonoBehaviour
             return;
 
         MarkContribution(tower);
-        AddMasteryXP(tower.towerRole, assistMasteryXP);
+        TowerMasteryRunState state = GetRunState(tower.towerRole);
+        state.assistsThisRun++;
     }
 
     public void RecordTowerLevelReached(Tower tower, int level)
@@ -461,23 +610,13 @@ public class TowerMasteryManager : MonoBehaviour
         int safeLevel = Mathf.Max(1, level);
 
         state.highestLevelThisRun = Mathf.Max(state.highestLevelThisRun, safeLevel);
+
+        if (IsRunActiveForPayout())
+            return;
+
         profile.bestLevelEver = Mathf.Max(profile.bestLevelEver, safeLevel);
-
-        if (safeLevel >= 10)
-            profile.reachedLevel10 = true;
-
-        if (safeLevel >= 20)
-            profile.reachedLevel20 = true;
-
-        int milestone = safeLevel / 10 * 10;
-
-        if (milestone >= 10 && milestone <= 50 && !state.awardedLevelMilestonesThisRun.Contains(milestone))
-        {
-            state.awardedLevelMilestonesThisRun.Add(milestone);
-            AddMasteryXP(role, milestone / 10 * 15);
-        }
-
         SaveProfile(profile);
+        SyncLegacyBasicProfileIfNeeded(role, profile);
     }
 
     public void RecordEnemyDefeated(Enemy enemy, Tower killingTower, IEnumerable<Tower> contributors)
@@ -494,36 +633,38 @@ public class TowerMasteryManager : MonoBehaviour
             state.currentWaveHadContribution = true;
 
             if (enemy.enemyRole == EnemyRole.MiniBoss || enemy.isMiniBoss)
-                AddMasteryXP(role, GetMiniBossParticipationXP(role));
+            {
+                state.miniBossParticipationCount++;
+                state.firstBossObjectiveThisRun = state.firstBossObjectiveThisRun || !profile.bossKillWithTower;
+            }
 
             bool bossTarget = enemy.enemyRole == EnemyRole.Boss || enemy.isBoss;
             bool eliteTarget = enemy.enemyRole == EnemyRole.Elite || enemy.isElite;
 
             if (bossTarget)
             {
-                profile.bossKillWithTower = true;
-                AddMasteryXP(role, GetBossParticipationXP(role));
+                state.bossParticipationCount++;
+                state.firstBossObjectiveThisRun = state.firstBossObjectiveThisRun || !profile.bossKillWithTower;
             }
 
             if (bossTarget && GetCurrentChaosLevel() >= 5)
             {
-                profile.chaos5BossOrEliteWithTower = true;
-                AddMasteryXP(role, GetChaos5BossParticipationXP(role));
+                state.firstChaos5ObjectiveThisRun = state.firstChaos5ObjectiveThisRun || !profile.chaos5BossOrEliteWithTower;
             }
 
             if ((bossTarget || eliteTarget) && GetCurrentChaosLevel() >= 5)
-                profile.chaos5BossOrEliteWithTower = true;
+                state.firstChaos5ObjectiveThisRun = state.firstChaos5ObjectiveThisRun || !profile.chaos5BossOrEliteWithTower;
 
-            SaveProfile(profile);
+            if (eliteTarget)
+                state.bossParticipationCount++;
         }
-
-        PlayerPrefs.Save();
     }
 
     public string GetRoleListStateText(TowerRole role)
     {
         TowerMasteryRoleProfile profile = GetProfile(role);
-        return "Lv " + profile.bestLevelEver +
+        return "Mastery Lv " + GetMasteryLevel(role) +
+               " | bester Tower " + profile.bestLevelEver +
                " | Punkte " + profile.unspentPoints +
                " frei | " + profile.spentPoints +
                " ausgegeben | Keystone " + GetActiveKeystoneDisplayText(profile);
@@ -533,13 +674,18 @@ public class TowerMasteryManager : MonoBehaviour
     {
         TowerMasteryRoleProfile profile = GetProfile(role);
         StringBuilder builder = new StringBuilder();
+        int masteryLevel = GetMasteryLevel(role);
+        int xpIntoLevel = GetMasteryXPIntoCurrentLevel(role);
+        int xpToNext = GetXPToNextMasteryLevel(masteryLevel);
 
         builder.AppendLine(GetTowerDisplayName(role) + " Mastery");
-        builder.AppendLine("Mastery XP: " + profile.masteryXP);
-        builder.AppendLine("Punkte: " + profile.unspentPoints + " frei | " + profile.spentPoints + " ausgegeben");
+        builder.AppendLine("Mastery Level: " + masteryLevel + " | XP " + xpIntoLevel + " / " + xpToNext + " | Gesamt-XP " + profile.masteryXP);
+        builder.AppendLine("Punkte: " + profile.unspentPoints + " frei | " + profile.spentPoints + " ausgegeben | " + profile.totalEarnedPoints + " verdient");
         builder.AppendLine("Bester Tower im Run/Ewig: " + GetHighestLevelThisRun(role) + " / " + profile.bestLevelEver);
         builder.AppendLine("Aktiver Keystone: " + GetActiveKeystoneDisplayText(profile));
         builder.AppendLine("Visual Mastery Tier: " + GetMasteryVisualTier(role));
+        builder.AppendLine("Letzter Run: +" + profile.lastRunMasteryPointsGained + " Punkt(e), +" + profile.lastRunMasteryXPGained + " XP | Level " + profile.lastRunHighestLevel + " | Tower-XP " + profile.lastRunTowerXP + " | Impact " + profile.lastRunImpactScore);
+        builder.AppendLine("Letzte Point-Tiers: Level " + profile.lastRunLevelTier + " | Wave " + profile.lastRunWaveTier + " | Impact " + profile.lastRunImpactTier);
         builder.AppendLine();
         builder.AppendLine("Milestones:");
         builder.AppendLine("- I: " + GetMilestoneProgressText(role, TowerMasteryMilestone.I));
@@ -557,7 +703,7 @@ public class TowerMasteryManager : MonoBehaviour
         builder.AppendLine("- Milestones II-V oeffnen tiefere Abschnitte.");
         builder.AppendLine("- Drei Keystones koennen freigeschaltet werden, aber nur einer ist aktiv.");
         builder.AppendLine();
-        builder.AppendLine("Punkte werden am Run-Ende ausgezahlt. Es zaehlt nur der hoechste Tower dieser Rolle im Run.");
+        builder.AppendLine("Punkte werden am Run-Ende ausgezahlt: min(LevelTier, WaveTier, ImpactTier, 5). Es zaehlt pro Rolle nur der beste Tower-Level, aber alle Kills/Assists/Damage dieser Rolle fuer den Impact.");
 
         return builder.ToString();
     }
@@ -565,6 +711,19 @@ public class TowerMasteryManager : MonoBehaviour
     public string GetGlobalRulesText()
     {
         return "Progression zaehlt pro TowerRole, nicht pro einzelner Instanz.\n\n" +
+               "Run-Ende-Auszahlung:\n" +
+               "- Run-Tower-XP bleibt nur Run-Fortschritt und wird erst am Run-Ende in Mastery XP umgerechnet.\n" +
+               "- Tower Mastery Points entstehen durch Level, Run-Tiefe und echte Beteiligung gleichzeitig.\n" +
+               "- levelTier = floor(hoechster Tower-Level / 10).\n" +
+               "- waveTier = floor(hoechste abgeschlossene Wave / 5).\n" +
+               "- impactTier = floor((Kills x 6 + Assists x 3 + Damage / 50) / 25).\n" +
+               "- earnedPoints = min(levelTier, waveTier, impactTier, 5).\n" +
+               "- Vorbereitete Meta-Punkte im Run sind nur Anzeige/Debug, nicht die finale Waehrung.\n\n" +
+               "Mastery XP:\n" +
+               "- Basis: 35% der Run-Tower-XP, pro Rolle gedeckelt.\n" +
+               "- +15 XP pro verdientem Mastery Point.\n" +
+               "- Boss-, Chaos-, Variant- und rollenbezogene Bonus-XP werden am Run-Ende addiert und gecappt.\n" +
+               "- First-Time-Boni gibt es fuer Level 10/20/30/40/50, erste Boss-Beteiligung, erste Chaos-3-Wave und Chaos-5/Elite-Ziele.\n\n" +
                "Kostenmodell:\n" +
                "- Wiederholbare Rangs: 1 / 2 / 3 / 4 / 5 Punkte.\n" +
                "- Kleine Utility-Knoten: 2-3 Punkte.\n" +
@@ -572,11 +731,11 @@ public class TowerMasteryManager : MonoBehaviour
                "- Starke Faehigkeiten: 8-12 Punkte.\n" +
                "- Keystones: 15-25 Punkte.\n\n" +
                "Milestones gelten fuer alle Tower:\n" +
-               "- I: 10 Punkte ausgegeben + Level 10.\n" +
-               "- II: 25 Punkte + Level 20.\n" +
-               "- III: 50 Punkte + Bossbeteiligung.\n" +
-               "- IV: 85 Punkte + Chaos-3-Wave-Beteiligung.\n" +
-               "- V: 130 Punkte + Chaos-5-Boss oder spaeter Elite-Ziel.\n\n" +
+               "- I: 10 Punkte ausgegeben + Mastery-Level 3 + Level 10.\n" +
+               "- II: 25 Punkte + Mastery-Level 8 + Level 20.\n" +
+               "- III: 50 Punkte + Mastery-Level 15 + Boss/MiniBoss oder rollenpassende Spezialleistung.\n" +
+               "- IV: 85 Punkte + Mastery-Level 25 + Chaos-3-Wave-Beteiligung.\n" +
+               "- V: 130 Punkte + Mastery-Level 40 + Chaos-5-Boss oder spaeter Elite-Ziel.\n\n" +
                "Keystone-Regel: Pro Tower-Typ ist nur ein Keystone gleichzeitig aktiv. Kleine und mittlere Knoten bleiben passiv aktiv.";
     }
 
@@ -619,8 +778,6 @@ public class TowerMasteryManager : MonoBehaviour
         {
             TowerMasteryRunState state = GetRunState(role);
             state.currentWaveHadContribution = false;
-            state.currentWaveDamageMasteryXP = 0f;
-            state.damageMasteryXPFraction = 0f;
         }
     }
 
@@ -630,6 +787,7 @@ public class TowerMasteryManager : MonoBehaviour
             return;
 
         highestWaveReachedThisRun = Mathf.Max(highestWaveReachedThisRun, result.waveNumber);
+        highestCompletedWaveThisRun = Mathf.Max(highestCompletedWaveThisRun, result.waveNumber);
 
         foreach (TowerRole role in GetOrderedTowerRoles())
         {
@@ -641,15 +799,14 @@ public class TowerMasteryManager : MonoBehaviour
             TowerMasteryRoleProfile profile = GetProfile(role);
 
             if (result.chaosLevelAtWaveStart > 0 || result.hadChaosWaveBlocksAtWaveStart || result.chaosVariantSpawnCount > 0)
-                AddMasteryXP(role, chaosWaveParticipationXP);
+            {
+                state.chaosWaveParticipationCount++;
+                state.chaosVariantContributionCount += Mathf.Max(0, result.chaosVariantKilledCount);
+            }
 
             if (result.chaosLevelAtWaveStart >= 3)
-                profile.chaos3WaveWithTower = true;
-
-            SaveProfile(profile);
+                state.firstChaos3ObjectiveThisRun = state.firstChaos3ObjectiveThisRun || !profile.chaos3WaveWithTower;
         }
-
-        PlayerPrefs.Save();
     }
 
     private void HandleGameOverTriggered()
@@ -686,6 +843,12 @@ public class TowerMasteryManager : MonoBehaviour
         if (safeAmount <= 0)
             return;
 
+        if (IsRunActiveForPayout())
+        {
+            GetRunState(role).pendingRoleBonusXP += safeAmount;
+            return;
+        }
+
         TowerMasteryRoleProfile profile = GetProfile(role);
         profile.masteryXP += safeAmount;
 
@@ -717,19 +880,244 @@ public class TowerMasteryManager : MonoBehaviour
         return roles;
     }
 
-    private int GetMiniBossParticipationXP(TowerRole role)
+    private TowerMasteryRoleRunSummary BuildRoleRunSummary(TowerRole role)
     {
-        return role == TowerRole.Rapid || role == TowerRole.Fire ? Mathf.Max(1, miniBossParticipationXP / 2) : miniBossParticipationXP;
+        TowerMasteryRunState state = GetRunState(role);
+        TowerMasteryRoleRunSummary summary = new TowerMasteryRoleRunSummary
+        {
+            role = role,
+            highestLevel = Mathf.Max(1, state.highestLevelThisRun),
+            totalTowerXP = Mathf.Max(0, state.towerXPGainedThisRun),
+            kills = Mathf.Max(0, state.killsThisRun),
+            assists = Mathf.Max(0, state.assistsThisRun),
+            damage = Mathf.Max(0f, state.damageThisRun),
+            builtCount = Mathf.Max(0, state.builtCountThisRun),
+            metaPointsPrepared = Mathf.Max(0, state.metaPointsPreparedThisRun),
+            highestVisualTier = Mathf.Max(0, state.highestVisualTierThisRun),
+            miniBossParticipationCount = Mathf.Max(0, state.miniBossParticipationCount),
+            bossParticipationCount = Mathf.Max(0, state.bossParticipationCount),
+            chaosWaveParticipationCount = Mathf.Max(0, state.chaosWaveParticipationCount),
+            chaosVariantContributionCount = Mathf.Max(0, state.chaosVariantContributionCount),
+            pendingRoleBonusXP = Mathf.Max(0, state.pendingRoleBonusXP),
+            firstBossObjectiveThisRun = state.firstBossObjectiveThisRun,
+            firstChaos3ObjectiveThisRun = state.firstChaos3ObjectiveThisRun,
+            firstChaos5ObjectiveThisRun = state.firstChaos5ObjectiveThisRun
+        };
+
+        RunStatisticsTracker stats = GetRunStatisticsTracker();
+        if (stats == null || stats.towerRecords == null)
+            return summary;
+
+        int recordTowerXP = 0;
+        int recordKills = 0;
+        int recordAssists = 0;
+        float recordDamage = 0f;
+        int recordBuiltCount = 0;
+        int recordMetaPoints = 0;
+        int recordHighestVisualTier = 0;
+        int recordHighestLevel = 1;
+
+        foreach (RunTowerStatsRecord record in stats.towerRecords)
+        {
+            if (record == null || record.towerRole != role)
+                continue;
+
+            record.RefreshFromTower();
+            recordHighestLevel = Mathf.Max(recordHighestLevel, record.highestLevel);
+            recordTowerXP += Mathf.Max(0, record.towerXPGained);
+            recordKills += Mathf.Max(0, record.totalKills);
+            recordAssists += Mathf.Max(0, record.totalAssists);
+            recordDamage += Mathf.Max(0f, record.totalDamageDealt);
+            recordBuiltCount += record.wasRegisteredAsBuilt ? 1 : 0;
+            recordMetaPoints += Mathf.Max(0, record.metaPointsGained);
+            recordHighestVisualTier = Mathf.Max(recordHighestVisualTier, record.highestVisualTier);
+        }
+
+        summary.highestLevel = Mathf.Max(summary.highestLevel, recordHighestLevel);
+        summary.totalTowerXP = Mathf.Max(summary.totalTowerXP, recordTowerXP);
+        summary.kills = Mathf.Max(summary.kills, recordKills);
+        summary.assists = Mathf.Max(summary.assists, recordAssists);
+        summary.damage = Mathf.Max(summary.damage, recordDamage);
+        summary.builtCount = Mathf.Max(summary.builtCount, recordBuiltCount);
+        summary.metaPointsPrepared = Mathf.Max(summary.metaPointsPrepared, recordMetaPoints);
+        summary.highestVisualTier = Mathf.Max(summary.highestVisualTier, recordHighestVisualTier);
+        return summary;
     }
 
-    private int GetBossParticipationXP(TowerRole role)
+    private int CalculateRoleImpact(TowerMasteryRoleRunSummary summary)
     {
-        return role == TowerRole.Rapid || role == TowerRole.Fire ? Mathf.Max(1, bossParticipationXP / 2) : bossParticipationXP;
+        if (summary == null)
+            return 0;
+
+        float damageScore = damageImpactDivisor <= 0f ? 0f : summary.damage / damageImpactDivisor;
+        return Mathf.Max(0, Mathf.FloorToInt(summary.kills * killImpact + summary.assists * assistImpact + damageScore));
     }
 
-    private int GetChaos5BossParticipationXP(TowerRole role)
+    private int CalculateRunEndMasteryXP(TowerMasteryRoleProfile profile, TowerMasteryRoleRunSummary summary, int earnedPoints)
     {
-        return role == TowerRole.Rapid || role == TowerRole.Fire ? Mathf.Max(1, chaos5BossParticipationXP / 2) : chaos5BossParticipationXP;
+        if (profile == null || summary == null)
+            return 0;
+
+        int baseXP = Mathf.Min(
+            Mathf.Max(0, Mathf.FloorToInt(summary.totalTowerXP * Mathf.Max(0f, towerXPToMasteryXPConversion))),
+            Mathf.Max(0, maxBaseMasteryXPFromTowerXP)
+        );
+
+        int pointXP = Mathf.Max(0, earnedPoints) * Mathf.Max(0, masteryXPPerEarnedPoint);
+        int bossXP = Mathf.Min(
+            summary.miniBossParticipationCount * Mathf.Max(0, miniBossParticipationXP) + summary.bossParticipationCount * Mathf.Max(0, bossParticipationXP),
+            Mathf.Max(0, maxBossMasteryXPPerRun)
+        );
+        int chaosWaveXP = Mathf.Min(summary.chaosWaveParticipationCount * Mathf.Max(0, chaosWaveParticipationXP), Mathf.Max(0, maxChaosWaveMasteryXPPerRun));
+        int chaosVariantXP = Mathf.Min(summary.chaosVariantContributionCount * Mathf.Max(0, chaosVariantContributionXP), Mathf.Max(0, maxChaosVariantMasteryXPPerRun));
+        int roleBonusXP = Mathf.Min(summary.pendingRoleBonusXP, Mathf.Max(0, maxRoleBonusMasteryXPPerRun));
+        int firstTimeXP = CalculateFirstTimeMasteryXP(profile, summary);
+
+        return Mathf.Max(0, baseXP + pointXP + bossXP + chaosWaveXP + chaosVariantXP + roleBonusXP + firstTimeXP);
+    }
+
+    private int CalculateFirstTimeMasteryXP(TowerMasteryRoleProfile profile, TowerMasteryRoleRunSummary summary)
+    {
+        if (profile == null || summary == null)
+            return 0;
+
+        int xp = 0;
+
+        if (summary.highestLevel >= 10 && !profile.reachedLevel10)
+            xp += Mathf.Max(0, firstLevel10MasteryXP);
+
+        if (summary.highestLevel >= 20 && !profile.reachedLevel20)
+            xp += Mathf.Max(0, firstLevel20MasteryXP);
+
+        if (summary.highestLevel >= 30 && !profile.reachedLevel30)
+            xp += Mathf.Max(0, firstLevel30MasteryXP);
+
+        if (summary.highestLevel >= 40 && !profile.reachedLevel40)
+            xp += Mathf.Max(0, firstLevel40MasteryXP);
+
+        if (summary.highestLevel >= 50 && !profile.reachedLevel50)
+            xp += Mathf.Max(0, firstLevel50MasteryXP);
+
+        if (summary.firstBossObjectiveThisRun)
+            xp += Mathf.Max(0, firstBossParticipationXP);
+
+        if (summary.firstChaos3ObjectiveThisRun)
+            xp += Mathf.Max(0, firstChaos3WaveXP);
+
+        if (summary.firstChaos5ObjectiveThisRun)
+            xp += Mathf.Max(0, firstChaos5BossOrEliteXP);
+
+        return xp;
+    }
+
+    private void ApplyRunEndMilestoneProgress(TowerMasteryRoleProfile profile, TowerMasteryRoleRunSummary summary)
+    {
+        if (profile == null || summary == null)
+            return;
+
+        profile.bestLevelEver = Mathf.Max(profile.bestLevelEver, summary.highestLevel);
+
+        if (summary.highestLevel >= 10)
+            profile.reachedLevel10 = true;
+
+        if (summary.highestLevel >= 20)
+            profile.reachedLevel20 = true;
+
+        if (summary.highestLevel >= 30)
+            profile.reachedLevel30 = true;
+
+        if (summary.highestLevel >= 40)
+            profile.reachedLevel40 = true;
+
+        if (summary.highestLevel >= 50)
+            profile.reachedLevel50 = true;
+
+        if (summary.miniBossParticipationCount > 0 || summary.bossParticipationCount > 0 || IsRoleSpecificMilestoneThreeComplete(summary))
+            profile.bossKillWithTower = true;
+
+        if (summary.chaosWaveParticipationCount > 0 && summary.firstChaos3ObjectiveThisRun)
+            profile.chaos3WaveWithTower = true;
+
+        if (summary.firstChaos5ObjectiveThisRun)
+            profile.chaos5BossOrEliteWithTower = true;
+    }
+
+    private bool IsRoleSpecificMilestoneThreeComplete(TowerMasteryRoleRunSummary summary)
+    {
+        if (summary == null)
+            return false;
+
+        switch (summary.role)
+        {
+            case TowerRole.Basic:
+                return summary.highestLevel >= 30;
+            case TowerRole.Rapid:
+                return summary.kills + summary.assists >= 100;
+            case TowerRole.Heavy:
+                return summary.kills + summary.assists >= 50 && summary.damage >= 1000f;
+            case TowerRole.Fire:
+                return summary.kills + summary.assists >= 100;
+            case TowerRole.Slow:
+                return summary.assists >= 250;
+            default:
+                return false;
+        }
+    }
+
+    private RunStatisticsTracker GetRunStatisticsTracker()
+    {
+        if (gameManager == null)
+            gameManager = FindObjectOfType<GameManager>();
+
+        return gameManager != null ? gameManager.GetRunStatisticsTracker() : FindObjectOfType<RunStatisticsTracker>();
+    }
+
+    private void SyncRunStateFromStatistics()
+    {
+        RunStatisticsTracker stats = GetRunStatisticsTracker();
+        if (stats == null || stats.towerRecords == null)
+            return;
+
+        foreach (RunTowerStatsRecord record in stats.towerRecords)
+        {
+            if (record == null)
+                continue;
+
+            record.RefreshFromTower();
+            TowerMasteryRunState state = GetRunState(record.towerRole);
+            state.highestLevelThisRun = Mathf.Max(state.highestLevelThisRun, record.highestLevel);
+            state.towerXPGainedThisRun = Mathf.Max(state.towerXPGainedThisRun, record.towerXPGained);
+            state.killsThisRun = Mathf.Max(state.killsThisRun, record.totalKills);
+            state.assistsThisRun = Mathf.Max(state.assistsThisRun, record.totalAssists);
+            state.damageThisRun = Mathf.Max(state.damageThisRun, record.totalDamageDealt);
+            state.metaPointsPreparedThisRun = Mathf.Max(state.metaPointsPreparedThisRun, record.metaPointsGained);
+            state.highestVisualTierThisRun = Mathf.Max(state.highestVisualTierThisRun, record.highestVisualTier);
+        }
+    }
+
+    private bool IsRunActiveForPayout()
+    {
+        if (gameManager == null)
+            gameManager = FindObjectOfType<GameManager>();
+
+        return gameManager != null && gameManager.gameStarted && !runFinalized;
+    }
+
+    private int CalculateMasteryLevelFromXP(int masteryXP)
+    {
+        int remainingXP = Mathf.Max(0, masteryXP);
+        int level = 1;
+
+        while (remainingXP >= GetXPToNextMasteryLevel(level))
+        {
+            remainingXP -= GetXPToNextMasteryLevel(level);
+            level++;
+
+            if (level > 999)
+                break;
+        }
+
+        return level;
     }
 
     private TowerMasteryRunState GetRunState(TowerRole role)
@@ -743,24 +1131,34 @@ public class TowerMasteryManager : MonoBehaviour
         return state;
     }
 
+    private void SyncLegacyBasicProfileIfNeeded(TowerRole role, TowerMasteryRoleProfile profile)
+    {
+        if (role != TowerRole.Basic || profile == null)
+            return;
+
+        if (BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager basicMastery))
+            basicMastery.ApplyGlobalTowerMasteryProfile(profile);
+    }
+
     private string GetMilestoneProgressText(TowerRole role, TowerMasteryMilestone milestone)
     {
         TowerMasteryRoleProfile profile = GetProfile(role);
         bool unlocked = IsMilestoneUnlocked(role, milestone);
         string state = unlocked ? "frei" : "gesperrt";
+        int masteryLevel = GetMasteryLevel(role);
 
         switch (milestone)
         {
             case TowerMasteryMilestone.I:
-                return state + " | Punkte " + Mathf.Min(profile.spentPoints, 10) + "/10 | Level 10 " + (profile.reachedLevel10 ? "ja" : "nein");
+                return state + " | Punkte " + Mathf.Min(profile.spentPoints, 10) + "/10 | Mastery Lv " + Mathf.Min(masteryLevel, 3) + "/3 | Level 10 " + (profile.reachedLevel10 ? "ja" : "nein");
             case TowerMasteryMilestone.II:
-                return state + " | Punkte " + Mathf.Min(profile.spentPoints, 25) + "/25 | Level 20 " + (profile.reachedLevel20 ? "ja" : "nein");
+                return state + " | Punkte " + Mathf.Min(profile.spentPoints, 25) + "/25 | Mastery Lv " + Mathf.Min(masteryLevel, 8) + "/8 | Level 20 " + (profile.reachedLevel20 ? "ja" : "nein");
             case TowerMasteryMilestone.III:
-                return state + " | Punkte " + Mathf.Min(profile.spentPoints, 50) + "/50 | Boss-Beteiligung " + (profile.bossKillWithTower ? "ja" : "nein");
+                return state + " | Punkte " + Mathf.Min(profile.spentPoints, 50) + "/50 | Mastery Lv " + Mathf.Min(masteryLevel, 15) + "/15 | Spezial/Boss " + (profile.bossKillWithTower ? "ja" : "nein");
             case TowerMasteryMilestone.IV:
-                return state + " | Punkte " + Mathf.Min(profile.spentPoints, 85) + "/85 | Chaos 3 " + (profile.chaos3WaveWithTower ? "ja" : "nein");
+                return state + " | Punkte " + Mathf.Min(profile.spentPoints, 85) + "/85 | Mastery Lv " + Mathf.Min(masteryLevel, 25) + "/25 | Chaos 3 " + (profile.chaos3WaveWithTower ? "ja" : "nein");
             case TowerMasteryMilestone.V:
-                return state + " | Punkte " + Mathf.Min(profile.spentPoints, 130) + "/130 | Chaos 5/Elite " + (profile.chaos5BossOrEliteWithTower ? "ja" : "nein");
+                return state + " | Punkte " + Mathf.Min(profile.spentPoints, 130) + "/130 | Mastery Lv " + Mathf.Min(masteryLevel, 40) + "/40 | Chaos 5/Elite " + (profile.chaos5BossOrEliteWithTower ? "ja" : "nein");
             default:
                 return "frei";
         }
@@ -837,9 +1235,13 @@ public class TowerMasteryManager : MonoBehaviour
         profile.masteryXP = PlayerPrefs.GetInt(prefix + "XP", 0);
         profile.unspentPoints = PlayerPrefs.GetInt(prefix + "UnspentPoints", 0);
         profile.spentPoints = PlayerPrefs.GetInt(prefix + "SpentPoints", 0);
+        profile.totalEarnedPoints = PlayerPrefs.GetInt(prefix + "TotalEarnedPoints", profile.unspentPoints + profile.spentPoints);
         profile.bestLevelEver = PlayerPrefs.GetInt(prefix + "BestLevel", 1);
         profile.reachedLevel10 = PlayerPrefs.GetInt(prefix + "ReachedLevel10", 0) == 1;
         profile.reachedLevel20 = PlayerPrefs.GetInt(prefix + "ReachedLevel20", 0) == 1;
+        profile.reachedLevel30 = PlayerPrefs.GetInt(prefix + "ReachedLevel30", 0) == 1;
+        profile.reachedLevel40 = PlayerPrefs.GetInt(prefix + "ReachedLevel40", 0) == 1;
+        profile.reachedLevel50 = PlayerPrefs.GetInt(prefix + "ReachedLevel50", 0) == 1;
         profile.bossKillWithTower = PlayerPrefs.GetInt(prefix + "Boss", 0) == 1;
         profile.chaos3WaveWithTower = PlayerPrefs.GetInt(prefix + "Chaos3", 0) == 1;
         profile.chaos5BossOrEliteWithTower = PlayerPrefs.GetInt(prefix + "Chaos5", 0) == 1;
@@ -855,12 +1257,17 @@ public class TowerMasteryManager : MonoBehaviour
             return;
 
         string prefix = GetProfilePrefix(profile.towerRole);
+        profile.totalEarnedPoints = Mathf.Max(profile.totalEarnedPoints, profile.unspentPoints + profile.spentPoints);
         PlayerPrefs.SetInt(prefix + "XP", Mathf.Max(0, profile.masteryXP));
         PlayerPrefs.SetInt(prefix + "UnspentPoints", Mathf.Max(0, profile.unspentPoints));
         PlayerPrefs.SetInt(prefix + "SpentPoints", Mathf.Max(0, profile.spentPoints));
+        PlayerPrefs.SetInt(prefix + "TotalEarnedPoints", Mathf.Max(0, profile.totalEarnedPoints));
         PlayerPrefs.SetInt(prefix + "BestLevel", Mathf.Max(1, profile.bestLevelEver));
         PlayerPrefs.SetInt(prefix + "ReachedLevel10", profile.reachedLevel10 ? 1 : 0);
         PlayerPrefs.SetInt(prefix + "ReachedLevel20", profile.reachedLevel20 ? 1 : 0);
+        PlayerPrefs.SetInt(prefix + "ReachedLevel30", profile.reachedLevel30 ? 1 : 0);
+        PlayerPrefs.SetInt(prefix + "ReachedLevel40", profile.reachedLevel40 ? 1 : 0);
+        PlayerPrefs.SetInt(prefix + "ReachedLevel50", profile.reachedLevel50 ? 1 : 0);
         PlayerPrefs.SetInt(prefix + "Boss", profile.bossKillWithTower ? 1 : 0);
         PlayerPrefs.SetInt(prefix + "Chaos3", profile.chaos3WaveWithTower ? 1 : 0);
         PlayerPrefs.SetInt(prefix + "Chaos5", profile.chaos5BossOrEliteWithTower ? 1 : 0);

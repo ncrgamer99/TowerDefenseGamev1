@@ -13,13 +13,24 @@ public class SpikeTrapEffect : MonoBehaviour
     public float bleedDuration = 12f;
     public Tower sourceTower;
     public Enemy excludedEnemy;
+    public int maxTriggers = 1;
+    public float triggerCooldown = 0.16f;
+    public int triggerDamage = 0;
+    public int extraTargets = 0;
+    public float extraDamageMultiplier = 0f;
+    public float extraTargetRadius = 0.55f;
 
-    public static void CreateSpikeAtWorldPosition(Vector3 position, float radius, float damagePerTick, float tickInterval, float duration, Tower sourceTower = null, Enemy excludedEnemy = null)
+    private int triggerCount = 0;
+    private float lastTriggerTime = -999f;
+    private readonly HashSet<int> triggeredEnemyIds = new HashSet<int>();
+
+    public static void CreateSpikeAtWorldPosition(Vector3 position, float radius, float damagePerTick, float tickInterval, float duration, Tower sourceTower = null, Enemy excludedEnemy = null, int maxTriggers = 1, float triggerCooldown = 0.16f, int triggerDamage = 0, int extraTargets = 0, float extraDamageMultiplier = 0f, float extraTargetRadius = 0.55f)
     {
         GameObject spikeObject = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         spikeObject.name = "Spike Trap";
         spikeObject.transform.position = new Vector3(position.x, 0.08f, position.z);
-        spikeObject.transform.localScale = new Vector3(0.28f, 0.08f, 0.28f);
+        float visualRadius = Mathf.Max(0.28f, radius * 1.1f);
+        spikeObject.transform.localScale = new Vector3(visualRadius, 0.08f, visualRadius);
 
         Collider spikeCollider = spikeObject.GetComponent<Collider>();
         if (spikeCollider != null)
@@ -37,6 +48,12 @@ public class SpikeTrapEffect : MonoBehaviour
         spike.bleedDuration = Mathf.Max(0.1f, duration);
         spike.sourceTower = sourceTower;
         spike.excludedEnemy = excludedEnemy;
+        spike.maxTriggers = Mathf.Max(1, maxTriggers);
+        spike.triggerCooldown = Mathf.Max(0.02f, triggerCooldown);
+        spike.triggerDamage = Mathf.Max(0, triggerDamage);
+        spike.extraTargets = Mathf.Max(0, extraTargets);
+        spike.extraDamageMultiplier = Mathf.Clamp01(extraDamageMultiplier);
+        spike.extraTargetRadius = Mathf.Max(0.1f, extraTargetRadius);
     }
 
     private void OnEnable()
@@ -73,7 +90,10 @@ public class SpikeTrapEffect : MonoBehaviour
                 continue;
             }
 
-            if (enemy == spike.excludedEnemy || enemy.HasBleed())
+            if (enemy == spike.excludedEnemy || enemy.HasBleed() || spike.triggeredEnemyIds.Contains(enemy.GetInstanceID()))
+                continue;
+
+            if (Time.time - spike.lastTriggerTime < spike.triggerCooldown)
                 continue;
 
             Vector3 flatPosition = new Vector3(position.x, spike.worldPosition.y, position.z);
@@ -81,9 +101,67 @@ public class SpikeTrapEffect : MonoBehaviour
             if (Vector3.Distance(flatPosition, spike.worldPosition) > spike.triggerRadius)
                 continue;
 
-            enemy.ApplyBleed(spike.bleedDamagePerTick, spike.bleedDuration, spike.bleedTickInterval, spike.sourceTower);
-            Destroy(spike.gameObject);
+            spike.TriggerEnemy(enemy);
             return;
+        }
+    }
+
+    private void TriggerEnemy(Enemy enemy)
+    {
+        if (enemy == null)
+            return;
+
+        triggeredEnemyIds.Add(enemy.GetInstanceID());
+        lastTriggerTime = Time.time;
+        triggerCount++;
+
+        if (sourceTower != null && sourceTower.towerRole == TowerRole.Spike && SpikeTowerMasteryManager.TryGetActive(out SpikeTowerMasteryManager spikeMastery))
+            spikeMastery.RecordSpikeTrapTriggered(sourceTower, enemy);
+
+        enemy.ApplyBleed(bleedDamagePerTick, bleedDuration, bleedTickInterval, sourceTower);
+
+        if (triggerDamage > 0)
+            enemy.TakeDamage(triggerDamage, sourceTower, false, 0);
+
+        ApplyExtraTargets(enemy);
+
+        if (triggerCount >= Mathf.Max(1, maxTriggers))
+            Destroy(gameObject);
+    }
+
+    private void ApplyExtraTargets(Enemy primaryEnemy)
+    {
+        if (extraTargets <= 0 || extraDamageMultiplier <= 0f)
+            return;
+
+        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        int applied = 0;
+
+        foreach (Enemy enemy in enemies)
+        {
+            if (enemy == null || enemy == primaryEnemy || enemy == excludedEnemy || enemy.currentHealth <= 0f || enemy.HasBleed())
+                continue;
+
+            if (triggeredEnemyIds.Contains(enemy.GetInstanceID()))
+                continue;
+
+            if (Vector3.Distance(enemy.transform.position, primaryEnemy.transform.position) > extraTargetRadius)
+                continue;
+
+            triggeredEnemyIds.Add(enemy.GetInstanceID());
+
+            if (sourceTower != null && sourceTower.towerRole == TowerRole.Spike && SpikeTowerMasteryManager.TryGetActive(out SpikeTowerMasteryManager spikeMastery))
+                spikeMastery.RecordSpikeTrapTriggered(sourceTower, enemy);
+
+            enemy.ApplyBleed(bleedDamagePerTick * extraDamageMultiplier, bleedDuration * Mathf.Clamp(extraDamageMultiplier, 0.25f, 1f), bleedTickInterval, sourceTower);
+
+            if (triggerDamage > 0)
+                enemy.TakeDamage(Mathf.Max(1, Mathf.RoundToInt(triggerDamage * extraDamageMultiplier)), sourceTower, false, 0);
+
+            applied++;
+
+            if (applied >= extraTargets)
+                return;
         }
     }
 

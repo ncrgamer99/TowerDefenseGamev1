@@ -210,6 +210,28 @@ public class Enemy : MonoBehaviour
     private float heavyArmorBreakMarkedUntil = -1f;
     private float heavyArmorWeakenedUntil = -1f;
     private float heavyImpactStaggerUntil = -1f;
+    private float sniperHeadshotMarkedUntil = -1f;
+    private Tower sniperHeadshotSourceTower;
+    private float sniperBossMarkedUntil = -1f;
+    private Tower sniperBossMarkSourceTower;
+    private float slowMasterySlowedUntil = -1f;
+    private Tower slowMasterySourceTower;
+    private float poisonMasteryPoisonedUntil = -1f;
+    private Tower poisonMasterySourceTower;
+    private float poisonCorrosionUntil = -1f;
+    private Tower poisonCorrosionSourceTower;
+    private float alchemistDebuffUntil = -1f;
+    private Tower alchemistDebuffSourceTower;
+    private float alchemistUnstableUntil = -1f;
+    private Tower alchemistUnstableSourceTower;
+    private float lightningShockUntil = -1f;
+    private float lightningShockMultiplier = 1f;
+    private Tower lightningShockSourceTower;
+    private float mortarCraterStaggerUntil = -1f;
+    private float mortarCraterStaggerMultiplier = 1f;
+    private Tower mortarCraterSourceTower;
+    private float slowControlWindowUntil = -1f;
+    private Tower slowControlWindowSourceTower;
     private EnemyHealthBarEffectMode healthBarEffectMode = EnemyHealthBarEffectMode.None;
     private float currentSlowMultiplier = 1f;
     private float towerSlowMultiplier = 1f;
@@ -631,7 +653,9 @@ public class Enemy : MonoBehaviour
         Vector3 oldPosition = transform.position;
         Vector3 targetPosition = pathPoints[currentPathIndex];
         float heavyStaggerMultiplier = Time.time <= heavyImpactStaggerUntil ? 0.1f : 1f;
-        float finalSpeed = Mathf.Max(0.05f, speed * currentSlowMultiplier * temporarySpeedMultiplier * heavyStaggerMultiplier);
+        float lightningShockSpeedMultiplier = Time.time <= lightningShockUntil ? lightningShockMultiplier : 1f;
+        float mortarCraterStaggerSpeedMultiplier = Time.time <= mortarCraterStaggerUntil ? mortarCraterStaggerMultiplier : 1f;
+        float finalSpeed = Mathf.Max(0.05f, speed * currentSlowMultiplier * temporarySpeedMultiplier * heavyStaggerMultiplier * lightningShockSpeedMultiplier * mortarCraterStaggerSpeedMultiplier);
 
         UpdateMovementFacing(targetPosition, false);
         transform.position = Vector3.MoveTowards(transform.position, targetPosition, finalSpeed * Time.deltaTime);
@@ -765,8 +789,13 @@ public class Enemy : MonoBehaviour
         if (damage <= 0f)
             return;
 
-        RegisterContributor(sourceTower, damage);
-        float finalDamage = CalculateFinalDamage(damage, ignoreArmor, armorPierce, useArmorMinimumDamage);
+        float modifiedDamage = damage;
+
+        if (sourceTower != null && SlowTowerMasteryManager.TryGetActive(out SlowTowerMasteryManager slowMasteryManager))
+            modifiedDamage = slowMasteryManager.ModifyDamageAgainstSlowedTarget(sourceTower, this, modifiedDamage);
+
+        RegisterContributor(sourceTower, modifiedDamage);
+        float finalDamage = CalculateFinalDamage(modifiedDamage, ignoreArmor, armorPierce, useArmorMinimumDamage);
         float previousHealth = currentHealth;
         currentHealth -= finalDamage;
         currentHealth = Mathf.Max(0f, currentHealth);
@@ -851,6 +880,10 @@ public class Enemy : MonoBehaviour
 
         damagePerSecond = Mathf.Max(0.1f, damagePerSecond);
         duration = Mathf.Max(0.1f, duration);
+
+        if (SlowTowerMasteryManager.TryGetActive(out SlowTowerMasteryManager slowMasteryManager))
+            duration = slowMasteryManager.ModifyDotDurationOnSlowedTarget(sourceTower, this, duration);
+
         RegisterContributor(sourceTower, 0.1f);
         RegisterHealthBarDamageEffect(EnemyHealthBarEffectMode.Burn);
         BuildAdaptiveEffectResistance();
@@ -886,9 +919,25 @@ public class Enemy : MonoBehaviour
 
         damagePerSecond = Mathf.Max(0.1f, damagePerSecond);
         duration = Mathf.Max(0.1f, duration);
+
+        if (SlowTowerMasteryManager.TryGetActive(out SlowTowerMasteryManager slowMasteryManager))
+            duration = slowMasteryManager.ModifyDotDurationOnSlowedTarget(sourceTower, this, duration);
+
         RegisterContributor(sourceTower, 0.1f);
         RegisterHealthBarDamageEffect(EnemyHealthBarEffectMode.Poison);
         BuildAdaptiveEffectResistance();
+
+        if (sourceTower != null && sourceTower.towerRole == TowerRole.Poison)
+        {
+            poisonMasterySourceTower = sourceTower;
+            poisonMasteryPoisonedUntil = Mathf.Max(poisonMasteryPoisonedUntil, Time.time + duration);
+
+            if (PoisonTowerMasteryManager.TryGetActive(out PoisonTowerMasteryManager poisonMasteryManager))
+                poisonMasteryManager.RecordPoisonApplied(sourceTower, this);
+        }
+
+        if (sourceTower != null && sourceTower.towerRole == TowerRole.Alchemist && AlchemistTowerMasteryManager.TryGetActive(out AlchemistTowerMasteryManager alchemistMasteryManager))
+            alchemistMasteryManager.RecordAlchemistPoisonApplied(sourceTower, this, duration);
 
         if (poisonRoutine != null)
             StopCoroutine(poisonRoutine);
@@ -915,6 +964,19 @@ public class Enemy : MonoBehaviour
                 StopCoroutine(towerSlowRoutine);
 
             towerSlowRoutine = StartCoroutine(SlowRoutine(slowMultiplier, duration, true));
+
+            if (sourceTower.towerRole == TowerRole.Slow)
+            {
+                slowMasterySourceTower = sourceTower;
+                slowMasterySlowedUntil = Mathf.Max(slowMasterySlowedUntil, Time.time + Mathf.Max(0.1f, duration));
+
+                if (SlowTowerMasteryManager.TryGetActive(out SlowTowerMasteryManager slowMasteryManager))
+                    slowMasteryManager.RecordSlowApplied(sourceTower, this, slowMultiplier, duration);
+            }
+
+            if (sourceTower.towerRole == TowerRole.Alchemist && AlchemistTowerMasteryManager.TryGetActive(out AlchemistTowerMasteryManager alchemistMasteryManager))
+                alchemistMasteryManager.RecordAlchemistSlowApplied(sourceTower, this, slowMultiplier, duration);
+
             return;
         }
 
@@ -969,6 +1031,13 @@ public class Enemy : MonoBehaviour
 
         damageValue = Mathf.Max(0.1f, damageValue);
         duration = Mathf.Max(0.1f, duration);
+
+        if (sourceTower != null && sourceTower.towerRole == TowerRole.Spike && SpikeTowerMasteryManager.TryGetActive(out SpikeTowerMasteryManager spikeMasteryManager))
+        {
+            damageValue = spikeMasteryManager.GetModifiedSpikeBleedDamage(sourceTower, this, damageValue);
+            duration = spikeMasteryManager.GetModifiedSpikeBleedDuration(sourceTower, this, duration);
+        }
+
         RegisterContributor(sourceTower, 0.1f);
         RegisterHealthBarDamageEffect(EnemyHealthBarEffectMode.Bleed);
         BuildAdaptiveEffectResistance();
@@ -980,6 +1049,9 @@ public class Enemy : MonoBehaviour
             bleedRoutine = StartCoroutine(DamageOverTimeRoutine(damageValue, duration, sourceTower, false, EnemyDamageOverTimeType.Bleed, tickInterval, true));
         else
             bleedRoutine = StartCoroutine(DamageOverTimeRoutine(damageValue, duration, sourceTower, false, EnemyDamageOverTimeType.Bleed));
+
+        if (sourceTower != null && sourceTower.towerRole == TowerRole.Spike && SpikeTowerMasteryManager.TryGetActive(out SpikeTowerMasteryManager appliedSpikeMasteryManager))
+            appliedSpikeMasteryManager.RecordSpikeBleedApplied(sourceTower, this, duration);
     }
 
 
@@ -1070,15 +1142,57 @@ public class Enemy : MonoBehaviour
 
             if (tickDamage > 0f)
             {
+                PoisonTowerMasteryManager poisonMasteryManager = null;
+                bool usePoisonMastery = dotType == EnemyDamageOverTimeType.Poison && sourceTower != null && sourceTower.towerRole == TowerRole.Poison && PoisonTowerMasteryManager.TryGetActive(out poisonMasteryManager);
+                AlchemistTowerMasteryManager alchemistMasteryManager = null;
+                bool useAlchemistMastery = dotType == EnemyDamageOverTimeType.Poison && sourceTower != null && sourceTower.towerRole == TowerRole.Alchemist && AlchemistTowerMasteryManager.TryGetActive(out alchemistMasteryManager);
+                SpikeTowerMasteryManager spikeMasteryManager = null;
+                bool useSpikeMastery = dotType == EnemyDamageOverTimeType.Bleed && sourceTower != null && sourceTower.towerRole == TowerRole.Spike && SpikeTowerMasteryManager.TryGetActive(out spikeMasteryManager);
+
+                if (usePoisonMastery)
+                    tickDamage = poisonMasteryManager.ModifyPoisonTickDamage(sourceTower, this, tickDamage);
+
+                if (useSpikeMastery)
+                    tickDamage = spikeMasteryManager.ModifySpikeBleedTickDamage(sourceTower, this, tickDamage);
+
                 if (IsChaosVariantRole(EnemyRole.Learner) && (dotType == EnemyDamageOverTimeType.Burn || dotType == EnemyDamageOverTimeType.Poison || dotType == EnemyDamageOverTimeType.Bleed || dotType == EnemyDamageOverTimeType.Darkness))
                 {
                     float reducedDamage = tickDamage * Mathf.Clamp01(chaosLearnerDotDamageMultiplier);
+                    float healAmount = tickDamage * Mathf.Max(0f, chaosLearnerDotHealMultiplier);
+
+                    if (usePoisonMastery)
+                    {
+                        reducedDamage = poisonMasteryManager.ModifyPoisonChaosLearnerDamage(sourceTower, this, tickDamage, reducedDamage);
+                        healAmount = poisonMasteryManager.ModifyPoisonChaosLearnerHeal(sourceTower, healAmount);
+                    }
+
+                    float previousHealth = currentHealth;
                     TakeDamageInternal(reducedDamage, sourceTower, ignoreArmor, false);
-                    HealChaosVariant(tickDamage * Mathf.Max(0f, chaosLearnerDotHealMultiplier));
+
+                    if (usePoisonMastery)
+                        poisonMasteryManager.RecordPoisonDamage(sourceTower, this, Mathf.Max(0f, previousHealth - currentHealth));
+
+                    if (useAlchemistMastery)
+                        alchemistMasteryManager.RecordAlchemistPoisonDamage(sourceTower, this, Mathf.Max(0f, previousHealth - currentHealth));
+
+                    if (useSpikeMastery)
+                        spikeMasteryManager.RecordSpikeBleedDamage(sourceTower, this, Mathf.Max(0f, previousHealth - currentHealth));
+
+                    HealChaosVariant(healAmount);
                 }
                 else
                 {
+                    float previousHealth = currentHealth;
                     TakeDamageInternal(tickDamage, sourceTower, ignoreArmor, false);
+
+                    if (usePoisonMastery)
+                        poisonMasteryManager.RecordPoisonDamage(sourceTower, this, Mathf.Max(0f, previousHealth - currentHealth));
+
+                    if (useAlchemistMastery)
+                        alchemistMasteryManager.RecordAlchemistPoisonDamage(sourceTower, this, Mathf.Max(0f, previousHealth - currentHealth));
+
+                    if (useSpikeMastery)
+                        spikeMasteryManager.RecordSpikeBleedDamage(sourceTower, this, Mathf.Max(0f, previousHealth - currentHealth));
                 }
             }
 
@@ -1254,9 +1368,37 @@ public class Enemy : MonoBehaviour
         if (heavyMasteryManager != null)
             heavyMasteryManager.RecordEnemyDefeated(this, killingTower, contributingTowers.Keys);
 
+        SniperTowerMasteryManager sniperMasteryManager = SniperTowerMasteryManager.GetOrCreate(gameManager);
+        if (sniperMasteryManager != null)
+            sniperMasteryManager.RecordEnemyDefeated(this, killingTower, contributingTowers.Keys);
+
+        LightningTowerMasteryManager lightningMasteryManager = LightningTowerMasteryManager.GetOrCreate(gameManager);
+        if (lightningMasteryManager != null)
+            lightningMasteryManager.RecordEnemyDefeated(this, killingTower, contributingTowers.Keys);
+
         FireTowerMasteryManager fireMasteryManager = FireTowerMasteryManager.GetOrCreate(gameManager);
         if (fireMasteryManager != null)
             fireMasteryManager.RecordEnemyDefeated(this, killingTower, contributingTowers.Keys);
+
+        PoisonTowerMasteryManager poisonMasteryManager = PoisonTowerMasteryManager.GetOrCreate(gameManager);
+        if (poisonMasteryManager != null)
+            poisonMasteryManager.RecordEnemyDefeated(this, killingTower, contributingTowers.Keys);
+
+        SlowTowerMasteryManager slowMasteryManager = SlowTowerMasteryManager.GetOrCreate(gameManager);
+        if (slowMasteryManager != null)
+            slowMasteryManager.RecordEnemyDefeated(this, killingTower, contributingTowers.Keys);
+
+        AlchemistTowerMasteryManager alchemistMasteryManager = AlchemistTowerMasteryManager.GetOrCreate(gameManager);
+        if (alchemistMasteryManager != null)
+            alchemistMasteryManager.RecordEnemyDefeated(this, killingTower, contributingTowers.Keys);
+
+        MortarTowerMasteryManager mortarMasteryManager = MortarTowerMasteryManager.GetOrCreate(gameManager);
+        if (mortarMasteryManager != null)
+            mortarMasteryManager.RecordEnemyDefeated(this, killingTower, contributingTowers.Keys);
+
+        SpikeTowerMasteryManager spikeMasteryManager = SpikeTowerMasteryManager.GetOrCreate(gameManager);
+        if (spikeMasteryManager != null)
+            spikeMasteryManager.RecordEnemyDefeated(this, killingTower, contributingTowers.Keys);
 
         BasicTowerMasteryManager masteryManager = BasicTowerMasteryManager.GetOrCreate(gameManager);
         if (masteryManager != null)
@@ -1503,6 +1645,93 @@ public class Enemy : MonoBehaviour
 
         RegisterContributor(sourceTower, 0.1f);
         heavyImpactStaggerUntil = Mathf.Max(heavyImpactStaggerUntil, Time.time + Mathf.Max(0.05f, duration));
+    }
+
+    public void ApplyLightningShock(float duration, float speedMultiplier, Tower sourceTower, bool disruptMage)
+    {
+        if (isDead || reachedBase || immuneToEffects)
+            return;
+
+        RegisterContributor(sourceTower, 0.1f);
+        if (Time.time > lightningShockUntil)
+            lightningShockMultiplier = 1f;
+
+        lightningShockUntil = Mathf.Max(lightningShockUntil, Time.time + Mathf.Max(0.05f, duration));
+        lightningShockMultiplier = Mathf.Min(lightningShockMultiplier, Mathf.Clamp(speedMultiplier, 0.1f, 1f));
+        lightningShockSourceTower = sourceTower;
+
+        if (disruptMage && canTeleportOnHit)
+            nextTeleportTime = Mathf.Max(nextTeleportTime, Time.time + 0.25f);
+    }
+
+    public bool HasLightningShock()
+    {
+        return Time.time <= lightningShockUntil && lightningShockSourceTower != null;
+    }
+
+    public void ApplyMortarCraterStagger(float duration, float speedMultiplier, Tower sourceTower)
+    {
+        if (isDead || reachedBase || immuneToEffects || IsBossOrMiniBossTarget())
+            return;
+
+        RegisterContributor(sourceTower, 0.1f);
+
+        if (Time.time > mortarCraterStaggerUntil)
+            mortarCraterStaggerMultiplier = 1f;
+
+        mortarCraterStaggerUntil = Mathf.Max(mortarCraterStaggerUntil, Time.time + Mathf.Max(0.05f, duration));
+        mortarCraterStaggerMultiplier = Mathf.Min(mortarCraterStaggerMultiplier, Mathf.Clamp(speedMultiplier, 0.1f, 1f));
+        mortarCraterSourceTower = sourceTower;
+    }
+
+    public bool HasMortarCraterStagger()
+    {
+        return Time.time <= mortarCraterStaggerUntil && mortarCraterSourceTower != null;
+    }
+
+    public void ApplySniperHeadshotMark(float duration, Tower sourceTower)
+    {
+        if (isDead || reachedBase)
+            return;
+
+        RegisterContributor(sourceTower, 0.1f);
+        sniperHeadshotMarkedUntil = Mathf.Max(sniperHeadshotMarkedUntil, Time.time + Mathf.Max(0.1f, duration));
+        sniperHeadshotSourceTower = sourceTower;
+    }
+
+    public bool HasSniperHeadshotMark()
+    {
+        return Time.time <= sniperHeadshotMarkedUntil && sniperHeadshotSourceTower != null;
+    }
+
+    public bool ConsumeSniperHeadshotMark(Tower sourceTower)
+    {
+        if (!HasSniperHeadshotMark())
+            return false;
+
+        sniperHeadshotMarkedUntil = -1f;
+        sniperHeadshotSourceTower = null;
+        return true;
+    }
+
+    public void ApplySniperBossMark(float duration, Tower sourceTower)
+    {
+        if (isDead || reachedBase)
+            return;
+
+        RegisterContributor(sourceTower, 0.1f);
+        sniperBossMarkedUntil = Mathf.Max(sniperBossMarkedUntil, Time.time + Mathf.Max(0.1f, duration));
+        sniperBossMarkSourceTower = sourceTower;
+    }
+
+    public bool HasSniperBossMark()
+    {
+        return Time.time <= sniperBossMarkedUntil && sniperBossMarkSourceTower != null;
+    }
+
+    public Tower GetSniperBossMarkSourceTower()
+    {
+        return HasSniperBossMark() ? sniperBossMarkSourceTower : null;
     }
 
     public bool HasEffect(EnemyEffectCheck effectCheck)
@@ -2068,6 +2297,102 @@ public class Enemy : MonoBehaviour
         return isMiniBoss || isBoss || isElite || enemyRole == EnemyRole.MiniBoss || enemyRole == EnemyRole.Boss || enemyRole == EnemyRole.Elite;
     }
 
+    public void ApplySlowControlWindow(float duration, Tower sourceTower)
+    {
+        if (isDead || reachedBase || immuneToEffects)
+            return;
+
+        float safeDuration = Mathf.Max(0.1f, duration);
+        slowControlWindowUntil = Mathf.Max(slowControlWindowUntil, Time.time + safeDuration);
+        slowControlWindowSourceTower = sourceTower;
+        RegisterContributor(sourceTower, 0.1f);
+    }
+
+    public bool HasSlowControlWindow()
+    {
+        return Time.time <= slowControlWindowUntil;
+    }
+
+    public Tower GetSlowControlWindowSourceTower()
+    {
+        return HasSlowControlWindow() ? slowControlWindowSourceTower : null;
+    }
+
+    public bool WasRecentlySlowedBySlowTower()
+    {
+        return slowMasterySourceTower != null && Time.time <= slowMasterySlowedUntil + 0.35f;
+    }
+
+    public Tower GetSlowMasterySourceTower()
+    {
+        return WasRecentlySlowedBySlowTower() ? slowMasterySourceTower : null;
+    }
+
+    public bool WasRecentlyPoisonedByPoisonTower()
+    {
+        return poisonMasterySourceTower != null && Time.time <= poisonMasteryPoisonedUntil + 0.35f;
+    }
+
+    public Tower GetPoisonMasterySourceTower()
+    {
+        return WasRecentlyPoisonedByPoisonTower() ? poisonMasterySourceTower : null;
+    }
+
+    public void ApplyPoisonCorrosion(float duration, Tower sourceTower)
+    {
+        if (isDead || reachedBase)
+            return;
+
+        poisonCorrosionUntil = Mathf.Max(poisonCorrosionUntil, Time.time + Mathf.Max(0.1f, duration));
+        poisonCorrosionSourceTower = sourceTower;
+        RegisterContributor(sourceTower, 0.1f);
+    }
+
+    public bool HasPoisonCorrosion()
+    {
+        return Time.time <= poisonCorrosionUntil && poisonCorrosionSourceTower != null;
+    }
+
+    public void ApplyAlchemistDebuffMark(float duration, Tower sourceTower)
+    {
+        if (isDead || reachedBase)
+            return;
+
+        alchemistDebuffUntil = Mathf.Max(alchemistDebuffUntil, Time.time + Mathf.Max(0.1f, duration));
+        alchemistDebuffSourceTower = sourceTower;
+        RegisterContributor(sourceTower, 0.1f);
+    }
+
+    public bool WasRecentlyDebuffedByAlchemist()
+    {
+        return alchemistDebuffSourceTower != null && Time.time <= alchemistDebuffUntil + 0.35f;
+    }
+
+    public Tower GetAlchemistDebuffSourceTower()
+    {
+        return WasRecentlyDebuffedByAlchemist() ? alchemistDebuffSourceTower : null;
+    }
+
+    public void ApplyAlchemistUnstable(float duration, Tower sourceTower)
+    {
+        if (isDead || reachedBase || immuneToEffects)
+            return;
+
+        alchemistUnstableUntil = Mathf.Max(alchemistUnstableUntil, Time.time + Mathf.Max(0.1f, duration));
+        alchemistUnstableSourceTower = sourceTower;
+        RegisterContributor(sourceTower, 0.1f);
+    }
+
+    public bool HasAlchemistUnstable()
+    {
+        return Time.time <= alchemistUnstableUntil && alchemistUnstableSourceTower != null;
+    }
+
+    public Tower GetAlchemistUnstableSourceTower()
+    {
+        return HasAlchemistUnstable() ? alchemistUnstableSourceTower : null;
+    }
+
     public bool HasBurn()
     {
         return isBurning;
@@ -2085,7 +2410,7 @@ public class Enemy : MonoBehaviour
 
     public bool HasPoison()
     {
-        return isBleeding;
+        return isPoisoned;
     }
 
     public bool HasDarkness()
@@ -2096,6 +2421,37 @@ public class Enemy : MonoBehaviour
     public bool HasSlow()
     {
         return isSlowed;
+    }
+
+    public int GetActiveStatusEffectCount()
+    {
+        int count = 0;
+
+        if (HasBurn())
+            count++;
+
+        if (HasPoison())
+            count++;
+
+        if (HasSlow())
+            count++;
+
+        if (HasBleed())
+            count++;
+
+        if (HasDarkness())
+            count++;
+
+        if (HasAlchemistUnstable())
+            count++;
+
+        if (HasLightningShock())
+            count++;
+
+        if (HasMortarCraterStagger())
+            count++;
+
+        return count;
     }
 }
 

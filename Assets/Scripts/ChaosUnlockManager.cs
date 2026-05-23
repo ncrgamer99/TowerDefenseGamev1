@@ -15,6 +15,7 @@ public class ChaosUnlockManager : MonoBehaviour
     public EnemySpawner enemySpawner;
     public ChaosLexiconManager lexiconManager;
     public ChaosUnlockUI unlockUI;
+    public ChaosUnlockRuntimeUI gameplayUnlockUI;
     public Canvas targetCanvas;
 
     [Header("Unlock Behaviour V1")]
@@ -35,14 +36,16 @@ public class ChaosUnlockManager : MonoBehaviour
     public bool showGameplayOpenButton = false;
     public Button openButton;
     public TextMeshProUGUI openButtonText;
-    public string openButtonLabel = "Freischaltungen (F2)";
+    public string openButtonLabel = "Freischaltungen (Esc)";
 
     [Header("Open / Close")]
     public bool enableUnlockUI = true;
-    public KeyCode toggleKey = KeyCode.F2;
+    public KeyCode toggleKey = KeyCode.F1;
+    public KeyCode secondaryToggleKey = KeyCode.Escape;
     public bool closeWithEscape = true;
-    public bool allowOpeningDuringWave = false;
+    public bool allowOpeningDuringWave = true;
     public bool closeGameplayPanelsWhenOpening = true;
+    public bool pauseGameWhileOpen = true;
 
     [Header("Entries")]
     public List<ChaosUnlockEntry> unlocks = new List<ChaosUnlockEntry>();
@@ -53,6 +56,9 @@ public class ChaosUnlockManager : MonoBehaviour
     public List<string> newlyUnlockedThisSession = new List<string>();
 
     public bool IsOpen => unlockUIOpen;
+
+    private bool pausedGameForUnlockUI = false;
+    private float timeScaleBeforeUnlockUI = 1f;
 
     private void Awake()
     {
@@ -85,6 +91,9 @@ public class ChaosUnlockManager : MonoBehaviour
         if (unlockUI != null)
             unlockUI.Connect(this);
 
+        if (gameplayUnlockUI != null)
+            gameplayUnlockUI.Connect(this);
+
         RefreshUnlocks(false);
         CloseUnlocks();
     }
@@ -94,7 +103,15 @@ public class ChaosUnlockManager : MonoBehaviour
         if (!enableUnlockUI)
             return;
 
-        if (Input.GetKeyDown(toggleKey))
+        if (gameManager != null && gameManager.isGameOver)
+        {
+            if (unlockUIOpen)
+                CloseUnlocks();
+
+            return;
+        }
+
+        if (IsToggleKeyPressed())
         {
             ToggleUnlocks();
             return;
@@ -102,6 +119,14 @@ public class ChaosUnlockManager : MonoBehaviour
 
         if (unlockUIOpen && closeWithEscape && Input.GetKeyDown(KeyCode.Escape))
             CloseUnlocks();
+    }
+
+    private bool IsToggleKeyPressed()
+    {
+        if (Input.GetKeyDown(toggleKey))
+            return true;
+
+        return secondaryToggleKey != KeyCode.None && secondaryToggleKey != toggleKey && Input.GetKeyDown(secondaryToggleKey);
     }
 
     public void ToggleUnlocks()
@@ -119,7 +144,10 @@ public class ChaosUnlockManager : MonoBehaviour
 
         ResolveReferences();
 
-        if (gameManager != null && gameManager.gameStarted && !gameManager.isGameOver && gameManager.currentPhase == GamePhase.Wave)
+        if (gameManager != null && gameManager.isGameOver)
+            return;
+
+        if (ShouldBlockWaveOpening())
             return;
 
         if (gameManager != null)
@@ -135,7 +163,7 @@ public class ChaosUnlockManager : MonoBehaviour
             }
         }
 
-        if (!allowOpeningDuringWave && gameManager != null && gameManager.gameStarted && !gameManager.isGameOver && gameManager.currentPhase == GamePhase.Wave)
+        if (ShouldBlockWaveOpening())
             return;
 
         if (closeGameplayPanelsWhenOpening && gameManager != null && !gameManager.startMenuOpen)
@@ -145,10 +173,24 @@ public class ChaosUnlockManager : MonoBehaviour
         }
 
         RefreshUnlocks(false);
+        PauseGameForUnlockUI();
         unlockUIOpen = true;
 
-        if (unlockUI != null)
+        if (ShouldUseMainMenuUnlockView())
+        {
+            if (unlockUI != null)
+                unlockUI.OpenUnlocks();
+            else if (gameplayUnlockUI != null)
+                gameplayUnlockUI.OpenUnlocks();
+        }
+        else if (gameplayUnlockUI != null)
+        {
+            gameplayUnlockUI.OpenUnlocks();
+        }
+        else if (unlockUI != null)
+        {
             unlockUI.OpenUnlocks();
+        }
     }
 
     public void CloseUnlocks()
@@ -157,14 +199,51 @@ public class ChaosUnlockManager : MonoBehaviour
 
         if (unlockUI != null)
             unlockUI.CloseUnlocks();
+
+        if (gameplayUnlockUI != null)
+            gameplayUnlockUI.CloseUnlocks();
+
+        RestoreGamePauseFromUnlockUI();
+    }
+
+    private bool ShouldBlockWaveOpening()
+    {
+        return !allowOpeningDuringWave &&
+            !pauseGameWhileOpen &&
+            gameManager != null &&
+            gameManager.gameStarted &&
+            !gameManager.isGameOver &&
+            gameManager.currentPhase == GamePhase.Wave;
+    }
+
+    private void PauseGameForUnlockUI()
+    {
+        if (!pauseGameWhileOpen || pausedGameForUnlockUI || gameManager == null || gameManager.startMenuOpen || gameManager.isGameOver)
+            return;
+
+        timeScaleBeforeUnlockUI = Time.timeScale;
+        Time.timeScale = 0f;
+        pausedGameForUnlockUI = true;
+    }
+
+    private void RestoreGamePauseFromUnlockUI()
+    {
+        if (!pausedGameForUnlockUI)
+            return;
+
+        Time.timeScale = Mathf.Approximately(timeScaleBeforeUnlockUI, 0f) ? 1f : timeScaleBeforeUnlockUI;
+        pausedGameForUnlockUI = false;
     }
 
     public void RefreshAndNotify()
     {
         RefreshUnlocks(true);
 
-        if (unlockUI != null && unlockUIOpen)
+        if (unlockUI != null && unlockUI.IsOpen)
             unlockUI.RefreshAll();
+
+        if (gameplayUnlockUI != null && gameplayUnlockUI.IsOpen)
+            gameplayUnlockUI.RefreshAll();
     }
 
     public List<WaveModifier> FilterRiskModifierPool(List<WaveModifier> sourcePool)
@@ -412,9 +491,17 @@ public class ChaosUnlockManager : MonoBehaviour
         {
             Debug.Log("Chaos-Freischaltung erhalten: " + entry.title + " | " + entry.GetUnlockedContentText());
 
-            if (unlockUI != null)
+            if (unlockUI != null && unlockUI.IsOpen)
                 unlockUI.ShowNotification(lastUnlockNotification);
+
+            if (gameplayUnlockUI != null && gameplayUnlockUI.IsOpen)
+                gameplayUnlockUI.ShowNotification(lastUnlockNotification);
         }
+    }
+
+    private bool ShouldUseMainMenuUnlockView()
+    {
+        return gameManager != null && gameManager.startMenuOpen;
     }
 
     private int GetProgressForEntry(ChaosUnlockEntry entry)
@@ -528,11 +615,25 @@ public class ChaosUnlockManager : MonoBehaviour
         if (lexiconManager == null)
             lexiconManager = FindObjectOfType<ChaosLexiconManager>();
 
+        if (targetCanvas == null)
+            targetCanvas = FindObjectOfType<Canvas>();
+
         if (unlockUI == null)
             unlockUI = FindObjectOfType<ChaosUnlockUI>();
 
-        if (targetCanvas == null)
-            targetCanvas = FindObjectOfType<Canvas>();
+        if (gameplayUnlockUI == null)
+            gameplayUnlockUI = FindObjectOfType<ChaosUnlockRuntimeUI>();
+
+        if (gameplayUnlockUI == null && targetCanvas != null)
+            gameplayUnlockUI = gameObject.AddComponent<ChaosUnlockRuntimeUI>();
+
+        if (gameplayUnlockUI != null)
+        {
+            gameplayUnlockUI.manager = this;
+
+            if (gameplayUnlockUI.targetCanvas == null)
+                gameplayUnlockUI.targetCanvas = targetCanvas;
+        }
     }
 
     private void SetupOpenButton()

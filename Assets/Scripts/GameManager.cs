@@ -19,6 +19,8 @@ public enum GameStartMode
 
 public class GameManager : MonoBehaviour
 {
+    private static bool forceStartMenuOnNextSceneLoad = false;
+
     public GamePhase currentPhase = GamePhase.Build;
 
     [Header("References")]
@@ -29,11 +31,23 @@ public class GameManager : MonoBehaviour
     public ChaosLexiconUI chaosLexiconUI;
     public ChaosUnlockManager chaosUnlockManager;
     public ChaosUnlockUI chaosUnlockUI;
+    public ChaosUnlockRuntimeUI gameplayUnlockUI;
+    public GeneralMetaProgressionManager generalMetaProgressionManager;
+    public ChaosResearchProgressionManager chaosResearchProgressionManager;
+    public PathTechniqueProgressionManager pathTechniqueProgressionManager;
+    public EliteHuntProgressionManager eliteHuntProgressionManager;
     public TowerMasteryManager towerMasteryManager;
     public BasicTowerMasteryManager basicTowerMasteryManager;
     public RapidTowerMasteryManager rapidTowerMasteryManager;
     public HeavyTowerMasteryManager heavyTowerMasteryManager;
     public FireTowerMasteryManager fireTowerMasteryManager;
+    public PoisonTowerMasteryManager poisonTowerMasteryManager;
+    public SlowTowerMasteryManager slowTowerMasteryManager;
+    public SniperTowerMasteryManager sniperTowerMasteryManager;
+    public AlchemistTowerMasteryManager alchemistTowerMasteryManager;
+    public LightningTowerMasteryManager lightningTowerMasteryManager;
+    public MortarTowerMasteryManager mortarTowerMasteryManager;
+    public SpikeTowerMasteryManager spikeTowerMasteryManager;
     public MainMenuLexiconManager mainMenuLexiconManager;
     public MainMenuLexiconUI mainMenuLexiconUI;
     public bool autoCreateMainMenuLexicon = true;
@@ -72,6 +86,7 @@ public class GameManager : MonoBehaviour
     public Button startStatsButton;
     public Button startOptionsButton;
     public Button startResetButton;
+    private bool startMenuResetArmed = false;
 
     [Header("Wave Settings")]
     public int waveNumber = 0;
@@ -153,17 +168,29 @@ public class GameManager : MonoBehaviour
         GetChaosJusticeManager();
         GetRunStatisticsTracker();
         GetChaosUnlockManager();
+        GetGeneralMetaProgressionManager();
+        GetChaosResearchProgressionManager();
+        GetPathTechniqueProgressionManager();
+        GetEliteHuntProgressionManager();
         GetTowerMasteryManager();
         GetBasicTowerMasteryManager();
         GetRapidTowerMasteryManager();
         GetHeavyTowerMasteryManager();
         GetFireTowerMasteryManager();
+        GetPoisonTowerMasteryManager();
+        GetSlowTowerMasteryManager();
+        GetSniperTowerMasteryManager();
+        GetAlchemistTowerMasteryManager();
+        GetLightningTowerMasteryManager();
+        GetMortarTowerMasteryManager();
+        GetSpikeTowerMasteryManager();
         GetEliteRewardChoiceManager();
         GetEliteSpawnWarningManager();
         EnsureEnemyWaveDebugWindow();
 
-        if (showStartMenuOnStart)
+        if (showStartMenuOnStart || forceStartMenuOnNextSceneLoad)
         {
+            forceStartMenuOnNextSceneLoad = false;
             OpenStartMenu();
             RefreshWaveScenarioDebug();
             RefreshWaveDataDebug();
@@ -379,6 +406,7 @@ public class GameManager : MonoBehaviour
         gameStarted = false;
         startMenuOpen = true;
         currentPhase = GamePhase.Build;
+        startMenuResetArmed = false;
 
         if (tileManager != null)
             tileManager.SetCanBuild(false);
@@ -405,6 +433,7 @@ public class GameManager : MonoBehaviour
 
     private void StartSelectedGame(GameStartMode mode)
     {
+        startMenuResetArmed = false;
         currentStartMode = mode;
         gameStarted = true;
         startMenuOpen = false;
@@ -417,6 +446,22 @@ public class GameManager : MonoBehaviour
         TowerMasteryManager towerMasteryManager = GetTowerMasteryManager();
         if (towerMasteryManager != null)
             towerMasteryManager.StartNewRun();
+
+        GeneralMetaProgressionManager generalMetaManager = GetGeneralMetaProgressionManager();
+        if (generalMetaManager != null)
+            generalMetaManager.StartNewRun();
+
+        ChaosResearchProgressionManager chaosResearchManager = GetChaosResearchProgressionManager();
+        if (chaosResearchManager != null)
+            chaosResearchManager.StartNewRun();
+
+        PathTechniqueProgressionManager pathTechniqueManager = GetPathTechniqueProgressionManager();
+        if (pathTechniqueManager != null)
+            pathTechniqueManager.StartNewRun();
+
+        EliteHuntProgressionManager eliteHuntManager = GetEliteHuntProgressionManager();
+        if (eliteHuntManager != null)
+            eliteHuntManager.StartNewRun();
 
         BasicTowerMasteryManager basicMasteryManager = GetBasicTowerMasteryManager();
         if (basicMasteryManager != null)
@@ -433,6 +478,34 @@ public class GameManager : MonoBehaviour
         FireTowerMasteryManager fireMasteryManager = GetFireTowerMasteryManager();
         if (fireMasteryManager != null)
             fireMasteryManager.StartNewRun();
+
+        PoisonTowerMasteryManager poisonMasteryManager = GetPoisonTowerMasteryManager();
+        if (poisonMasteryManager != null)
+            poisonMasteryManager.StartNewRun();
+
+        SlowTowerMasteryManager slowMasteryManager = GetSlowTowerMasteryManager();
+        if (slowMasteryManager != null)
+            slowMasteryManager.StartNewRun();
+
+        SniperTowerMasteryManager sniperMasteryManager = GetSniperTowerMasteryManager();
+        if (sniperMasteryManager != null)
+            sniperMasteryManager.StartNewRun();
+
+        AlchemistTowerMasteryManager alchemistMasteryManager = GetAlchemistTowerMasteryManager();
+        if (alchemistMasteryManager != null)
+            alchemistMasteryManager.StartNewRun();
+
+        LightningTowerMasteryManager lightningMasteryManager = GetLightningTowerMasteryManager();
+        if (lightningMasteryManager != null)
+            lightningMasteryManager.StartNewRun();
+
+        MortarTowerMasteryManager mortarMasteryManager = GetMortarTowerMasteryManager();
+        if (mortarMasteryManager != null)
+            mortarMasteryManager.StartNewRun();
+
+        SpikeTowerMasteryManager spikeMasteryManager = GetSpikeTowerMasteryManager();
+        if (spikeMasteryManager != null)
+            spikeMasteryManager.StartNewRun();
 
         if (startMenuRoot != null)
             startMenuRoot.SetActive(false);
@@ -460,13 +533,52 @@ public class GameManager : MonoBehaviour
     {
         gold = mode == GameStartMode.Balancing ? balancingStartGold : normalStartGold;
         lives = mode == GameStartMode.Balancing ? balancingStartLives : normalStartLives;
+
+        if (mode == GameStartMode.Normal)
+        {
+            GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
+            if (generalMeta != null)
+            {
+                gold += Mathf.Max(0, generalMeta.GetActiveStartGoldBonus());
+                lives += Mathf.Max(0, generalMeta.GetActiveStartLifeBonus());
+            }
+        }
+
         isGameOver = false;
     }
 
     public void QuitGameFromStartMenu()
     {
+        startMenuResetArmed = false;
         Debug.Log("Spiel schließen gewählt.");
         Application.Quit();
+    }
+
+    public void AbortRunAndReturnToStartMenu()
+    {
+        startMenuResetArmed = false;
+        Time.timeScale = 1f;
+
+        CloseMainMenuUnlocks();
+        CloseMainMenuLexicon();
+        CloseMainMenuStatistics();
+        ClosePathAndBuildSelectionsForModal();
+        CloseTowerUIForModal();
+
+        if (blockedEventManager != null)
+            blockedEventManager.CloseSelection();
+
+        if (chaosJusticeManager != null)
+            chaosJusticeManager.CloseSelectionWithoutResume();
+
+        if (eliteRewardChoiceManager != null)
+            eliteRewardChoiceManager.CloseSelectionWithoutResume();
+
+        if (eliteSpawnWarningManager != null)
+            eliteSpawnWarningManager.CloseWarningAndRestoreTime();
+
+        forceStartMenuOnNextSceneLoad = true;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
     private void EnsureStartMenuUI()
@@ -575,6 +687,45 @@ public class GameManager : MonoBehaviour
         return panel;
     }
 
+    private GameObject CreateStartMenuDecoration(Transform parent, string objectName, Color color)
+    {
+        GameObject panel = new GameObject(objectName, typeof(RectTransform), typeof(Image));
+        panel.transform.SetParent(parent, false);
+
+        Image image = panel.GetComponent<Image>();
+        image.color = color;
+        image.raycastTarget = false;
+        return panel;
+    }
+
+    private void AddStartMenuFrame(Transform parent, Color color, float thickness)
+    {
+        AddStartMenuLine(parent, "FrameTop", color, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -thickness), Vector2.zero);
+        AddStartMenuLine(parent, "FrameBottom", color, Vector2.zero, new Vector2(1f, 0f), Vector2.zero, new Vector2(0f, thickness));
+        AddStartMenuLine(parent, "FrameLeft", color, Vector2.zero, new Vector2(0f, 1f), Vector2.zero, new Vector2(thickness, 0f));
+        AddStartMenuLine(parent, "FrameRight", color, new Vector2(1f, 0f), Vector2.one, new Vector2(-thickness, 0f), Vector2.zero);
+    }
+
+    private void AddStartMenuLine(Transform parent, string objectName, Color color, Vector2 anchorMin, Vector2 anchorMax, Vector2 offsetMin, Vector2 offsetMax)
+    {
+        GameObject line = CreateStartMenuDecoration(parent, objectName, color);
+        RectTransform rect = line.GetComponent<RectTransform>();
+        rect.anchorMin = anchorMin;
+        rect.anchorMax = anchorMax;
+        rect.offsetMin = offsetMin;
+        rect.offsetMax = offsetMax;
+    }
+
+    private void AddStartMenuAccent(Transform parent, Color color, float width)
+    {
+        GameObject accent = CreateStartMenuDecoration(parent, "LeftAccent", color);
+        RectTransform rect = accent.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = new Vector2(0f, 1f);
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = new Vector2(width, 0f);
+    }
+
     private TextMeshProUGUI CreateStartMenuOverlayText(Transform parent, string objectName, string text, float fontSize, FontStyles style, TextAlignmentOptions alignment, Vector2 anchorMin, Vector2 anchorMax, Vector2 pivot, Vector2 anchoredPosition, Vector2 sizeDelta)
     {
         GameObject textObject = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI));
@@ -610,7 +761,15 @@ public class GameManager : MonoBehaviour
 
         Image image = button.GetComponent<Image>();
         if (image != null)
+        {
             image.color = color;
+            ColorBlock colors = button.colors;
+            colors.normalColor = color;
+            colors.highlightedColor = Color.Lerp(color, new Color32(220, 150, 43, 255), 0.25f);
+            colors.pressedColor = Color.Lerp(color, new Color32(220, 150, 43, 255), 0.45f);
+            colors.selectedColor = color;
+            button.colors = colors;
+        }
 
         return button;
     }
@@ -625,10 +784,20 @@ public class GameManager : MonoBehaviour
         layoutElement.preferredWidth = preferredSize.x > 0f ? preferredSize.x : 240f;
 
         Image image = buttonObject.GetComponent<Image>();
-        image.color = new Color32(65, 95, 145, 245);
+        image.color = new Color32(24, 28, 29, 245);
         image.raycastTarget = true;
+        AddStartMenuFrame(buttonObject.transform, new Color32(72, 63, 45, 255), 2f);
+        AddStartMenuAccent(buttonObject.transform, new Color32(220, 150, 43, 255), 8f);
 
         Button button = buttonObject.GetComponent<Button>();
+        ColorBlock colors = button.colors;
+        colors.normalColor = image.color;
+        colors.highlightedColor = new Color32(66, 50, 25, 255);
+        colors.pressedColor = new Color32(120, 76, 25, 255);
+        colors.selectedColor = image.color;
+        colors.disabledColor = new Color32(34, 34, 34, 180);
+        colors.colorMultiplier = 1f;
+        button.colors = colors;
 
         TextMeshProUGUI text = CreateStartMenuOverlayText(buttonObject.transform, objectName + "Text", label, fontSize, FontStyles.Bold, TextAlignmentOptions.Center, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
         RectTransform textRect = text.GetComponent<RectTransform>();
@@ -661,7 +830,7 @@ public class GameManager : MonoBehaviour
         Image rootImage = startMenuRoot.GetComponent<Image>();
         if (rootImage != null)
         {
-            rootImage.color = new Color32(5, 8, 14, 255);
+            rootImage.color = new Color32(1, 8, 7, 255);
             rootImage.raycastTarget = true;
         }
     }
@@ -695,7 +864,7 @@ public class GameManager : MonoBehaviour
         SetupStartMenuLexiconButton();
         SetupStartMenuStatisticsButton();
         SetupPlaceholderStartMenuButton(startOptionsButton, "Optionen");
-        SetupPlaceholderStartMenuButton(startResetButton, "Reset");
+        SetupStartMenuResetButton();
     }
 
     private void SetupStartMenuUnlocksButton()
@@ -731,11 +900,75 @@ public class GameManager : MonoBehaviour
             return;
 
         button.onClick.RemoveAllListeners();
-        button.onClick.AddListener(() => OpenStartMenuPlaceholder(label));
+        button.onClick.AddListener(() =>
+        {
+            DisarmStartMenuResetConfirmation();
+            OpenStartMenuPlaceholder(label);
+        });
+    }
+
+    private void SetupStartMenuResetButton()
+    {
+        if (startResetButton == null)
+            return;
+
+        startResetButton.onClick.RemoveAllListeners();
+        startResetButton.onClick.AddListener(HandleStartMenuResetPressed);
+        SetStartMenuButtonLabel(startResetButton, "Reset");
+    }
+
+    private void HandleStartMenuResetPressed()
+    {
+        if (!startMenuResetArmed)
+        {
+            startMenuResetArmed = true;
+            SetStartMenuButtonLabel(startResetButton, "Sicher?");
+
+            if (startMenuDescriptionText != null)
+                startMenuDescriptionText.text = "Reset bereit: Nochmal Reset druecken, um Meta-Progression und alle Freischaltungen zu loeschen.";
+
+            return;
+        }
+
+        ResetAllPersistentProgressionAndReload();
+    }
+
+    private void ResetAllPersistentProgressionAndReload()
+    {
+        CloseMainMenuUnlocks();
+        CloseMainMenuLexicon();
+        CloseMainMenuStatistics();
+
+        PlayerPrefs.DeleteAll();
+        PlayerPrefs.Save();
+
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    private void DisarmStartMenuResetConfirmation()
+    {
+        if (!startMenuResetArmed)
+            return;
+
+        startMenuResetArmed = false;
+        SetStartMenuButtonLabel(startResetButton, "Reset");
+        RefreshStartMenuTexts();
+    }
+
+    private void SetStartMenuButtonLabel(Button button, string label)
+    {
+        if (button == null)
+            return;
+
+        TextMeshProUGUI text = button.GetComponentInChildren<TextMeshProUGUI>();
+        if (text != null)
+            text.text = label;
     }
 
     public void OpenMainMenuLexicon()
     {
+        DisarmStartMenuResetConfirmation();
         CloseMainMenuUnlocks();
         CloseMainMenuStatistics();
 
@@ -752,6 +985,7 @@ public class GameManager : MonoBehaviour
 
     public void OpenMainMenuStatistics()
     {
+        DisarmStartMenuResetConfirmation();
         CloseMainMenuUnlocks();
         CloseMainMenuLexicon();
 
@@ -768,6 +1002,7 @@ public class GameManager : MonoBehaviour
 
     public void OpenMainMenuUnlocks()
     {
+        DisarmStartMenuResetConfirmation();
         CloseMainMenuLexicon();
         CloseMainMenuStatistics();
 
@@ -1335,6 +1570,17 @@ public class GameManager : MonoBehaviour
         }
 
         Debug.LogWarning("VERBAUT! Event-Auswahl wird geöffnet.");
+        PathTechniqueProgressionManager pathTechnique = GetPathTechniqueProgressionManager();
+        WaveCompletionResult latestResult = lastCompletedWaveResult != null ? lastCompletedWaveResult : (waveHistory != null ? waveHistory.GetLatestResult() : null);
+
+        if (pathTechnique != null)
+        {
+            int completedWaveNumber = latestResult != null ? latestResult.waveNumber : 0;
+            int chaosLevel = latestResult != null ? latestResult.chaosLevelAtWaveStart : 0;
+            bool hadChaosWaveBlock = latestResult != null && latestResult.hadChaosWaveBlocksAtWaveStart;
+            pathTechnique.RecordBlockedCrisis(currentBlockedPosition, completedWaveNumber, chaosLevel, hadChaosWaveBlock);
+        }
+
         RaiseBlockedBuildPhaseStartedEvent();
 
         if (blockedEventManager != null)
@@ -1795,6 +2041,10 @@ public class GameManager : MonoBehaviour
             BasicTowerMasteryManager masteryManager = GetBasicTowerMasteryManager();
             if (masteryManager != null)
                 masteryManager.NotifyLivesDamaged();
+
+            SlowTowerMasteryManager slowMasteryManager = GetSlowTowerMasteryManager();
+            if (slowMasteryManager != null)
+                slowMasteryManager.NotifyLivesDamaged();
         }
 
         lives -= safeAmount;
@@ -1828,6 +2078,7 @@ public class GameManager : MonoBehaviour
             blockedEventManager.CloseSelection();
 
         ClosePathAndBuildSelectionsForModal();
+        CloseAuxiliaryMenusForGameOver();
 
         if (chaosJusticeManager != null)
             chaosJusticeManager.CloseSelectionWithoutResume();
@@ -1849,6 +2100,24 @@ public class GameManager : MonoBehaviour
     private void RestartGame()
     {
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    private void CloseAuxiliaryMenusForGameOver()
+    {
+        if (chaosUnlockManager != null)
+            chaosUnlockManager.CloseUnlocks();
+        else if (chaosUnlockUI != null)
+            chaosUnlockUI.CloseUnlocks();
+
+        ChaosLexiconManager gameplayLexiconManager = FindObjectOfType<ChaosLexiconManager>();
+
+        if (gameplayLexiconManager != null)
+            gameplayLexiconManager.CloseLexicon();
+        else if (chaosLexiconUI != null)
+            chaosLexiconUI.CloseLexicon();
+
+        CloseMainMenuLexicon();
+        CloseMainMenuStatistics();
     }
 
 
@@ -1880,6 +2149,9 @@ public class GameManager : MonoBehaviour
 
         if (chaosUnlockUI == null)
             chaosUnlockUI = FindObjectOfType<ChaosUnlockUI>();
+
+        if (gameplayUnlockUI == null)
+            gameplayUnlockUI = FindObjectOfType<ChaosUnlockRuntimeUI>();
 
         if (mainMenuLexiconManager == null)
             mainMenuLexiconManager = FindObjectOfType<MainMenuLexiconManager>();
@@ -1925,8 +2197,18 @@ public class GameManager : MonoBehaviour
 
     public bool IsChaosUnlockOpen()
     {
+        ChaosUnlockManager manager = GetChaosUnlockManager();
+        if (manager != null && manager.IsOpen)
+            return true;
+
         ChaosUnlockUI unlockUI = GetChaosUnlockUI();
-        return unlockUI != null && unlockUI.IsOpen;
+        if (unlockUI != null && unlockUI.IsOpen)
+            return true;
+
+        if (gameplayUnlockUI == null)
+            gameplayUnlockUI = FindObjectOfType<ChaosUnlockRuntimeUI>();
+
+        return gameplayUnlockUI != null && gameplayUnlockUI.IsOpen;
     }
 
     public bool IsMainMenuLexiconOpen()
@@ -1962,7 +2244,7 @@ public class GameManager : MonoBehaviour
     public bool CanOpenAuxiliaryModalUI()
     {
         if (isGameOver)
-            return true;
+            return false;
 
         return !startMenuOpen && !blockedBaseRelocationPending && !IsEliteSpawnWarningOpen() && !IsChaosJusticeChoiceOpen() && !IsEliteRewardChoiceOpen() && !IsBlockedEventSelectionOpen() && !IsChaosLexiconOpen() && !IsChaosUnlockOpen() && !IsMainMenuLexiconOpen() && !IsMainMenuStatisticsOpen();
     }
@@ -2112,9 +2394,37 @@ public class GameManager : MonoBehaviour
         if (heavyMasteryManager != null)
             heavyMasteryManager.HandleTowerBuilt(tower);
 
+        SniperTowerMasteryManager sniperMasteryManager = GetSniperTowerMasteryManager();
+        if (sniperMasteryManager != null)
+            sniperMasteryManager.HandleTowerBuilt(tower);
+
+        AlchemistTowerMasteryManager alchemistMasteryManager = GetAlchemistTowerMasteryManager();
+        if (alchemistMasteryManager != null)
+            alchemistMasteryManager.HandleTowerBuilt(tower);
+
+        LightningTowerMasteryManager lightningMasteryManager = GetLightningTowerMasteryManager();
+        if (lightningMasteryManager != null)
+            lightningMasteryManager.HandleTowerBuilt(tower);
+
         FireTowerMasteryManager fireMasteryManager = GetFireTowerMasteryManager();
         if (fireMasteryManager != null)
             fireMasteryManager.HandleTowerBuilt(tower);
+
+        PoisonTowerMasteryManager poisonMasteryManager = GetPoisonTowerMasteryManager();
+        if (poisonMasteryManager != null)
+            poisonMasteryManager.HandleTowerBuilt(tower);
+
+        SlowTowerMasteryManager slowMasteryManager = GetSlowTowerMasteryManager();
+        if (slowMasteryManager != null)
+            slowMasteryManager.HandleTowerBuilt(tower);
+
+        MortarTowerMasteryManager mortarMasteryManager = GetMortarTowerMasteryManager();
+        if (mortarMasteryManager != null)
+            mortarMasteryManager.HandleTowerBuilt(tower);
+
+        SpikeTowerMasteryManager spikeMasteryManager = GetSpikeTowerMasteryManager();
+        if (spikeMasteryManager != null)
+            spikeMasteryManager.HandleTowerBuilt(tower);
     }
 
     public void RegisterTowerXPGained(Tower tower, int amount)
@@ -2189,6 +2499,58 @@ public class GameManager : MonoBehaviour
         return chaosUnlockUI;
     }
 
+    public ChaosUnlockRuntimeUI GetGameplayUnlockUI()
+    {
+        if (gameplayUnlockUI == null)
+            gameplayUnlockUI = FindObjectOfType<ChaosUnlockRuntimeUI>();
+
+        return gameplayUnlockUI;
+    }
+
+    public GeneralMetaProgressionManager GetGeneralMetaProgressionManager()
+    {
+        if (generalMetaProgressionManager == null)
+            generalMetaProgressionManager = GeneralMetaProgressionManager.GetOrCreate(this);
+
+        if (generalMetaProgressionManager != null && generalMetaProgressionManager.gameManager == null)
+            generalMetaProgressionManager.gameManager = this;
+
+        return generalMetaProgressionManager;
+    }
+
+    public ChaosResearchProgressionManager GetChaosResearchProgressionManager()
+    {
+        if (chaosResearchProgressionManager == null)
+            chaosResearchProgressionManager = ChaosResearchProgressionManager.GetOrCreate(this);
+
+        if (chaosResearchProgressionManager != null && chaosResearchProgressionManager.gameManager == null)
+            chaosResearchProgressionManager.gameManager = this;
+
+        return chaosResearchProgressionManager;
+    }
+
+    public PathTechniqueProgressionManager GetPathTechniqueProgressionManager()
+    {
+        if (pathTechniqueProgressionManager == null)
+            pathTechniqueProgressionManager = PathTechniqueProgressionManager.GetOrCreate(this);
+
+        if (pathTechniqueProgressionManager != null && pathTechniqueProgressionManager.gameManager == null)
+            pathTechniqueProgressionManager.gameManager = this;
+
+        return pathTechniqueProgressionManager;
+    }
+
+    public EliteHuntProgressionManager GetEliteHuntProgressionManager()
+    {
+        if (eliteHuntProgressionManager == null)
+            eliteHuntProgressionManager = EliteHuntProgressionManager.GetOrCreate(this);
+
+        if (eliteHuntProgressionManager != null && eliteHuntProgressionManager.gameManager == null)
+            eliteHuntProgressionManager.gameManager = this;
+
+        return eliteHuntProgressionManager;
+    }
+
     public TowerMasteryManager GetTowerMasteryManager()
     {
         if (towerMasteryManager == null)
@@ -2242,6 +2604,83 @@ public class GameManager : MonoBehaviour
             fireTowerMasteryManager.gameManager = this;
 
         return fireTowerMasteryManager;
+    }
+
+    public PoisonTowerMasteryManager GetPoisonTowerMasteryManager()
+    {
+        if (poisonTowerMasteryManager == null)
+            poisonTowerMasteryManager = PoisonTowerMasteryManager.GetOrCreate(this);
+
+        if (poisonTowerMasteryManager != null && poisonTowerMasteryManager.gameManager == null)
+            poisonTowerMasteryManager.gameManager = this;
+
+        return poisonTowerMasteryManager;
+    }
+
+    public SlowTowerMasteryManager GetSlowTowerMasteryManager()
+    {
+        if (slowTowerMasteryManager == null)
+            slowTowerMasteryManager = SlowTowerMasteryManager.GetOrCreate(this);
+
+        if (slowTowerMasteryManager != null && slowTowerMasteryManager.gameManager == null)
+            slowTowerMasteryManager.gameManager = this;
+
+        return slowTowerMasteryManager;
+    }
+
+    public SniperTowerMasteryManager GetSniperTowerMasteryManager()
+    {
+        if (sniperTowerMasteryManager == null)
+            sniperTowerMasteryManager = SniperTowerMasteryManager.GetOrCreate(this);
+
+        if (sniperTowerMasteryManager != null && sniperTowerMasteryManager.gameManager == null)
+            sniperTowerMasteryManager.gameManager = this;
+
+        return sniperTowerMasteryManager;
+    }
+
+    public AlchemistTowerMasteryManager GetAlchemistTowerMasteryManager()
+    {
+        if (alchemistTowerMasteryManager == null)
+            alchemistTowerMasteryManager = AlchemistTowerMasteryManager.GetOrCreate(this);
+
+        if (alchemistTowerMasteryManager != null && alchemistTowerMasteryManager.gameManager == null)
+            alchemistTowerMasteryManager.gameManager = this;
+
+        return alchemistTowerMasteryManager;
+    }
+
+    public LightningTowerMasteryManager GetLightningTowerMasteryManager()
+    {
+        if (lightningTowerMasteryManager == null)
+            lightningTowerMasteryManager = LightningTowerMasteryManager.GetOrCreate(this);
+
+        if (lightningTowerMasteryManager != null && lightningTowerMasteryManager.gameManager == null)
+            lightningTowerMasteryManager.gameManager = this;
+
+        return lightningTowerMasteryManager;
+    }
+
+    public MortarTowerMasteryManager GetMortarTowerMasteryManager()
+    {
+        if (mortarTowerMasteryManager == null)
+            mortarTowerMasteryManager = MortarTowerMasteryManager.GetOrCreate(this);
+
+        if (mortarTowerMasteryManager != null && mortarTowerMasteryManager.gameManager == null)
+            mortarTowerMasteryManager.gameManager = this;
+
+        return mortarTowerMasteryManager;
+    }
+
+    public SpikeTowerMasteryManager GetSpikeTowerMasteryManager()
+    {
+        if (spikeTowerMasteryManager == null)
+            spikeTowerMasteryManager = SpikeTowerMasteryManager.GetOrCreate(this);
+
+        if (spikeTowerMasteryManager != null && spikeTowerMasteryManager.gameManager == null)
+            spikeTowerMasteryManager.gameManager = this;
+
+        return spikeTowerMasteryManager;
     }
 
     public MainMenuLexiconManager GetMainMenuLexiconManager()
@@ -2321,6 +2760,11 @@ public class GameManager : MonoBehaviour
 
         if (stats != null)
             stats.RecordBlockedEventChoice(eventName, eventType, goldGained, livesGained, buildPhaseDuration);
+
+        PathTechniqueProgressionManager pathTechnique = GetPathTechniqueProgressionManager();
+
+        if (pathTechnique != null)
+            pathTechnique.RecordBlockedEventChoice(eventName, eventType);
     }
 
     public void MarkBlockedEventChosenForCurrentPosition()

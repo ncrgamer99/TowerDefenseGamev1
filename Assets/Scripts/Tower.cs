@@ -100,6 +100,8 @@ public class Tower : MonoBehaviour
     private int basicMasteryShotsSinceKill = 0;
     private int rapidMasteryShotCounter = 0;
     private int heavyMasteryShotCounter = 0;
+    private int sniperMasteryShotCounter = 0;
+    private int slowMasteryShotCounter = 0;
 
     private bool visualTierBaseStatsCaptured = false;
     private int baseDamageBeforeVisualTier = 0;
@@ -680,8 +682,38 @@ public class Tower : MonoBehaviour
         if (towerRole == TowerRole.Heavy && HeavyTowerMasteryManager.TryGetActive(out HeavyTowerMasteryManager heavyMasteryManager))
             heavyMasteryManager.RecordHeavyKill(this, killedRole);
 
+        if (towerRole == TowerRole.Sniper && SniperTowerMasteryManager.TryGetActive(out SniperTowerMasteryManager sniperMasteryManager))
+        {
+            sniperMasteryManager.RecordSniperKill(this, killedRole);
+
+            float readyBonus = sniperMasteryManager.GetPreciseRedirectReadyBonus();
+            if (readyBonus > 0f)
+            {
+                float interval = 1f / Mathf.Max(0.01f, GetEffectiveFireRate());
+                fireCooldown = Mathf.Min(fireCooldown, interval * (1f - readyBonus));
+            }
+        }
+
+        if (towerRole == TowerRole.Lightning && LightningTowerMasteryManager.TryGetActive(out LightningTowerMasteryManager lightningMasteryManager))
+            lightningMasteryManager.RecordLightningKill(this, killedRole);
+
+        if (towerRole == TowerRole.Mortar && MortarTowerMasteryManager.TryGetActive(out MortarTowerMasteryManager mortarMasteryManager))
+            mortarMasteryManager.RecordMortarKill(this, killedRole);
+
+        if (towerRole == TowerRole.Spike && SpikeTowerMasteryManager.TryGetActive(out SpikeTowerMasteryManager spikeMasteryManager))
+            spikeMasteryManager.RecordSpikeKill(this, killedRole);
+
         if (towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager fireMasteryManager))
             fireMasteryManager.RecordFireKill(this, killedRole);
+
+        if (towerRole == TowerRole.Alchemist && AlchemistTowerMasteryManager.TryGetActive(out AlchemistTowerMasteryManager alchemistMasteryManager))
+            alchemistMasteryManager.RecordAlchemistKill(this, killedRole);
+
+        if (towerRole == TowerRole.Poison && PoisonTowerMasteryManager.TryGetActive(out PoisonTowerMasteryManager poisonMasteryManager))
+            poisonMasteryManager.RecordPoisonKill(this, killedRole);
+
+        if (towerRole == TowerRole.Slow && SlowTowerMasteryManager.TryGetActive(out SlowTowerMasteryManager slowMasteryManager))
+            slowMasteryManager.RecordSlowKill(this, killedRole);
 
         if (towerRole == TowerRole.Basic && BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager masteryManager))
         {
@@ -711,8 +743,29 @@ public class Tower : MonoBehaviour
         if (towerRole == TowerRole.Heavy && HeavyTowerMasteryManager.TryGetActive(out HeavyTowerMasteryManager heavyMasteryManager))
             heavyMasteryManager.RecordHeavyAssist(this, assistedRole);
 
+        if (towerRole == TowerRole.Sniper && SniperTowerMasteryManager.TryGetActive(out SniperTowerMasteryManager sniperMasteryManager))
+            sniperMasteryManager.RecordSniperAssist(this, assistedRole);
+
+        if (towerRole == TowerRole.Lightning && LightningTowerMasteryManager.TryGetActive(out LightningTowerMasteryManager lightningMasteryManager))
+            lightningMasteryManager.RecordLightningAssist(this, assistedRole);
+
+        if (towerRole == TowerRole.Mortar && MortarTowerMasteryManager.TryGetActive(out MortarTowerMasteryManager mortarMasteryManager))
+            mortarMasteryManager.RecordMortarAssist(this, assistedRole);
+
+        if (towerRole == TowerRole.Spike && SpikeTowerMasteryManager.TryGetActive(out SpikeTowerMasteryManager spikeMasteryManager))
+            spikeMasteryManager.RecordSpikeAssist(this, assistedRole);
+
         if (towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager fireMasteryManager))
             fireMasteryManager.RecordFireAssist(this, assistedRole);
+
+        if (towerRole == TowerRole.Alchemist && AlchemistTowerMasteryManager.TryGetActive(out AlchemistTowerMasteryManager alchemistMasteryManager))
+            alchemistMasteryManager.RecordAlchemistAssist(this, assistedRole);
+
+        if (towerRole == TowerRole.Poison && PoisonTowerMasteryManager.TryGetActive(out PoisonTowerMasteryManager poisonMasteryManager))
+            poisonMasteryManager.RecordPoisonAssist(this, assistedRole);
+
+        if (towerRole == TowerRole.Slow && SlowTowerMasteryManager.TryGetActive(out SlowTowerMasteryManager slowMasteryManager))
+            slowMasteryManager.RecordSlowAssist(this, assistedRole);
 
         if (towerRole == TowerRole.Basic && BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager masteryManager))
             masteryManager.RecordBasicAssist(this, assistedRole);
@@ -734,6 +787,18 @@ public class Tower : MonoBehaviour
 
         if (towerRole == TowerRole.Heavy && HeavyTowerMasteryManager.TryGetActive(out HeavyTowerMasteryManager heavyMasteryManager))
             heavyMasteryManager.RecordHeavyDamage(this, amount);
+
+        if (towerRole == TowerRole.Sniper && SniperTowerMasteryManager.TryGetActive(out SniperTowerMasteryManager sniperMasteryManager))
+            sniperMasteryManager.RecordSniperDamage(this, amount);
+
+        if (towerRole == TowerRole.Mortar && MortarTowerMasteryManager.TryGetActive(out MortarTowerMasteryManager mortarMasteryManager))
+            mortarMasteryManager.RecordMortarDamage(this, amount);
+
+        if (towerRole == TowerRole.Spike && SpikeTowerMasteryManager.TryGetActive(out SpikeTowerMasteryManager spikeMasteryManager))
+            spikeMasteryManager.RecordSpikeDamage(this, amount);
+
+        if (towerRole == TowerRole.Slow && SlowTowerMasteryManager.TryGetActive(out SlowTowerMasteryManager slowMasteryManager))
+            slowMasteryManager.RecordSlowDamage(this, amount);
 
         if (towerRole == TowerRole.Basic && BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager masteryManager))
             masteryManager.RecordBasicDamage(this, amount);
@@ -1079,11 +1144,108 @@ public class Tower : MonoBehaviour
             return;
         }
 
+        if (towerRole == TowerRole.Sniper && SniperTowerMasteryManager.TryGetActive(out SniperTowerMasteryManager sniperMasteryManager))
+        {
+            sniperMasteryShotCounter++;
+
+            SniperTowerMasteryShotContext context = sniperMasteryManager.PrepareSniperShot(this, target, sniperMasteryShotCounter);
+
+            if (context.primaryTarget != null)
+                target = context.primaryTarget;
+
+            int baseDamage = GetEffectiveDamage();
+            int sniperDamage = sniperMasteryManager.CalculateSniperShotDamage(this, target, baseDamage, context, 1f);
+            Projectile projectile = FireProjectile(target, sniperDamage, false, false);
+            sniperMasteryManager.FillSniperProjectileData(projectile, context);
+            return;
+        }
+
+        if (towerRole == TowerRole.Lightning && LightningTowerMasteryManager.TryGetActive(out LightningTowerMasteryManager lightningMasteryManager))
+        {
+            LightningTowerMasteryShotContext context = lightningMasteryManager.PrepareLightningShot(this, target);
+
+            if (context.primaryTarget != null)
+                target = context.primaryTarget;
+
+            int baseDamage = GetEffectiveDamage();
+            int lightningDamage = lightningMasteryManager.CalculateLightningShotDamage(this, target, baseDamage, context);
+            Projectile projectile = FireProjectile(target, lightningDamage, false, false);
+            lightningMasteryManager.FillLightningProjectileData(projectile, this, context);
+            return;
+        }
+
+        if (towerRole == TowerRole.Mortar && MortarTowerMasteryManager.TryGetActive(out MortarTowerMasteryManager mortarMasteryManager))
+        {
+            MortarTowerMasteryShotContext context = mortarMasteryManager.PrepareMortarShot(this, target);
+
+            if (context.primaryTarget != null)
+                target = context.primaryTarget;
+
+            int baseDamage = GetEffectiveDamage();
+            int mortarDamage = mortarMasteryManager.CalculateMortarShotDamage(this, target, baseDamage, context);
+            Projectile projectile = FireProjectile(target, mortarDamage, context.armorPierceShot, false);
+            mortarMasteryManager.FillMortarProjectileData(projectile, this, context);
+            return;
+        }
+
         if (towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager fireMasteryManager))
         {
             int baseDamage = GetEffectiveDamage();
             int fireDamage = fireMasteryManager.CalculateFireShotDamage(this, target, baseDamage);
             FireProjectile(target, fireDamage, false, false);
+            return;
+        }
+
+        if (towerRole == TowerRole.Alchemist && AlchemistTowerMasteryManager.TryGetActive(out AlchemistTowerMasteryManager alchemistMasteryManager))
+        {
+            AlchemistTowerMasteryShotContext context = alchemistMasteryManager.PrepareAlchemistShot(this, target);
+
+            if (context.primaryTarget != null)
+                target = context.primaryTarget;
+
+            int baseDamage = GetEffectiveDamage();
+            int alchemistDamage = alchemistMasteryManager.CalculateAlchemistShotDamage(this, target, baseDamage, context);
+            FireProjectile(target, alchemistDamage, false, false);
+            return;
+        }
+
+        if (towerRole == TowerRole.Poison && PoisonTowerMasteryManager.TryGetActive(out PoisonTowerMasteryManager poisonMasteryManager))
+        {
+            PoisonTowerMasteryShotContext context = poisonMasteryManager.PreparePoisonShot(this, target);
+
+            if (context.primaryTarget != null)
+                target = context.primaryTarget;
+
+            int baseDamage = GetEffectiveDamage();
+            int poisonShotDamage = poisonMasteryManager.CalculatePoisonShotDamage(this, target, baseDamage);
+            FireProjectile(target, poisonShotDamage, false, false);
+            return;
+        }
+
+        if (towerRole == TowerRole.Slow && SlowTowerMasteryManager.TryGetActive(out SlowTowerMasteryManager slowMasteryManager))
+        {
+            slowMasteryShotCounter++;
+            SlowTowerMasteryShotContext context = slowMasteryManager.PrepareSlowShot(this, target, slowMasteryShotCounter);
+
+            if (context.primaryTarget != null)
+                target = context.primaryTarget;
+
+            Projectile projectile = FireProjectile(target, GetEffectiveDamage(), false, false);
+            slowMasteryManager.FillSlowProjectileData(projectile, context);
+            return;
+        }
+
+        if (towerRole == TowerRole.Spike && SpikeTowerMasteryManager.TryGetActive(out SpikeTowerMasteryManager spikeMasteryManager))
+        {
+            SpikeTowerMasteryShotContext context = spikeMasteryManager.PrepareSpikeShot(this, target);
+
+            if (context.primaryTarget != null)
+                target = context.primaryTarget;
+
+            int baseDamage = GetEffectiveDamage();
+            int spikeDamage = spikeMasteryManager.CalculateSpikeShotDamage(this, target, baseDamage, context);
+            Projectile projectile = FireProjectile(target, spikeDamage, false, false);
+            spikeMasteryManager.FillSpikeProjectileData(projectile, this, context);
             return;
         }
 
@@ -1342,8 +1504,29 @@ public class Tower : MonoBehaviour
         if (towerRole == TowerRole.Heavy && HeavyTowerMasteryManager.TryGetActive(out HeavyTowerMasteryManager heavyMasteryManager))
             finalAmount = Mathf.Max(0, Mathf.RoundToInt(finalAmount * heavyMasteryManager.GetHeavyXPMultiplier()));
 
+        if (towerRole == TowerRole.Sniper && SniperTowerMasteryManager.TryGetActive(out SniperTowerMasteryManager sniperMasteryManager))
+            finalAmount = Mathf.Max(0, Mathf.RoundToInt(finalAmount * sniperMasteryManager.GetSniperXPMultiplier()));
+
+        if (towerRole == TowerRole.Lightning && LightningTowerMasteryManager.TryGetActive(out LightningTowerMasteryManager lightningMasteryManager))
+            finalAmount = Mathf.Max(0, Mathf.RoundToInt(finalAmount * lightningMasteryManager.GetLightningXPMultiplier()));
+
+        if (towerRole == TowerRole.Mortar && MortarTowerMasteryManager.TryGetActive(out MortarTowerMasteryManager mortarMasteryManager))
+            finalAmount = Mathf.Max(0, Mathf.RoundToInt(finalAmount * mortarMasteryManager.GetMortarXPMultiplier()));
+
+        if (towerRole == TowerRole.Spike && SpikeTowerMasteryManager.TryGetActive(out SpikeTowerMasteryManager spikeMasteryManager))
+            finalAmount = Mathf.Max(0, Mathf.RoundToInt(finalAmount * spikeMasteryManager.GetSpikeXPMultiplier()));
+
         if (towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager fireMasteryManager))
             finalAmount = Mathf.Max(0, Mathf.RoundToInt(finalAmount * fireMasteryManager.GetFireXPMultiplier()));
+
+        if (towerRole == TowerRole.Alchemist && AlchemistTowerMasteryManager.TryGetActive(out AlchemistTowerMasteryManager alchemistMasteryManager))
+            finalAmount = Mathf.Max(0, Mathf.RoundToInt(finalAmount * alchemistMasteryManager.GetAlchemistXPMultiplier()));
+
+        if (towerRole == TowerRole.Poison && PoisonTowerMasteryManager.TryGetActive(out PoisonTowerMasteryManager poisonMasteryManager))
+            finalAmount = Mathf.Max(0, Mathf.RoundToInt(finalAmount * poisonMasteryManager.GetPoisonXPMultiplier()));
+
+        if (towerRole == TowerRole.Slow && SlowTowerMasteryManager.TryGetActive(out SlowTowerMasteryManager slowMasteryManager))
+            finalAmount = Mathf.Max(0, Mathf.RoundToInt(finalAmount * slowMasteryManager.GetSlowXPMultiplier()));
 
         currentXP += finalAmount;
         RecordTowerXPGainedForRunStats(finalAmount);
@@ -1668,12 +1851,22 @@ public class Tower : MonoBehaviour
 
     public float GetSpikeBleedDamagePerTick()
     {
-        return Mathf.Max(0.1f, 3f + effectGoldUpgradeLevel + effectPointUpgradeLevel * GetPointSpikeBleedDamageIncreasePreview());
+        float bleedDamage = 3f + effectGoldUpgradeLevel + effectPointUpgradeLevel * GetPointSpikeBleedDamageIncreasePreview();
+
+        if (towerRole == TowerRole.Spike && SpikeTowerMasteryManager.TryGetActive(out SpikeTowerMasteryManager spikeMasteryManager))
+            bleedDamage += spikeMasteryManager.GetSpikeBleedDamageBaseBonus();
+
+        return Mathf.Max(0.1f, bleedDamage);
     }
 
     public float GetSpikeBleedDuration()
     {
-        return Mathf.Max(0.1f, 14f + effectGoldUpgradeLevel * effectDurationIncreasePerGoldUpgrade + effectPointUpgradeLevel * GetPointSpikeBleedDurationIncreasePreview());
+        float bleedDuration = 14f + effectGoldUpgradeLevel * effectDurationIncreasePerGoldUpgrade + effectPointUpgradeLevel * GetPointSpikeBleedDurationIncreasePreview();
+
+        if (towerRole == TowerRole.Spike && SpikeTowerMasteryManager.TryGetActive(out SpikeTowerMasteryManager spikeMasteryManager))
+            bleedDuration += spikeMasteryManager.GetSpikeBleedDurationBonus();
+
+        return Mathf.Max(0.1f, bleedDuration);
     }
 
     public int GetPointSpikeBleedDamageIncreasePreview()
@@ -1935,8 +2128,29 @@ public class Tower : MonoBehaviour
         if (towerRole == TowerRole.Heavy && HeavyTowerMasteryManager.TryGetActive(out HeavyTowerMasteryManager heavyMasteryManager))
             effectiveRange += heavyMasteryManager.GetHeavyRangeBonus();
 
+        if (towerRole == TowerRole.Sniper && SniperTowerMasteryManager.TryGetActive(out SniperTowerMasteryManager sniperMasteryManager))
+            effectiveRange += sniperMasteryManager.GetSniperRangeBonus();
+
+        if (towerRole == TowerRole.Lightning && LightningTowerMasteryManager.TryGetActive(out LightningTowerMasteryManager lightningMasteryManager))
+            effectiveRange += lightningMasteryManager.GetLightningRangeBonus();
+
+        if (towerRole == TowerRole.Mortar && MortarTowerMasteryManager.TryGetActive(out MortarTowerMasteryManager mortarMasteryManager))
+            effectiveRange += mortarMasteryManager.GetMortarRangeBonus();
+
+        if (towerRole == TowerRole.Spike && SpikeTowerMasteryManager.TryGetActive(out SpikeTowerMasteryManager spikeMasteryManager))
+            effectiveRange += spikeMasteryManager.GetSpikeRangeBonus();
+
         if (towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager fireMasteryManager))
             effectiveRange += fireMasteryManager.GetFireRangeBonus();
+
+        if (towerRole == TowerRole.Alchemist && AlchemistTowerMasteryManager.TryGetActive(out AlchemistTowerMasteryManager alchemistMasteryManager))
+            effectiveRange += alchemistMasteryManager.GetAlchemistRangeBonus();
+
+        if (towerRole == TowerRole.Poison && PoisonTowerMasteryManager.TryGetActive(out PoisonTowerMasteryManager poisonMasteryManager))
+            effectiveRange += poisonMasteryManager.GetPoisonRangeBonus();
+
+        if (towerRole == TowerRole.Slow && SlowTowerMasteryManager.TryGetActive(out SlowTowerMasteryManager slowMasteryManager))
+            effectiveRange += slowMasteryManager.GetSlowRangeBonus();
 
         return Mathf.Max(0f, effectiveRange);
     }
@@ -1954,8 +2168,26 @@ public class Tower : MonoBehaviour
         if (towerRole == TowerRole.Heavy && HeavyTowerMasteryManager.TryGetActive(out HeavyTowerMasteryManager heavyMasteryManager))
             baseFireRate += heavyMasteryManager.GetHeavyFireRateAdditive();
 
+        if (towerRole == TowerRole.Sniper && SniperTowerMasteryManager.TryGetActive(out SniperTowerMasteryManager sniperMasteryManager))
+            baseFireRate = (baseFireRate + sniperMasteryManager.GetSniperFireRateAdditive()) * sniperMasteryManager.GetSniperFireRateMultiplier(this);
+
+        if (towerRole == TowerRole.Lightning && LightningTowerMasteryManager.TryGetActive(out LightningTowerMasteryManager lightningMasteryManager))
+            baseFireRate = (baseFireRate + lightningMasteryManager.GetLightningFireRateAdditive()) * lightningMasteryManager.GetLightningFireRateMultiplier(this);
+
+        if (towerRole == TowerRole.Mortar && MortarTowerMasteryManager.TryGetActive(out MortarTowerMasteryManager mortarMasteryManager))
+            baseFireRate += mortarMasteryManager.GetMortarFireRateAdditive();
+
         if (towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager fireMasteryManager))
             baseFireRate *= fireMasteryManager.GetFireFireRateMultiplier(this);
+
+        if (towerRole == TowerRole.Alchemist && AlchemistTowerMasteryManager.TryGetActive(out AlchemistTowerMasteryManager alchemistMasteryManager))
+            baseFireRate += alchemistMasteryManager.GetAlchemistFireRateAdditive();
+
+        if (towerRole == TowerRole.Poison && PoisonTowerMasteryManager.TryGetActive(out PoisonTowerMasteryManager poisonMasteryManager))
+            baseFireRate = (baseFireRate + poisonMasteryManager.GetPoisonFireRateAdditive()) * poisonMasteryManager.GetPoisonFireRateMultiplier(this);
+
+        if (towerRole == TowerRole.Slow && SlowTowerMasteryManager.TryGetActive(out SlowTowerMasteryManager slowMasteryManager))
+            baseFireRate = (baseFireRate + slowMasteryManager.GetSlowFireRateAdditive()) * slowMasteryManager.GetSlowFireRateMultiplier(this);
 
         return Mathf.Max(0.01f, baseFireRate * TowerSupportTileEffect.GetFireRateMultiplier(this));
     }
@@ -1973,8 +2205,23 @@ public class Tower : MonoBehaviour
         if (towerRole == TowerRole.Heavy && HeavyTowerMasteryManager.TryGetActive(out HeavyTowerMasteryManager heavyMasteryManager))
             baseDamage += heavyMasteryManager.GetHeavyDamageBaseBonus();
 
+        if (towerRole == TowerRole.Sniper && SniperTowerMasteryManager.TryGetActive(out SniperTowerMasteryManager sniperMasteryManager))
+            baseDamage += sniperMasteryManager.GetSniperDamageBaseBonus();
+
+        if (towerRole == TowerRole.Lightning && LightningTowerMasteryManager.TryGetActive(out LightningTowerMasteryManager lightningMasteryManager))
+            baseDamage += lightningMasteryManager.GetLightningDamageBaseBonus();
+
+        if (towerRole == TowerRole.Mortar && MortarTowerMasteryManager.TryGetActive(out MortarTowerMasteryManager mortarMasteryManager))
+            baseDamage += mortarMasteryManager.GetMortarDamageBaseBonus();
+
+        if (towerRole == TowerRole.Spike && SpikeTowerMasteryManager.TryGetActive(out SpikeTowerMasteryManager spikeMasteryManager))
+            baseDamage += spikeMasteryManager.GetSpikeDamageBaseBonus();
+
         if (towerRole == TowerRole.Fire && FireTowerMasteryManager.TryGetActive(out FireTowerMasteryManager fireMasteryManager))
             baseDamage += fireMasteryManager.GetFireDirectDamageBaseBonus();
+
+        if (towerRole == TowerRole.Alchemist && AlchemistTowerMasteryManager.TryGetActive(out AlchemistTowerMasteryManager alchemistMasteryManager))
+            baseDamage += alchemistMasteryManager.GetAlchemistDamageBaseBonus();
 
         return Mathf.Max(0, Mathf.RoundToInt(baseDamage * TowerSupportTileEffect.GetDamageMultiplier(this)));
     }

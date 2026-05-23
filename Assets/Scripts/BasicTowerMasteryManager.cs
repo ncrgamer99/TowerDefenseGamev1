@@ -262,24 +262,18 @@ public class BasicTowerMasteryManager : MonoBehaviour
             return;
 
         runFinalized = true;
-        RefreshHighestBasicLevelFromActiveTowers();
+        TowerMasteryManager towerMastery = TowerMasteryManager.GetOrCreate(gameManager);
 
-        if (highestWaveReachedThisRun < Mathf.Max(1, minimumWaveForPointPayout))
+        if (towerMastery != null)
         {
+            towerMastery.FinalizeRun();
+            ApplyGlobalTowerMasteryProfile(towerMastery.GetProfile(TowerRole.Basic));
+        }
+        else
+        {
+            RefreshHighestBasicLevelFromActiveTowers();
             SaveProfile();
-            return;
         }
-
-        int points = Mathf.Clamp(highestBasicLevelThisRun / 10, 0, Mathf.Max(0, maxPointsPerRun));
-
-        if (points > 0)
-        {
-            unspentPoints += points;
-            lastRunMasteryPointsGained = points;
-            Debug.Log("Basic Mastery: +" + points + " Punkt(e) fuer hoechsten Basic Tower Level " + highestBasicLevelThisRun + ".");
-        }
-
-        SaveProfile();
     }
 
     public IReadOnlyList<BasicTowerMasteryNodeDefinition> GetDefinitions()
@@ -317,20 +311,22 @@ public class BasicTowerMasteryManager : MonoBehaviour
 
     public bool IsMilestoneUnlocked(BasicTowerMasteryMilestone milestone)
     {
+        int masteryLevel = GetMasteryLevel();
+
         switch (milestone)
         {
             case BasicTowerMasteryMilestone.None:
                 return true;
             case BasicTowerMasteryMilestone.BasicI:
-                return spentPoints >= 10 && reachedBasicLevel10;
+                return spentPoints >= 10 && masteryLevel >= 3 && reachedBasicLevel10;
             case BasicTowerMasteryMilestone.BasicII:
-                return spentPoints >= 25 && reachedBasicLevel20;
+                return spentPoints >= 25 && masteryLevel >= 8 && reachedBasicLevel20;
             case BasicTowerMasteryMilestone.BasicIII:
-                return spentPoints >= 50 && bossKillWithBasic;
+                return spentPoints >= 50 && masteryLevel >= 15 && bossKillWithBasic;
             case BasicTowerMasteryMilestone.BasicIV:
-                return spentPoints >= 85 && chaos3WaveWithBasic;
+                return spentPoints >= 85 && masteryLevel >= 25 && chaos3WaveWithBasic;
             case BasicTowerMasteryMilestone.BasicV:
-                return spentPoints >= 130 && chaos5BossOrEliteWithBasic;
+                return spentPoints >= 130 && masteryLevel >= 40 && chaos5BossOrEliteWithBasic;
             default:
                 return false;
         }
@@ -444,7 +440,7 @@ public class BasicTowerMasteryManager : MonoBehaviour
     public string GetOverviewText()
     {
         StringBuilder builder = new StringBuilder();
-        builder.AppendLine("Basic Mastery XP: " + masteryXP);
+        builder.AppendLine("Basic Mastery Level: " + GetMasteryLevel() + " | XP: " + masteryXP);
         builder.AppendLine("Punkte: " + unspentPoints + " frei | " + spentPoints + " ausgegeben");
         builder.AppendLine("Bester Basic im Run/Ewig: " + highestBasicLevelThisRun + " / " + bestBasicLevelEver);
         builder.AppendLine("Aktiver Keystone: " + GetKeystoneDisplayName(activeKeystone));
@@ -456,7 +452,7 @@ public class BasicTowerMasteryManager : MonoBehaviour
         builder.AppendLine("- Basic IV: " + GetMilestoneProgressText(BasicTowerMasteryMilestone.BasicIV));
         builder.AppendLine("- Basic V: " + GetMilestoneProgressText(BasicTowerMasteryMilestone.BasicV));
         builder.AppendLine();
-        builder.AppendLine("Punkte werden am Run-Ende ausgezahlt. Es zaehlt nur der hoechste Basic Tower des Runs.");
+        builder.AppendLine("Punkte werden am Run-Ende ausgezahlt: Level-Gate + Wave-Gate + Impact-Gate.");
         return builder.ToString();
     }
 
@@ -478,6 +474,36 @@ public class BasicTowerMasteryManager : MonoBehaviour
         if (IsMilestoneUnlocked(BasicTowerMasteryMilestone.BasicII)) return 2;
         if (IsMilestoneUnlocked(BasicTowerMasteryMilestone.BasicI)) return 1;
         return 0;
+    }
+
+    public int GetMasteryLevel()
+    {
+        return CalculateMasteryLevelFromXP(masteryXP);
+    }
+
+    public int GetXPToNextMasteryLevel(int currentMasteryLevel)
+    {
+        return 100 + Mathf.Max(1, currentMasteryLevel) * 25;
+    }
+
+    public void ApplyGlobalTowerMasteryProfile(TowerMasteryRoleProfile profile)
+    {
+        if (profile == null || profile.towerRole != TowerRole.Basic)
+            return;
+
+        masteryXP = Mathf.Max(0, profile.masteryXP);
+        unspentPoints = Mathf.Max(0, profile.unspentPoints);
+        spentPoints = Mathf.Max(0, profile.spentPoints);
+        bestBasicLevelEver = Mathf.Max(1, profile.bestLevelEver);
+        reachedBasicLevel10 = profile.reachedLevel10;
+        reachedBasicLevel20 = profile.reachedLevel20;
+        bossKillWithBasic = profile.bossKillWithTower;
+        chaos3WaveWithBasic = profile.chaos3WaveWithTower;
+        chaos5BossOrEliteWithBasic = profile.chaos5BossOrEliteWithTower;
+        activeKeystone = ParseGlobalKeystoneId(profile.activeKeystoneId, activeKeystone);
+        lastRunMasteryXPGained = Mathf.Max(0, profile.lastRunMasteryXPGained);
+        lastRunMasteryPointsGained = Mathf.Max(0, profile.lastRunMasteryPointsGained);
+        SaveProfile();
     }
 
     public string GetNodeDetailText(string nodeId)
@@ -565,6 +591,10 @@ public class BasicTowerMasteryManager : MonoBehaviour
 
         int safeLevel = Mathf.Max(1, level);
         highestBasicLevelThisRun = Mathf.Max(highestBasicLevelThisRun, safeLevel);
+
+        if (IsRunActiveForPayout())
+            return;
+
         bestBasicLevelEver = Mathf.Max(bestBasicLevelEver, safeLevel);
 
         if (safeLevel >= 10)
@@ -601,24 +631,30 @@ public class BasicTowerMasteryManager : MonoBehaviour
 
         bool bossTarget = enemy.enemyRole == EnemyRole.Boss || enemy.isBoss;
         bool eliteTarget = enemy.enemyRole == EnemyRole.Elite || enemy.isElite;
+        bool runActive = IsRunActiveForPayout();
 
         if (bossTarget)
         {
-            bossKillWithBasic = true;
+            if (!runActive)
+                bossKillWithBasic = true;
+
             AddMasteryXP(bossParticipationXP);
             TryGrantFoundationBossUpgradePoint(basicContributor);
         }
 
         if (bossTarget && GetCurrentChaosLevel() >= 5)
         {
-            chaos5BossOrEliteWithBasic = true;
+            if (!runActive)
+                chaos5BossOrEliteWithBasic = true;
+
             AddMasteryXP(chaos5BossParticipationXP);
         }
 
-        if ((bossTarget || eliteTarget) && GetCurrentChaosLevel() >= 5)
+        if (!runActive && (bossTarget || eliteTarget) && GetCurrentChaosLevel() >= 5)
             chaos5BossOrEliteWithBasic = true;
 
-        SaveProfile();
+        if (!runActive)
+            SaveProfile();
     }
 
     public void HandleTowerBuilt(Tower tower)
@@ -876,6 +912,9 @@ public class BasicTowerMasteryManager : MonoBehaviour
         if (!currentWaveHadBasicContribution)
             return;
 
+        if (IsRunActiveForPayout())
+            return;
+
         if (result.chaosLevelAtWaveStart > 0 || result.hadChaosWaveBlocksAtWaveStart || result.chaosVariantSpawnCount > 0)
             AddMasteryXP(chaosWaveParticipationXP);
 
@@ -933,14 +972,13 @@ public class BasicTowerMasteryManager : MonoBehaviour
         if (safeAmount <= 0)
             return;
 
-        masteryXP += safeAmount;
-
         if (gameManager == null)
             gameManager = FindObjectOfType<GameManager>();
 
         if (gameManager != null && gameManager.gameStarted && !runFinalized)
-            lastRunMasteryXPGained += safeAmount;
+            return;
 
+        masteryXP += safeAmount;
         SaveProfile();
     }
 
@@ -996,6 +1034,53 @@ public class BasicTowerMasteryManager : MonoBehaviour
 
         ChaosJusticeManager chaosJusticeManager = gameManager.GetChaosJusticeManager();
         return chaosJusticeManager != null ? chaosJusticeManager.GetChaosLevel() : 0;
+    }
+
+    private bool IsRunActiveForPayout()
+    {
+        if (gameManager == null)
+            gameManager = FindObjectOfType<GameManager>();
+
+        return gameManager != null && gameManager.gameStarted && !runFinalized;
+    }
+
+    private int CalculateMasteryLevelFromXP(int totalMasteryXP)
+    {
+        int remainingXP = Mathf.Max(0, totalMasteryXP);
+        int level = 1;
+
+        while (remainingXP >= GetXPToNextMasteryLevel(level))
+        {
+            remainingXP -= GetXPToNextMasteryLevel(level);
+            level++;
+
+            if (level > 999)
+                break;
+        }
+
+        return level;
+    }
+
+    private BasicTowerKeystone ParseGlobalKeystoneId(string keystoneId, BasicTowerKeystone fallback)
+    {
+        if (string.IsNullOrEmpty(keystoneId))
+            return BasicTowerKeystone.None;
+
+        string normalized = keystoneId.Trim().ToLowerInvariant().Replace(" ", "").Replace("_", "").Replace("-", "");
+
+        if (normalized == "none" || normalized == "keinkeystone")
+            return BasicTowerKeystone.None;
+
+        if (normalized == "anchorprojectile" || normalized == "ankerprojektil")
+            return BasicTowerKeystone.AnchorProjectile;
+
+        if (normalized == "controlledsalvo" || normalized == "kontrolliertesalve")
+            return BasicTowerKeystone.ControlledSalvo;
+
+        if (normalized == "foundation" || normalized == "grundpfeiler")
+            return BasicTowerKeystone.Foundation;
+
+        return fallback;
     }
 
     private int CountEnemiesInRange(Tower tower)
@@ -1175,19 +1260,20 @@ public class BasicTowerMasteryManager : MonoBehaviour
     {
         bool unlocked = IsMilestoneUnlocked(milestone);
         string state = unlocked ? "frei" : "gesperrt";
+        int masteryLevel = GetMasteryLevel();
 
         switch (milestone)
         {
             case BasicTowerMasteryMilestone.BasicI:
-                return state + " | Punkte " + Mathf.Min(spentPoints, 10) + "/10 | Level 10 " + (reachedBasicLevel10 ? "ja" : "nein");
+                return state + " | Punkte " + Mathf.Min(spentPoints, 10) + "/10 | Mastery Lv " + Mathf.Min(masteryLevel, 3) + "/3 | Level 10 " + (reachedBasicLevel10 ? "ja" : "nein");
             case BasicTowerMasteryMilestone.BasicII:
-                return state + " | Punkte " + Mathf.Min(spentPoints, 25) + "/25 | Level 20 " + (reachedBasicLevel20 ? "ja" : "nein");
+                return state + " | Punkte " + Mathf.Min(spentPoints, 25) + "/25 | Mastery Lv " + Mathf.Min(masteryLevel, 8) + "/8 | Level 20 " + (reachedBasicLevel20 ? "ja" : "nein");
             case BasicTowerMasteryMilestone.BasicIII:
-                return state + " | Punkte " + Mathf.Min(spentPoints, 50) + "/50 | Boss-Beteiligung " + (bossKillWithBasic ? "ja" : "nein");
+                return state + " | Punkte " + Mathf.Min(spentPoints, 50) + "/50 | Mastery Lv " + Mathf.Min(masteryLevel, 15) + "/15 | Boss/Basisleistung " + (bossKillWithBasic ? "ja" : "nein");
             case BasicTowerMasteryMilestone.BasicIV:
-                return state + " | Punkte " + Mathf.Min(spentPoints, 85) + "/85 | Chaos 3 " + (chaos3WaveWithBasic ? "ja" : "nein");
+                return state + " | Punkte " + Mathf.Min(spentPoints, 85) + "/85 | Mastery Lv " + Mathf.Min(masteryLevel, 25) + "/25 | Chaos 3 " + (chaos3WaveWithBasic ? "ja" : "nein");
             case BasicTowerMasteryMilestone.BasicV:
-                return state + " | Punkte " + Mathf.Min(spentPoints, 130) + "/130 | Chaos 5/Elite " + (chaos5BossOrEliteWithBasic ? "ja" : "nein");
+                return state + " | Punkte " + Mathf.Min(spentPoints, 130) + "/130 | Mastery Lv " + Mathf.Min(masteryLevel, 40) + "/40 | Chaos 5/Elite " + (chaos5BossOrEliteWithBasic ? "ja" : "nein");
             default:
                 return "frei";
         }

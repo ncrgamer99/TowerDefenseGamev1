@@ -23,11 +23,11 @@ public class ChaosLexiconManager : MonoBehaviour
     public bool showGameplayOpenButton = false;
     public Button openButton;
     public TextMeshProUGUI openButtonText;
-    public string openButtonLabel = "Lexikon (F1)";
+    public string openButtonLabel = "Lexikon (F2)";
 
     [Header("Open / Close")]
     public bool enableLexicon = true;
-    public KeyCode toggleKey = KeyCode.F1;
+    public KeyCode toggleKey = KeyCode.F2;
     public bool closeWithEscape = true;
     public bool allowOpeningDuringWave = true;
     public bool closeGameplayPanelsWhenOpening = true;
