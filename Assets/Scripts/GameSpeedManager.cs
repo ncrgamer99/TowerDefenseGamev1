@@ -14,6 +14,9 @@ public class GameSpeedManager : MonoBehaviour
     public bool applyFixedDeltaTimeScaling = true;
     public float maxAllowedTimeScale = 8f;
 
+    [Header("Meta Unlocks")]
+    public bool requireGeneralMetaUnlocks = true;
+
     private int currentSpeedMode = 1;
     private float defaultFixedDeltaTime;
 
@@ -68,14 +71,46 @@ public class GameSpeedManager : MonoBehaviour
 
     public void SetFastSpeed()
     {
+        if (!CanUseFastSpeed())
+        {
+            Debug.Log("Game Speed Fast ist noch gesperrt. Im Meta-Hub unter Komfort / QoL freischalten.");
+            SetNormalSpeed();
+            return;
+        }
+
         currentSpeedMode = 2;
         ApplySpeed(fastSpeed, "Fast");
     }
 
     public void SetFasterSpeed()
     {
+        if (!CanUseFasterSpeed())
+        {
+            Debug.Log("Game Speed Faster ist noch gesperrt. Im Meta-Hub unter Komfort / QoL freischalten.");
+            SetNormalSpeed();
+            return;
+        }
+
         currentSpeedMode = 3;
         ApplySpeed(fasterSpeed, "Faster");
+    }
+
+    private bool CanUseFastSpeed()
+    {
+        if (!requireGeneralMetaUnlocks)
+            return true;
+
+        GeneralMetaProgressionManager generalMeta = GeneralMetaProgressionManager.GetOrCreate(gameManager);
+        return generalMeta != null && generalMeta.CanUseFastSpeed();
+    }
+
+    private bool CanUseFasterSpeed()
+    {
+        if (!requireGeneralMetaUnlocks)
+            return true;
+
+        GeneralMetaProgressionManager generalMeta = GeneralMetaProgressionManager.GetOrCreate(gameManager);
+        return generalMeta != null && generalMeta.CanUseFasterSpeed();
     }
 
     private void ApplySpeed(float targetSpeed, string label)

@@ -1,0 +1,11 @@
+{
+  "target": "asset",
+  "mode": "single",
+  "prompt": "Goldener Tower-Defense-Kern, 32x32 Pixelart-Testicon, transparenter Hintergrund nach Magenta-Key-Cleanup.",
+  "role": "",
+  "input": "C:\\Users\\janni\\.codex\\generated_images\\019e59be-ce3b-7e51-9641-098c33b78173\\ig_0190d598304f7cc4016a12ec6646608191a4276439d034656d.png",
+  "threshold": 100,
+  "edge_threshold": 150,
+  "duration": 200,
+  "single_size": 32
+}

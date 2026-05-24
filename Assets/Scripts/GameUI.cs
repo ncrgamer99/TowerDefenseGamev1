@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -518,6 +519,13 @@ public class GameUI : MonoBehaviour
         if (!forceMinimalStatsText && showNextWavePreviewInStats && ShouldShowNextWavePreview(chaosChoiceOpen))
             text += "\n\n<b>Nächste Wave:</b>\n" + gameManager.GetNextWavePreviewText();
 
+        if (!forceMinimalStatsText)
+        {
+            string pinnedGoalsText = BuildPinnedMetaGoalsText();
+            if (!string.IsNullOrEmpty(pinnedGoalsText))
+                text += "\n\n" + pinnedGoalsText;
+        }
+
         if (showBlockedInfoInStats && gameManager.isTimedBlockedBuildPhase)
             text += "\n\n<b>VERBAUT:</b> " + Mathf.CeilToInt(gameManager.blockedBuildTimeRemaining) + "s";
 
@@ -530,6 +538,47 @@ public class GameUI : MonoBehaviour
         }
 
         statsText.text = text;
+    }
+
+    private string BuildPinnedMetaGoalsText()
+    {
+        if (gameManager == null)
+            return "";
+
+        GeneralMetaProgressionManager generalMeta = gameManager.GetGeneralMetaProgressionManager();
+        if (generalMeta == null)
+            return "";
+
+        int goalCapacity = generalMeta.GetGoalPinCapacity();
+        if (goalCapacity <= 0)
+            return "";
+
+        List<string> goals = new List<string>();
+
+        if (!generalMeta.IsTowerUnlocked(TowerRole.Slow))
+            goals.Add("Slow Tower freischalten");
+        else if (!generalMeta.IsTowerUnlocked(TowerRole.Fire))
+            goals.Add("Fire Tower freischalten");
+        else if (!generalMeta.IsTowerUnlocked(TowerRole.Poison))
+            goals.Add("Poison Tower freischalten");
+
+        ChaosResearchProgressionManager chaosResearch = gameManager.GetChaosResearchProgressionManager();
+        if (chaosResearch != null && chaosResearch.highestChaosLevelEver < 3)
+            goals.Add("Chaos-Level " + Mathf.Clamp(chaosResearch.highestChaosLevelEver + 1, 1, 3) + " erreichen");
+
+        PathTechniqueProgressionManager pathTechnique = gameManager.GetPathTechniqueProgressionManager();
+        if (pathTechnique != null && pathTechnique.pathTechniqueLevel < 3)
+            goals.Add("Pfadtechnik Level " + (pathTechnique.pathTechniqueLevel + 1) + " erreichen");
+
+        if (goals.Count <= 0)
+            goals.Add("Naechsten Boss besiegen");
+
+        string text = "<b>Meta-Ziele</b>";
+        int count = Mathf.Min(goalCapacity, goals.Count);
+        for (int i = 0; i < count; i++)
+            text += "\n- " + goals[i];
+
+        return text;
     }
 
     private void UpdateChaosJusticeHud()

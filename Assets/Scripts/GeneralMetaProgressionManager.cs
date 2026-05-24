@@ -55,6 +55,8 @@ public class GeneralMetaNodeState
 public class GeneralMetaProgressionManager : MonoBehaviour
 {
     private const string PlayerPrefsPrefix = "TD_GeneralMeta_";
+    private const string StartTowerSetMigrationKey = PlayerPrefsPrefix + "StartTowerSetV2";
+    private const string StartTileSetMigrationKey = PlayerPrefsPrefix + "StartTileSetV2";
 
     public static GeneralMetaProgressionManager Instance { get; private set; }
 
@@ -105,6 +107,7 @@ public class GeneralMetaProgressionManager : MonoBehaviour
     private int highestWaveReachedThisRun = 0;
     private int highestChaosLevelReachedThisRun = 0;
     private bool runFinalized = false;
+    private bool firstTowerDiscountUsedThisRun = false;
 
     private void Awake()
     {
@@ -172,6 +175,7 @@ public class GeneralMetaProgressionManager : MonoBehaviour
         lastRunKernwissenGained = 0;
         lastRunAccountXPGained = 0;
         lastRunAccountLevelsGained = 0;
+        firstTowerDiscountUsedThisRun = false;
         runFinalized = false;
         LoadProfile();
     }
@@ -366,9 +370,11 @@ public class GeneralMetaProgressionManager : MonoBehaviour
                 return IsNodePurchased("general.tile.gold");
             case PathBuildOptionType.BridgeTile:
             case PathBuildOptionType.SpecialTile:
-                return IsNodePurchased("general.tile.bridge");
+                return false;
             case PathBuildOptionType.SlowTile:
                 return IsNodePurchased("general.tile.slow");
+            case PathBuildOptionType.KnockTile:
+                return IsNodePurchased("general.tile.knock");
             case PathBuildOptionType.RangeTile:
                 return IsNodePurchased("general.tile.range");
             case PathBuildOptionType.XPTile:
@@ -441,6 +447,81 @@ public class GeneralMetaProgressionManager : MonoBehaviour
         if (IsNodeActive("general.start.life_2")) return 2;
         if (IsNodeActive("general.start.life_1")) return 1;
         return 0;
+    }
+
+    public int GetActiveStartPathBonus()
+    {
+        if (IsNodeActive("general.start.path_2")) return 2;
+        if (IsNodeActive("general.start.path_1")) return 1;
+        return 0;
+    }
+
+    public bool CanUseFastSpeed()
+    {
+        return IsNodeActive("general.qol.speed_fast");
+    }
+
+    public bool CanUseFasterSpeed()
+    {
+        return IsNodeActive("general.qol.speed_faster");
+    }
+
+    public bool HasRolePreviewI()
+    {
+        return IsNodeActive("general.qol.preview_roles_1");
+    }
+
+    public bool HasRolePreviewII()
+    {
+        return IsNodeActive("general.qol.preview_roles_2");
+    }
+
+    public bool HasBossPreview()
+    {
+        return IsNodeActive("general.qol.preview_boss");
+    }
+
+    public bool HasChaosPreview()
+    {
+        return IsNodeActive("general.qol.preview_chaos_1");
+    }
+
+    public bool HasChaosWavePreview()
+    {
+        return IsNodeActive("general.qol.preview_chaos_wave");
+    }
+
+    public int GetGoalPinCapacity()
+    {
+        if (IsNodeActive("general.qol.goal_pin_2")) return 2;
+        if (IsNodeActive("general.qol.goal_pin_1")) return 1;
+        return 0;
+    }
+
+    public bool IsStartScoutActive()
+    {
+        return IsNodeActive("general.start.scout_1");
+    }
+
+    public int GetAvailableFirstTowerDiscount()
+    {
+        if (firstTowerDiscountUsedThisRun)
+            return 0;
+
+        return IsNodeActive("general.start.discount_1") ? 10 : 0;
+    }
+
+    public int GetBuildCostAfterStartOptions(int currentCost)
+    {
+        return Mathf.Max(0, Mathf.Max(0, currentCost) - GetAvailableFirstTowerDiscount());
+    }
+
+    public void ConsumeFirstTowerDiscountIfAvailable(int costBeforeDiscount)
+    {
+        if (costBeforeDiscount <= 0 || GetAvailableFirstTowerDiscount() <= 0)
+            return;
+
+        firstTowerDiscountUsedThisRun = true;
     }
 
     public int GetXPToNextAccountLevel()
@@ -745,11 +826,11 @@ public class GeneralMetaProgressionManager : MonoBehaviour
             case "general.tile.trap":
                 return highestWave >= 5;
             case "general.tile.gold":
-                return totalGoldEarnedEver >= 300 || (GetRunStatisticsTracker() != null && GetRunStatisticsTracker().economy.totalGoldEarned >= 300);
-            case "general.tile.bridge":
-                return blockedEventsChosenEver > 0 || (GetRunStatisticsTracker() != null && GetRunStatisticsTracker().blockedEventsChosen > 0);
+                return true;
             case "general.tile.slow":
-                return IsTowerUnlocked(TowerRole.Slow);
+                return true;
+            case "general.tile.knock":
+                return GetTotalRunnerKillsIncludingCurrentHistory() >= 20 || highestWave >= 6;
             case "general.tile.range":
                 return totalTowersBuiltEver >= 20 || (GetRunStatisticsTracker() != null && GetRunStatisticsTracker().towersBuilt >= 20);
             case "general.tile.xp":
@@ -780,7 +861,9 @@ public class GeneralMetaProgressionManager : MonoBehaviour
         WaveHistory history = GetWaveHistory();
         int highestWave = Mathf.Max(highestWaveEver, history != null ? history.GetHighestWaveNumberReached() : 0);
 
-        if (id == "general.tower.fire")
+        if (id == "general.tower.slow")
+            builder.AppendLine("Kernwissen-Freischaltung: bereit");
+        else if (id == "general.tower.fire")
             builder.AppendLine("Wave 3 erreicht: " + FormatYesNo(highestWave >= 3));
         else if (id == "general.tower.poison")
             builder.AppendLine("TankIntro gesehen: " + FormatYesNo(HasSeenScenario(WaveScenario.TankIntro) || highestWave >= 4));
@@ -797,9 +880,11 @@ public class GeneralMetaProgressionManager : MonoBehaviour
         else if (id == "general.tile.trap")
             builder.AppendLine("Wave 5 erreicht: " + Mathf.Min(highestWave, 5) + " / 5");
         else if (id == "general.tile.gold")
-            builder.AppendLine("Gold in Runs verdient: " + Mathf.Min(totalGoldEarnedEver, 300) + " / 300");
-        else if (id == "general.tile.bridge")
-            builder.AppendLine("Einmal verbaut gewesen: " + FormatYesNo(blockedEventsChosenEver > 0));
+            builder.AppendLine("Common-Start-Tile: freigeschaltet");
+        else if (id == "general.tile.slow")
+            builder.AppendLine("Common-Start-Tile: freigeschaltet");
+        else if (id == "general.tile.knock")
+            builder.AppendLine("Runner-Kills oder Wave 6: " + Mathf.Min(GetTotalRunnerKillsIncludingCurrentHistory(), 20) + " / 20 | Wave " + Mathf.Min(highestWave, 6) + " / 6");
         else if (id == "general.tile.range")
             builder.AppendLine("Tower gebaut: " + Mathf.Min(totalTowersBuiltEver, 20) + " / 20");
         else if (id == "general.tile.xp")
@@ -945,6 +1030,7 @@ public class GeneralMetaProgressionManager : MonoBehaviour
         if (definitions.Count == 0)
             CreateDefaultDefinitions();
 
+        ApplyCoreDefinitionMigrations();
         RebuildDefinitionLookup();
     }
 
@@ -990,6 +1076,95 @@ public class GeneralMetaProgressionManager : MonoBehaviour
         }
     }
 
+    private void ApplyCoreDefinitionMigrations()
+    {
+        EnsureDefinition("general.tower.basic", "Basic Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 0, 1, "Basic ist von Anfang an im Build-Pool.", 0, true, "");
+        EnsureDefinition("general.tower.rapid", "Rapid Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 0, 1, "Rapid ist von Anfang an im Build-Pool.", 0, true, "");
+        EnsureDefinition("general.tower.heavy", "Heavy Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 0, 1, "Heavy ist von Anfang an im Build-Pool.", 0, true, "");
+        EnsureDefinition("general.tower.slow", "Slow Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 70, 2, "Slow erscheint im Build-Pool.", 0, false, "Mit Kernwissen freischalten.");
+        EnsureDefinition("general.tower.fire", "Fire Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 80, 2, "Fire erscheint im Build-Pool.", 0, false, "Wave 3 erreicht.");
+        EnsureDefinition("general.tower.poison", "Poison Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 100, 3, "Poison erscheint im Build-Pool.", 0, false, "TankIntro geschafft.");
+        EnsureDefinition("general.tower.sniper", "Sniper Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 220, 7, "Sniper erscheint im Build-Pool.", 0, false, "MageIntro gesehen.");
+        EnsureDefinition("general.tower.alchemist", "Alchemist Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 350, 13, "Alchemist erscheint im Build-Pool.", 0, false, "Fire + Poison freigeschaltet.");
+        EnsureDefinition("general.tower.lightning", "Lightning Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 450, 16, "Lightning erscheint im Build-Pool.", 0, false, "Mixed-Wave geschafft.");
+        EnsureDefinition("general.tower.mortar", "Mortar Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 600, 20, "Mortar erscheint im Build-Pool.", 0, false, "Wave 20 erreicht.");
+        EnsureDefinition("general.tower.spike", "Spike Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 750, 24, "Spike erscheint im Build-Pool.", 0, false, "Trap/Combo-System freigeschaltet.");
+
+        RemoveDefinition("general.tile.bridge");
+        EnsureDefinition("general.tile.path", "Path Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 0, 1, "Common: normale Weg-Erweiterung ist von Anfang an verfuegbar.", 0, true, "");
+        EnsureDefinition("general.tile.gold", "Gold Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 0, 1, "Common: Gold Tile ist von Anfang an im Pfadangebot.", 0, true, "");
+        EnsureDefinition("general.tile.slow", "Slow Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 0, 1, "Common: Slow Tile ist von Anfang an im Pfadangebot.", 0, true, "");
+        EnsureDefinition("general.tile.trap", "Trap Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 70, 2, "Rare: Trap Tile kann im Pfadangebot erscheinen.", 0, false, "Wave 5 erreicht.");
+        EnsureDefinition("general.tile.knock", "Knock Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 160, 6, "Rare: Knock Tile kann im Pfadangebot erscheinen.", 0, false, "20 Runner-Kills oder Wave 6 erreicht.");
+        EnsureDefinition("general.tile.range", "Range Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 220, 10, "Rare: Range Tile kann im Pfadangebot erscheinen.", 0, false, "20 Tower gebaut.");
+        EnsureDefinition("general.tile.damage", "Damage Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 340, 15, "Rare: Damage Tile kann im Pfadangebot erscheinen.", 0, false, "Boss 1 besiegt.");
+        EnsureDefinition("general.tile.rate", "Rate Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 380, 17, "Rare: Rate Tile kann im Pfadangebot erscheinen.", 0, false, "50 Runner-Kills.");
+        EnsureDefinition("general.tile.xp", "XP Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 260, 12, "Legendary: XP Tile kann im Pfadangebot erscheinen.", 0, false, "20 Tower-Level-Ups.");
+        EnsureDefinition("general.tile.upgrade", "Upgrade Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 450, 19, "Legendary: Upgrade Tile kann im Pfadangebot erscheinen.", 0, false, "30 Upgrade Points verdient.");
+        EnsureDefinition("general.tile.combo", "Combo Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 700, 24, "Legendary: Combo Tile kann im Pfadangebot erscheinen.", 0, false, "Fire + Poison + Spike/Alchemist freigeschaltet.");
+    }
+
+    private void EnsureDefinition(string nodeId, string displayName, GeneralMetaCategory category, GeneralMetaNodeKind kind, int cost, int level, string effectText, int slotCost, bool unlockedByDefault, string requirementText)
+    {
+        GeneralMetaNodeDefinition definition = FindDefinition(nodeId);
+
+        if (definition == null)
+        {
+            AddDefinition(nodeId, displayName, category, kind, cost, level, effectText, slotCost, unlockedByDefault, requirementText);
+            return;
+        }
+
+        definition.displayName = displayName;
+        definition.category = category;
+        definition.kind = kind;
+        definition.cost = Mathf.Max(0, cost);
+        definition.requiredAccountLevel = Mathf.Max(1, level);
+        definition.slotCost = Mathf.Max(0, slotCost);
+        definition.unlockedByDefault = unlockedByDefault;
+        definition.effectText = effectText;
+        definition.requirementText = requirementText;
+    }
+
+    private void RemoveDefinition(string nodeId)
+    {
+        if (definitions != null)
+            definitions.RemoveAll(definition => definition != null && definition.nodeId == nodeId);
+
+        if (nodeStates != null)
+            nodeStates.RemoveAll(state => state != null && state.nodeId == nodeId);
+
+        PlayerPrefs.DeleteKey(PlayerPrefsPrefix + nodeId + ".Purchased");
+        PlayerPrefs.DeleteKey(PlayerPrefsPrefix + nodeId + ".Active");
+    }
+
+    private void NormalizeDefinition(string nodeId, int cost, int level, bool unlockedByDefault, string effectText, string requirementText)
+    {
+        GeneralMetaNodeDefinition definition = FindDefinition(nodeId);
+
+        if (definition == null)
+            return;
+
+        definition.cost = Mathf.Max(0, cost);
+        definition.requiredAccountLevel = Mathf.Max(1, level);
+        definition.unlockedByDefault = unlockedByDefault;
+        definition.effectText = effectText;
+        definition.requirementText = requirementText;
+    }
+
+    private GeneralMetaNodeDefinition FindDefinition(string nodeId)
+    {
+        if (definitions == null || string.IsNullOrEmpty(nodeId))
+            return null;
+
+        foreach (GeneralMetaNodeDefinition definition in definitions)
+        {
+            if (definition != null && definition.nodeId == nodeId)
+                return definition;
+        }
+
+        return null;
+    }
+
     private void RebuildStateLookup()
     {
         stateById.Clear();
@@ -1010,8 +1185,16 @@ public class GeneralMetaProgressionManager : MonoBehaviour
         AddDefinition("general.tower.basic", "Basic Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 0, 1, "Basic ist von Anfang an im Build-Pool.", true);
         AddDefinition("general.tower.rapid", "Rapid Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 0, 1, "Rapid ist von Anfang an im Build-Pool.", true);
         AddDefinition("general.tower.heavy", "Heavy Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 0, 1, "Heavy ist von Anfang an im Build-Pool.", true);
-        AddDefinition("general.tower.slow", "Slow Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 0, 1, "Slow ist von Anfang an im Build-Pool.", true);
-        AddDefinition("general.tile.path", "Path Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 0, 1, "Normale Weg-Erweiterung ist immer verfuegbar.", true);
+        AddDefinition("general.tower.slow", "Slow Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 70, 2, "Slow erscheint im Build-Pool.", false, "Mit Kernwissen freischalten.");
+        AddDefinition("general.tower.fire", "Fire Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 80, 2, "Fire erscheint im Build-Pool.", false, "Wave 3 erreicht.");
+        AddDefinition("general.tower.poison", "Poison Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 100, 3, "Poison erscheint im Build-Pool.", false, "TankIntro geschafft.");
+        AddDefinition("general.tower.sniper", "Sniper Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 220, 7, "Sniper erscheint im Build-Pool.", false, "MageIntro gesehen.");
+        AddDefinition("general.tower.alchemist", "Alchemist Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 350, 13, "Alchemist erscheint im Build-Pool.", false, "Fire + Poison freigeschaltet.");
+        AddDefinition("general.tower.lightning", "Lightning Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 450, 16, "Lightning erscheint im Build-Pool.", false, "Mixed-Wave geschafft.");
+        AddDefinition("general.tower.mortar", "Mortar Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 600, 20, "Mortar erscheint im Build-Pool.", false, "Wave 20 erreicht.");
+        AddDefinition("general.tower.spike", "Spike Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 750, 24, "Spike erscheint im Build-Pool.", false, "Trap/Combo-System freigeschaltet.");
+
+        AddDefinition("general.tile.path", "Path Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 0, 1, "Common: normale Weg-Erweiterung ist von Anfang an verfuegbar.", true);
 
         AddDefinition("general.loadout.slot_4", "Loadout Slot IV", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 150, 5, "+1 Loadout-Slot.");
         AddDefinition("general.loadout.slot_5", "Loadout Slot V", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 300, 10, "+1 Loadout-Slot.");
@@ -1021,24 +1204,16 @@ public class GeneralMetaProgressionManager : MonoBehaviour
         AddDefinition("general.loadout.slot_9", "Loadout Slot IX", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 2800, 60, "+1 Loadout-Slot.");
         AddDefinition("general.loadout.slot_10", "Loadout Slot X", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 4200, 80, "+1 Loadout-Slot.");
 
-        AddDefinition("general.tower.fire", "Fire Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 80, 2, "Fire erscheint im Build-Pool.", false, "Wave 3 erreicht.");
-        AddDefinition("general.tower.poison", "Poison Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 100, 3, "Poison erscheint im Build-Pool.", false, "TankIntro geschafft.");
-        AddDefinition("general.tower.sniper", "Sniper Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 220, 7, "Sniper erscheint im Build-Pool.", false, "MageIntro gesehen.");
-        AddDefinition("general.tower.alchemist", "Alchemist Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 350, 13, "Alchemist erscheint im Build-Pool.", false, "Fire + Poison freigeschaltet.");
-        AddDefinition("general.tower.lightning", "Lightning Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 450, 16, "Lightning erscheint im Build-Pool.", false, "Mixed-Wave geschafft.");
-        AddDefinition("general.tower.mortar", "Mortar Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 600, 20, "Mortar erscheint im Build-Pool.", false, "Wave 20 erreicht.");
-        AddDefinition("general.tower.spike", "Spike Tower", GeneralMetaCategory.TowerUnlock, GeneralMetaNodeKind.ContentUnlock, 750, 24, "Spike erscheint im Build-Pool.", false, "Trap/Combo-System freigeschaltet.");
-
-        AddDefinition("general.tile.trap", "Trap Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 70, 2, "Trap Tile kann im Pfadangebot erscheinen.", false, "Wave 5 erreicht.");
-        AddDefinition("general.tile.gold", "Gold Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 90, 3, "Gold Tile kann im Pfadangebot erscheinen.", false, "300 Gold in Runs verdient.");
-        AddDefinition("general.tile.bridge", "Bridge Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 140, 5, "Bridge/Special Path Option wird vorbereitet.", false, "Einmal verbaut gewesen.");
-        AddDefinition("general.tile.slow", "Slow Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 180, 8, "Slow Tile kann im Pfadangebot erscheinen.", false, "Slow Tower freigeschaltet.");
-        AddDefinition("general.tile.range", "Range Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 220, 10, "Range Tile kann im Pfadangebot erscheinen.", false, "20 Tower gebaut.");
-        AddDefinition("general.tile.xp", "XP Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 260, 12, "XP Tile kann im Pfadangebot erscheinen.", false, "20 Tower-Level-Ups.");
-        AddDefinition("general.tile.damage", "Damage Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 340, 15, "Damage Tile kann im Pfadangebot erscheinen.", false, "Boss 1 besiegt.");
-        AddDefinition("general.tile.rate", "Rate Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 380, 17, "Rate Tile kann im Pfadangebot erscheinen.", false, "50 Runner-Kills.");
-        AddDefinition("general.tile.upgrade", "Upgrade Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 450, 19, "Upgrade Tile kann im Pfadangebot erscheinen.", false, "30 Upgrade Points verdient.");
-        AddDefinition("general.tile.combo", "Combo Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 700, 24, "Combo Tile kann im Pfadangebot erscheinen.", false, "Fire + Poison + Spike/Alchemist freigeschaltet.");
+        AddDefinition("general.tile.gold", "Gold Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 0, 1, "Common: Gold Tile ist von Anfang an im Pfadangebot.", true);
+        AddDefinition("general.tile.slow", "Slow Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 0, 1, "Common: Slow Tile ist von Anfang an im Pfadangebot.", true);
+        AddDefinition("general.tile.trap", "Trap Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 70, 2, "Rare: Trap Tile kann im Pfadangebot erscheinen.", false, "Wave 5 erreicht.");
+        AddDefinition("general.tile.knock", "Knock Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 160, 6, "Rare: Knock Tile kann im Pfadangebot erscheinen.", false, "20 Runner-Kills oder Wave 6 erreicht.");
+        AddDefinition("general.tile.range", "Range Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 220, 10, "Rare: Range Tile kann im Pfadangebot erscheinen.", false, "20 Tower gebaut.");
+        AddDefinition("general.tile.damage", "Damage Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 340, 15, "Rare: Damage Tile kann im Pfadangebot erscheinen.", false, "Boss 1 besiegt.");
+        AddDefinition("general.tile.rate", "Rate Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 380, 17, "Rare: Rate Tile kann im Pfadangebot erscheinen.", false, "50 Runner-Kills.");
+        AddDefinition("general.tile.xp", "XP Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 260, 12, "Legendary: XP Tile kann im Pfadangebot erscheinen.", false, "20 Tower-Level-Ups.");
+        AddDefinition("general.tile.upgrade", "Upgrade Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 450, 19, "Legendary: Upgrade Tile kann im Pfadangebot erscheinen.", false, "30 Upgrade Points verdient.");
+        AddDefinition("general.tile.combo", "Combo Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 700, 24, "Legendary: Combo Tile kann im Pfadangebot erscheinen.", false, "Fire + Poison + Spike/Alchemist freigeschaltet.");
 
         AddDefinition("general.qol.speed_fast", "GameSpeed 2x", GeneralMetaCategory.QoL, GeneralMetaNodeKind.QoL, 50, 2, "Fast Speed verfuegbar.");
         AddDefinition("general.qol.speed_faster", "GameSpeed 6x", GeneralMetaCategory.QoL, GeneralMetaNodeKind.QoL, 250, 12, "Faster Speed verfuegbar.");
@@ -1137,7 +1312,67 @@ public class GeneralMetaProgressionManager : MonoBehaviour
                 state.active = state.purchased;
         }
 
+        ApplyStartTowerSetMigration();
+        ApplyStartTileSetMigration();
         accountLevel = CalculateAccountLevel(accountXP);
+    }
+
+    private void ApplyStartTowerSetMigration()
+    {
+        if (PlayerPrefs.GetInt(StartTowerSetMigrationKey, 0) == 1)
+            return;
+
+        GeneralMetaNodeState slowState = GetNodeState("general.tower.slow");
+        if (slowState != null)
+        {
+            slowState.purchased = false;
+            slowState.active = false;
+            PlayerPrefs.SetInt(PlayerPrefsPrefix + "general.tower.slow.Purchased", 0);
+            PlayerPrefs.SetInt(PlayerPrefsPrefix + "general.tower.slow.Active", 0);
+        }
+
+        PlayerPrefs.SetInt(StartTowerSetMigrationKey, 1);
+        PlayerPrefs.Save();
+    }
+
+    private void ApplyStartTileSetMigration()
+    {
+        if (PlayerPrefs.GetInt(StartTileSetMigrationKey, 0) == 1)
+            return;
+
+        SetPersistentNodeState("general.tile.path", true, true);
+        SetPersistentNodeState("general.tile.gold", true, true);
+        SetPersistentNodeState("general.tile.slow", true, true);
+        ClearPersistentNodeState("general.tile.bridge");
+
+        PlayerPrefs.SetInt(StartTileSetMigrationKey, 1);
+        PlayerPrefs.Save();
+    }
+
+    private void SetPersistentNodeState(string nodeId, bool purchased, bool active)
+    {
+        GeneralMetaNodeState state = GetNodeState(nodeId);
+        if (state != null)
+        {
+            state.purchased = purchased;
+            state.active = active;
+        }
+
+        PlayerPrefs.SetInt(PlayerPrefsPrefix + nodeId + ".Purchased", purchased ? 1 : 0);
+        PlayerPrefs.SetInt(PlayerPrefsPrefix + nodeId + ".Active", active ? 1 : 0);
+    }
+
+    private void ClearPersistentNodeState(string nodeId)
+    {
+        GeneralMetaNodeState state = GetNodeState(nodeId);
+        if (state != null)
+        {
+            state.purchased = false;
+            state.active = false;
+        }
+
+        PlayerPrefs.DeleteKey(PlayerPrefsPrefix + nodeId + ".Purchased");
+        PlayerPrefs.DeleteKey(PlayerPrefsPrefix + nodeId + ".Active");
     }
 
     private void SaveProfile()

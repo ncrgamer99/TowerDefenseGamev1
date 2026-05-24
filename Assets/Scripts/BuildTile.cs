@@ -65,10 +65,15 @@ public class BuildTile : MonoBehaviour
             return false;
         }
 
-        int finalCost = BasicTowerMasteryManager.GetModifiedBuildCost(cost, towerPrefab, towerPrefab.name);
+        int masteryAdjustedCost = BasicTowerMasteryManager.GetModifiedBuildCost(cost, towerPrefab, towerPrefab.name);
+        GeneralMetaProgressionManager generalMeta = gameManager.GetGeneralMetaProgressionManager();
+        int finalCost = generalMeta != null ? generalMeta.GetBuildCostAfterStartOptions(masteryAdjustedCost) : masteryAdjustedCost;
 
         if (!gameManager.SpendGold(finalCost, RunGoldSpendSource.TowerBuild))
             return false;
+
+        if (generalMeta != null)
+            generalMeta.ConsumeFirstTowerDiscountIfAvailable(masteryAdjustedCost);
 
         Vector3 towerPosition = transform.position + Vector3.up * 0.5f;
 

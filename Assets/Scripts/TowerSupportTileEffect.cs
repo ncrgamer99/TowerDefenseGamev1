@@ -83,10 +83,15 @@ public class TowerSupportTileEffect : MonoBehaviour
             return false;
         }
 
-        int finalCost = BasicTowerMasteryManager.GetModifiedBuildCost(option.cost, option.prefab, option.displayName);
+        int masteryAdjustedCost = BasicTowerMasteryManager.GetModifiedBuildCost(option.cost, option.prefab, option.displayName);
+        GeneralMetaProgressionManager generalMeta = gameManager.GetGeneralMetaProgressionManager();
+        int finalCost = generalMeta != null ? generalMeta.GetBuildCostAfterStartOptions(masteryAdjustedCost) : masteryAdjustedCost;
 
         if (!gameManager.SpendGold(finalCost, RunGoldSpendSource.TowerBuild))
             return false;
+
+        if (generalMeta != null)
+            generalMeta.ConsumeFirstTowerDiscountIfAvailable(masteryAdjustedCost);
 
         if (gridPosition == Vector2Int.zero)
             gridPosition = tileManager.WorldToGridPublic(transform.position);

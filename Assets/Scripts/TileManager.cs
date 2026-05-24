@@ -175,7 +175,6 @@ public class TileManager : MonoBehaviour
         AssignGeneratedPrefabIfAvailable(ref knockTilePrefab, generatedTilePrefabSet.knockTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref comboTilePrefab, generatedTilePrefabSet.comboTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref specialTilePrefab, generatedTilePrefabSet.specialTilePrefab);
-        AssignGeneratedPrefabIfAvailable(ref bridgeTilePrefab, generatedTilePrefabSet.bridgeTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref goldTilePrefab, generatedTilePrefabSet.goldTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref rangeTilePrefab, generatedTilePrefabSet.rangeTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref damageTilePrefab, generatedTilePrefabSet.damageTilePrefab);
@@ -280,7 +279,7 @@ public class TileManager : MonoBehaviour
         }
     }
 
-    private void CreateStartPath()
+    private void CreateStartPath(int extraStartPathTiles)
     {
         if (pathInitialized)
             return;
@@ -298,15 +297,15 @@ public class TileManager : MonoBehaviour
 
         pathPositions.Add(startPosition);
 
-        AddPathTile(new Vector2Int(1, 0));
-        AddPathTile(new Vector2Int(2, 0));
-        AddPathTile(new Vector2Int(3, 0));
-        AddPathTile(new Vector2Int(4, 0));
-        AddPathTile(new Vector2Int(5, 0));
+        int safeExtraStartPathTiles = Mathf.Clamp(extraStartPathTiles, 0, 2);
+        int pathTileCount = 5 + safeExtraStartPathTiles;
+
+        for (int x = 1; x <= pathTileCount; x++)
+            AddPathTile(new Vector2Int(x, 0));
 
         ConfigureGeneratedStartTileRails();
 
-        basePosition = new Vector2Int(6, 0);
+        basePosition = new Vector2Int(pathTileCount + 1, 0);
         pathInitialized = true;
         PlaceBaseTile();
         RefreshPathRailings();
@@ -331,11 +330,16 @@ public class TileManager : MonoBehaviour
 
     public bool InitializeRunPath()
     {
+        return InitializeRunPath(0);
+    }
+
+    public bool InitializeRunPath(int extraStartPathTiles)
+    {
         if (pathInitialized)
             return true;
 
         ScaleWorldVisualIfNeeded();
-        CreateStartPath();
+        CreateStartPath(extraStartPathTiles);
         return pathInitialized;
     }
 
@@ -510,7 +514,6 @@ public class TileManager : MonoBehaviour
     {
         return specialTileType == PathBuildOptionType.TrapTile ||
                specialTileType == PathBuildOptionType.SpecialTile ||
-               specialTileType == PathBuildOptionType.BridgeTile ||
                specialTileType == PathBuildOptionType.SlowTile ||
                specialTileType == PathBuildOptionType.KnockTile ||
                specialTileType == PathBuildOptionType.ComboTile;
@@ -521,7 +524,6 @@ public class TileManager : MonoBehaviour
         return tileType == PathBuildOptionType.PathTile ||
                tileType == PathBuildOptionType.TrapTile ||
                tileType == PathBuildOptionType.SpecialTile ||
-               tileType == PathBuildOptionType.BridgeTile ||
                tileType == PathBuildOptionType.GoldTile ||
                tileType == PathBuildOptionType.SlowTile ||
                tileType == PathBuildOptionType.KnockTile ||
@@ -1081,8 +1083,6 @@ public class TileManager : MonoBehaviour
                 return comboTilePrefab;
             case PathBuildOptionType.SpecialTile:
                 return specialTilePrefab;
-            case PathBuildOptionType.BridgeTile:
-                return bridgeTilePrefab;
             case PathBuildOptionType.GoldTile:
                 return goldTilePrefab;
             case PathBuildOptionType.RangeTile:
@@ -1168,7 +1168,7 @@ public class TileManager : MonoBehaviour
 
             return;
         }
-        else if (pathTileType == PathBuildOptionType.SpecialTile || pathTileType == PathBuildOptionType.BridgeTile)
+        else if (pathTileType == PathBuildOptionType.SpecialTile)
         {
             return;
         }
@@ -1202,8 +1202,6 @@ public class TileManager : MonoBehaviour
                 return comboTilePrefab != null;
             case PathBuildOptionType.SpecialTile:
                 return specialTilePrefab != null;
-            case PathBuildOptionType.BridgeTile:
-                return bridgeTilePrefab != null;
             case PathBuildOptionType.GoldTile:
                 return goldTilePrefab != null;
             default:

@@ -1,0 +1,108 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="MetaHubScreen" class="meta-hub-screen">
+        <ui:VisualElement class="top-bar">
+            <ui:VisualElement name="ResourceList" class="resource-list" />
+            <ui:Label name="ScreenTitle" class="screen-title" />
+            <ui:VisualElement class="account-strip">
+                <ui:Label name="AccountLevelTop" class="account-level-top" />
+                <ui:VisualElement class="top-xp-track">
+                    <ui:VisualElement name="AccountXpFill" class="top-xp-fill" />
+                </ui:VisualElement>
+                <ui:Label name="AccountXpTop" class="account-xp-top" />
+                <ui:Button name="SettingsButton" class="top-icon-button" text="*" />
+                <ui:Button name="CloseButton" class="top-icon-button" text="X" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement class="sidebar panel-frame">
+            <ui:Label name="SidebarTitle" class="sidebar-title" />
+            <ui:VisualElement name="NavList" class="nav-list" />
+            <ui:VisualElement class="keystone-panel">
+                <ui:Label class="section-heading small" text="AKTIVE KEYSTONES" />
+                <ui:VisualElement name="KeystoneList" class="keystone-list" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement class="main-frame panel-frame">
+            <ui:Label name="SectionTitle" class="section-heading overview-heading" />
+            <ui:VisualElement name="MetricCardList" class="metric-card-list" />
+
+            <ui:VisualElement class="content-row middle-row">
+                <ui:VisualElement class="progress-panel content-panel">
+                    <ui:Label class="section-heading compact" text="FORTSCHRITT" />
+                    <ui:VisualElement class="progress-content">
+                        <ui:VisualElement class="account-ring">
+                            <ui:VisualElement name="AccountRingFill" class="account-ring-fill" />
+                            <ui:Label name="AccountLevelCenter" class="account-ring-level" />
+                            <ui:Label class="account-ring-caption" text="ACCOUNT LEVEL" />
+                        </ui:VisualElement>
+                        <ui:Label name="AccountXpBottom" class="account-xp-bottom" />
+                        <ui:VisualElement name="ProgressStatList" class="progress-stat-list" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:VisualElement name="ChaosPanel" class="chaos-panel content-panel">
+                    <ui:Label class="section-heading compact" text="CHAOS / GERECHTIGKEIT" />
+                    <ui:VisualElement class="balance-header">
+                        <ui:Label class="justice-symbol" text="G" />
+                        <ui:Label class="justice-label" text="GERECHTIGKEIT" />
+                        <ui:Label class="balance-label" text="BALANCE" />
+                        <ui:Label class="chaos-label" text="CHAOS" />
+                        <ui:Label class="chaos-symbol" text="C" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="balance-track">
+                        <ui:VisualElement name="JusticeBalanceFill" class="justice-balance-fill" />
+                        <ui:VisualElement name="ChaosBalanceFill" class="chaos-balance-fill" />
+                        <ui:VisualElement name="BalanceMarker" class="balance-marker" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="score-band">
+                        <ui:VisualElement class="score-box">
+                            <ui:Label class="score-label safety" text="SAFETY SCORE" />
+                            <ui:Label name="SafetyScoreValue" class="score-value safety" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="score-box center">
+                            <ui:Label name="BalanceValue" class="balance-value" />
+                            <ui:Label name="StabilityLabel" class="stability-label" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="score-box">
+                            <ui:Label class="score-label chaos" text="CHAOS SCORE" />
+                            <ui:Label name="ChaosScoreValue" class="score-value chaos" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:Button name="DetailsButton" class="action-button slim" text="DETAILS ANZEIGEN" />
+                </ui:VisualElement>
+
+                <ui:VisualElement name="GoalsPanel" class="goals-panel content-panel">
+                    <ui:Label class="section-heading compact" text="NÄCHSTE ZIELE" />
+                    <ui:VisualElement name="GoalList" class="goal-list" />
+                    <ui:Button name="AllGoalsButton" class="action-button" text="ALLE ZIELE ANZEIGEN" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement class="content-row lower-row">
+                <ui:VisualElement class="buff-panel content-panel">
+                    <ui:Label class="section-heading compact green" text="AKTIVE BUFFS" />
+                    <ui:VisualElement name="BuffList" class="effect-list" />
+                </ui:VisualElement>
+                <ui:VisualElement class="risk-panel content-panel">
+                    <ui:Label class="section-heading compact red" text="AKTIVE RISIKEN" />
+                    <ui:VisualElement name="RiskList" class="effect-list" />
+                </ui:VisualElement>
+                <ui:VisualElement class="last-run-panel content-panel">
+                    <ui:Label class="section-heading compact muted" text="LETZTER RUN" />
+                    <ui:VisualElement name="LastRunList" class="last-run-list" />
+                    <ui:Button name="RunStatsButton" class="action-button" text="RUN-STATISTIKEN" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement class="bottom-bar">
+            <ui:Label name="FooterTip" class="footer-tip" />
+            <ui:VisualElement class="bottom-actions">
+                <ui:Button name="OptionsButton" class="bottom-button" text="OPTIONEN" />
+                <ui:Button name="MainMenuButton" class="bottom-button" text="HAUPTMENÜ" />
+                <ui:Button name="BackButton" class="bottom-button" text="ZURÜCK" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

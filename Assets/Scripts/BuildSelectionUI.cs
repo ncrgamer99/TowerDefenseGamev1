@@ -470,15 +470,120 @@ public class BuildSelectionUI : MonoBehaviour
         return string.IsNullOrEmpty(displayName) ? "" : displayName.Replace(" Tower", "").Trim().ToLowerInvariant();
     }
 
+    private bool IsBuildOptionUnlocked(BuildOption option)
+    {
+        TowerRole role;
+        if (!TryGetTowerRoleForBuildOption(option, out role))
+            return true;
+
+        GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
+        return generalMeta != null ? generalMeta.IsTowerUnlocked(role) : IsStarterTowerRole(role);
+    }
+
+    private bool TryGetTowerRoleForBuildOption(BuildOption option, out TowerRole role)
+    {
+        role = TowerRole.Basic;
+
+        if (option == null)
+            return false;
+
+        if (option == basicTower) { role = TowerRole.Basic; return true; }
+        if (option == rapidTower) { role = TowerRole.Rapid; return true; }
+        if (option == heavyTower) { role = TowerRole.Heavy; return true; }
+        if (option == fireTower) { role = TowerRole.Fire; return true; }
+        if (option == slowTower) { role = TowerRole.Slow; return true; }
+        if (option == poisonTower) { role = TowerRole.Poison; return true; }
+        if (option == sniperTower) { role = TowerRole.Sniper; return true; }
+        if (option == alchemistTower) { role = TowerRole.Alchemist; return true; }
+        if (option == lightningTower) { role = TowerRole.Lightning; return true; }
+        if (option == mortarTower) { role = TowerRole.Mortar; return true; }
+        if (option == spikeTower) { role = TowerRole.Spike; return true; }
+
+        Tower towerPrefab = option.prefab != null ? option.prefab.GetComponent<Tower>() : null;
+        if (towerPrefab == null && option.prefab != null)
+            towerPrefab = option.prefab.GetComponentInChildren<Tower>();
+
+        if (towerPrefab != null)
+        {
+            role = towerPrefab.towerRole;
+            return true;
+        }
+
+        string normalizedName = NormalizeTowerName(option.displayName);
+        switch (normalizedName)
+        {
+            case "basic":
+                role = TowerRole.Basic;
+                return true;
+            case "rapid":
+                role = TowerRole.Rapid;
+                return true;
+            case "heavy":
+                role = TowerRole.Heavy;
+                return true;
+            case "fire":
+                role = TowerRole.Fire;
+                return true;
+            case "slow":
+                role = TowerRole.Slow;
+                return true;
+            case "poison":
+                role = TowerRole.Poison;
+                return true;
+            case "sniper":
+                role = TowerRole.Sniper;
+                return true;
+            case "alchemist":
+                role = TowerRole.Alchemist;
+                return true;
+            case "lightning":
+                role = TowerRole.Lightning;
+                return true;
+            case "mortar":
+                role = TowerRole.Mortar;
+                return true;
+            case "spike":
+                role = TowerRole.Spike;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private bool IsStarterTowerRole(TowerRole role)
+    {
+        return role == TowerRole.Basic || role == TowerRole.Rapid || role == TowerRole.Heavy;
+    }
+
+    private GeneralMetaProgressionManager GetGeneralMetaProgressionManager()
+    {
+        if (buildManager != null && buildManager.gameManager != null)
+            return buildManager.gameManager.GetGeneralMetaProgressionManager();
+
+        return GeneralMetaProgressionManager.GetOrCreate();
+    }
+
     private void SetupSlot(TowerSelectionSlot slot)
     {
         if (slot == null)
             return;
 
+        bool unlocked = IsBuildOptionUnlocked(slot.option);
+
         if (slot.button == null && autoCreateMissingSlotButtons)
+        {
+            if (!unlocked)
+                return;
+
             slot.button = CreateSlotButton(slot);
+        }
 
         if (slot.button == null)
+            return;
+
+        slot.button.gameObject.SetActive(unlocked);
+
+        if (!unlocked)
             return;
 
         if (forceIconInsideButton)
@@ -694,7 +799,17 @@ public class BuildSelectionUI : MonoBehaviour
         if (option == null)
             return "? Gold";
 
-        return BasicTowerMasteryManager.GetModifiedBuildCost(option.cost, option.prefab, option.displayName) + " Gold";
+        return GetDisplayedBuildCost(option) + " Gold";
+    }
+
+    private int GetDisplayedBuildCost(BuildOption option)
+    {
+        if (option == null)
+            return 0;
+
+        int masteryAdjustedCost = BasicTowerMasteryManager.GetModifiedBuildCost(option.cost, option.prefab, option.displayName);
+        GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
+        return generalMeta != null ? generalMeta.GetBuildCostAfterStartOptions(masteryAdjustedCost) : masteryAdjustedCost;
     }
 
     private string GetShortTowerName(BuildOption option)
@@ -737,7 +852,7 @@ public class BuildSelectionUI : MonoBehaviour
 
         foreach (TowerSelectionSlot slot in towerSlots)
         {
-            if (slot != null && slot.button != null)
+            if (slot != null && slot.button != null && slot.button.gameObject.activeSelf)
                 visibleSlotCount++;
         }
 
@@ -1008,6 +1123,13 @@ public class BuildSelectionUI : MonoBehaviour
         if (option == null)
             return;
 
+        if (!IsBuildOptionUnlocked(option))
+        {
+            ShowLockedBuildOptionMessage(option);
+            RefreshSlotSelectionVisuals();
+            return;
+        }
+
         if (supportTileBuildTarget != null)
         {
             SelectOptionForSupportTile(option);
@@ -1022,6 +1144,23 @@ public class BuildSelectionUI : MonoBehaviour
         UpdateSelectedWindow(option);
         CloseSelectionPanel();
         RefreshSlotSelectionVisuals();
+    }
+
+    private void ShowLockedBuildOptionMessage(BuildOption option)
+    {
+        HideTooltip();
+
+        if (selectedWindow != null)
+        {
+            ApplySelectedWindowTopRightLayout();
+            selectedWindow.SetActive(true);
+        }
+
+        if (selectedText != null)
+        {
+            string towerName = option != null && !string.IsNullOrEmpty(option.displayName) ? option.displayName : "Tower";
+            selectedText.text = towerName + " gesperrt - im Meta-Hub mit Kernwissen freischalten";
+        }
     }
 
     private void SelectOptionForSupportTile(BuildOption option)
@@ -1069,7 +1208,10 @@ public class BuildSelectionUI : MonoBehaviour
             return;
 
         foreach (TowerSelectionSlot slot in towerSlots)
+        {
             SetupSlotButtonVisual(slot);
+            SetupSlotCostLabel(slot);
+        }
     }
 
     private void UpdateSelectedWindow(BuildOption option)
@@ -1181,7 +1323,12 @@ public class BuildSelectionUI : MonoBehaviour
             ? GetFallbackTowerDescription(option.displayName)
             : option.description;
 
-        return description + "\nKosten: " + BasicTowerMasteryManager.GetModifiedBuildCost(option.cost, option.prefab, option.displayName) + " Gold";
+        string costText = "\nKosten: " + GetDisplayedBuildCost(option) + " Gold";
+        GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
+        if (generalMeta != null && generalMeta.GetAvailableFirstTowerDiscount() > 0)
+            costText += "\nMeta-Rabatt: erster Tower -" + generalMeta.GetAvailableFirstTowerDiscount() + " Gold";
+
+        return description + costText;
     }
 
     private string GetFallbackTowerDescription(string towerName)

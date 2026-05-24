@@ -906,10 +906,6 @@ public class PathTechniqueProgressionManager : MonoBehaviour
             case "path.quality.prefer_1":
             case "path.tool.dead_end_memory":
                 return totalBlockedRecoveriesEver >= 5;
-            case "path.event.bridge_path":
-            case "path.tool.bridge_emergency":
-            case "path.tile.bridge_1":
-                return IsGeneralTileUnlocked(PathBuildOptionType.BridgeTile);
             case "path.event.teleporter":
             case "path.quality.reroll_2":
             case "path.rescue.training_2":
@@ -954,8 +950,6 @@ public class PathTechniqueProgressionManager : MonoBehaviour
                 return IsGeneralTileUnlocked(PathBuildOptionType.GoldTile);
             case "path.tile.gold_2":
                 return IsNodePurchased("path.tile.gold_1");
-            case "path.tile.bridge_2":
-                return IsNodePurchased("path.tile.bridge_1") && totalBlockedRecoveriesEver > 0;
             case "path.tile.slow_1":
                 return IsGeneralTileUnlocked(PathBuildOptionType.SlowTile);
             case "path.tile.range_1":
@@ -1088,7 +1082,28 @@ public class PathTechniqueProgressionManager : MonoBehaviour
         if (definitions.Count == 0)
             CreateDefaultDefinitions();
 
+        RemoveBridgeTileDefinitions();
         RebuildDefinitionLookup();
+    }
+
+    private void RemoveBridgeTileDefinitions()
+    {
+        RemoveDefinition("path.event.bridge_path");
+        RemoveDefinition("path.tool.bridge_emergency");
+        RemoveDefinition("path.tile.bridge_1");
+        RemoveDefinition("path.tile.bridge_2");
+    }
+
+    private void RemoveDefinition(string nodeId)
+    {
+        if (definitions != null)
+            definitions.RemoveAll(definition => definition != null && definition.nodeId == nodeId);
+
+        if (nodeStates != null)
+            nodeStates.RemoveAll(state => state != null && state.nodeId == nodeId);
+
+        PlayerPrefs.DeleteKey(PlayerPrefsPrefix + nodeId + ".Purchased");
+        PlayerPrefs.DeleteKey(PlayerPrefsPrefix + nodeId + ".Active");
     }
 
     private void EnsureStates()
@@ -1162,7 +1177,6 @@ public class PathTechniqueProgressionManager : MonoBehaviour
         AddDefinition("path.event.evolution_point", "Evolutionsfunke", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 8, 0, 1, "Evolutions-Event fuer einen Run-internen Tower-Bonus.", false, "Boss nach Verbau erreicht.");
         AddDefinition("path.event.raise_low_towers", "Nachschulung", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 10, 0, 8, "Low-Level-Tower-Event wird vorbereitet.");
         AddDefinition("path.event.base_relocate", "Basisversatz", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 12, 0, 1, "Base-Relocation-Event wird vorbereitet.", false, "5 Krisen ueberlebt.");
-        AddDefinition("path.event.bridge_path", "Notbruecke", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 14, 0, 1, "Einmalige Bruecken-/Sonderpfadrettung.", false, "Bridge Tile frei.");
         AddDefinition("path.event.teleporter", "Teleporterbasis", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 18, 0, 1, "Teleporter-Event wird vorbereitet.", false, "Boss nach Verbau.");
         AddDefinition("path.event.chaos_order", "Chaos ordnen", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 20, 1, 1, "Chaos-Ordnen-Event wird vorbereitet.", false, "Chaos-Verbau.");
         AddDefinition("path.event.rift_anchor", "Rissanker", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 0, 3, 1, "Starke Endgame-Rettung mit Risiko.", false, "Chaos 5 nach Verbau.");
@@ -1207,15 +1221,12 @@ public class PathTechniqueProgressionManager : MonoBehaviour
         AddDefinition("path.tool.base_relocate_2", "Basisversatz II", PathTechniqueCategory.PathTools, PathTechniqueNodeKind.PathTool, 28, 0, 1, "Mehr gueltige Zielpositionen.", 2, false, "Boss nach Basisversatz geschafft.");
         AddDefinition("path.tool.teleporter_1", "Teleporter I", PathTechniqueCategory.PathTools, PathTechniqueNodeKind.PathTool, 20, 0, 1, "Teleporter sucht bessere Positionen.", 2, false, "Teleporter-Event freigeschaltet.");
         AddDefinition("path.tool.teleporter_2", "Teleporter II", PathTechniqueCategory.PathTools, PathTechniqueNodeKind.PathTool, 0, 2, 1, "Teleporter gibt bessere Chaos-Vorschau.", 2, false, "Chaos-Verbau ueberlebt.");
-        AddDefinition("path.tool.bridge_emergency", "Notbruecke", PathTechniqueCategory.PathTools, PathTechniqueNodeKind.PathTool, 18, 0, 1, "Einmalige Brueckenrettung im Event-Pool.", 1, false, "Bridge Tile freigeschaltet.");
         AddDefinition("path.tool.dead_end_memory", "Sackgassen-Gedaechtnis", PathTechniqueCategory.PathTools, PathTechniqueNodeKind.PathTool, 16, 0, 1, "Gefaehrliche Pfadentscheidungen werden im HUD markiert.", false, "5 Verbau-Krisen.");
 
         AddDefinition("path.tile.trap_1", "Trap-Technik I", PathTechniqueCategory.TileTechnique, PathTechniqueNodeKind.TileTechnique, 4, 0, 1, "Trap Tile wird staerker/lesbarer.", false, "Trap Tile freigeschaltet.");
         AddDefinition("path.tile.trap_2", "Trap-Technik II", PathTechniqueCategory.TileTechnique, PathTechniqueNodeKind.TileTechnique, 10, 0, 1, "Trap Tile wird haeufiger vorbereitet.", false, "Trap-Technik I.");
         AddDefinition("path.tile.gold_1", "Goldader I", PathTechniqueCategory.TileTechnique, PathTechniqueNodeKind.TileTechnique, 5, 0, 1, "Gold Tile leicht besser.", 1, false, "Gold Tile freigeschaltet.");
         AddDefinition("path.tile.gold_2", "Goldader II", PathTechniqueCategory.TileTechnique, PathTechniqueNodeKind.TileTechnique, 14, 0, 1, "Gold Tile stabiler / besserer Tooltip.", 1, false, "Goldader I.");
-        AddDefinition("path.tile.bridge_1", "Brueckentechnik I", PathTechniqueCategory.TileTechnique, PathTechniqueNodeKind.TileTechnique, 8, 0, 1, "Bridge-Angebot erklaert Ziel besser.", false, "Bridge Tile freigeschaltet.");
-        AddDefinition("path.tile.bridge_2", "Brueckentechnik II", PathTechniqueCategory.TileTechnique, PathTechniqueNodeKind.TileTechnique, 18, 0, 1, "Bridge-Vorschau wird besser.", 1, false, "Verbau mit Bridge verhindert.");
         AddDefinition("path.tile.slow_1", "Bremsfeldtechnik", PathTechniqueCategory.TileTechnique, PathTechniqueNodeKind.TileTechnique, 10, 0, 1, "Slow Tile etwas zuverlaessiger.", 1, false, "Slow Tile freigeschaltet.");
         AddDefinition("path.tile.range_1", "Reichweitenanker", PathTechniqueCategory.TileTechnique, PathTechniqueNodeKind.TileTechnique, 12, 0, 1, "Range Tile Tooltip und Radius klarer.", false, "Range Tile freigeschaltet.");
         AddDefinition("path.tile.xp_1", "Trainingsfeld", PathTechniqueCategory.TileTechnique, PathTechniqueNodeKind.TileTechnique, 14, 0, 1, "XP Tile gibt minimal besseren XP-Bonus.", 1, false, "XP Tile freigeschaltet.");

@@ -39,6 +39,8 @@ public class ChaosUnlockRuntimeUI : MonoBehaviour
     public Button closeButton;
     public Button refreshButton;
     public Button mainMenuButton;
+    public MetaHubController metaHubController;
+    public bool redirectGameplayToMetaHub = true;
 
     [Header("Notification")]
     public GameObject notificationPanel;
@@ -71,6 +73,11 @@ public class ChaosUnlockRuntimeUI : MonoBehaviour
     private float notificationTimer = 0f;
 
     public bool IsOpen => rootPanel != null && rootPanel.activeSelf;
+
+    private void Awake()
+    {
+        redirectGameplayToMetaHub = true;
+    }
 
     private void Start()
     {
@@ -113,6 +120,12 @@ public class ChaosUnlockRuntimeUI : MonoBehaviour
 
     public void OpenUnlocks()
     {
+        if (ShouldRedirectGameplayToMetaHub())
+        {
+            OpenMetaHubInstead();
+            return;
+        }
+
         EnsureUI();
 
         if (rootPanel != null)
@@ -128,6 +141,38 @@ public class ChaosUnlockRuntimeUI : MonoBehaviour
     {
         if (rootPanel != null)
             rootPanel.SetActive(false);
+
+        if (metaHubController != null)
+            metaHubController.CloseFromUnlockManager();
+    }
+
+    private bool ShouldRedirectGameplayToMetaHub()
+    {
+        if (!redirectGameplayToMetaHub)
+            return false;
+
+        GameManager gameManager = GetGameManager();
+        return gameManager != null && !gameManager.startMenuOpen && !gameManager.isGameOver;
+    }
+
+    private void OpenMetaHubInstead()
+    {
+        if (rootPanel != null)
+            rootPanel.SetActive(false);
+
+        GameManager gameManager = GetGameManager();
+        metaHubController = MetaHubController.CreateRuntimeInstance(gameManager);
+
+        if (manager != null)
+            manager.metaHubController = metaHubController;
+
+        if (metaHubController == null)
+        {
+            Debug.LogError("ChaosUnlockRuntimeUI: MetaHubController konnte nicht erstellt werden.");
+            return;
+        }
+
+        metaHubController.OpenFromUnlockManager(manager, gameManager);
     }
 
     public void RefreshAll()

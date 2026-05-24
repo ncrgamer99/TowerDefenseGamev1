@@ -325,8 +325,7 @@ public class PathBuildManager : MonoBehaviour
     private bool IsRemovedPathBuildSelectionOption(PathBuildOptionType optionType)
     {
         return optionType == PathBuildOptionType.SpecialTile ||
-               optionType == PathBuildOptionType.BridgeTile ||
-               optionType == PathBuildOptionType.GoldTile;
+               optionType == PathBuildOptionType.BridgeTile;
     }
 
     private bool IsInputLockedByModalUI()
@@ -485,8 +484,19 @@ public class PathBuildManager : MonoBehaviour
             return;
 
         HorizontalLayoutGroup horizontalLayout = row.GetComponent<HorizontalLayoutGroup>();
+        VerticalLayoutGroup verticalLayout = row.GetComponent<VerticalLayoutGroup>();
         if (horizontalLayout == null)
+        {
+            if (verticalLayout != null)
+            {
+                if (forceChoiceButtonRectLayout)
+                    verticalLayout.enabled = false;
+
+                return;
+            }
+
             horizontalLayout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+        }
 
         if (horizontalLayout == null)
             return;
@@ -499,7 +509,6 @@ public class PathBuildManager : MonoBehaviour
         horizontalLayout.childForceExpandWidth = true;
         horizontalLayout.childForceExpandHeight = false;
 
-        VerticalLayoutGroup verticalLayout = row.GetComponent<VerticalLayoutGroup>();
         if (verticalLayout != null)
             verticalLayout.enabled = false;
     }
@@ -799,7 +808,7 @@ public class PathBuildManager : MonoBehaviour
         {
             foreach (PathBuildOption option in randomOptions)
             {
-                if (IsSupportedSpecialOption(option))
+                if (IsSupportedSpecialOption(option) && IsPathBuildOptionUnlocked(option.optionType))
                     AddOptionIfTypeMissing(optionPool, CreateDisplayOption(option));
             }
         }
@@ -825,11 +834,11 @@ public class PathBuildManager : MonoBehaviour
             return false;
         }
 
-        currentOptions[1] = DrawRandomOptionFromPool(qualityPool);
+        currentOptions[1] = DrawRandomOptionFromPool(qualityPool, true);
         RemoveOptionTypeFromPool(fallbackOptionPool, currentOptions[1]);
 
         currentOptions[2] = qualityPool.Count > 0
-            ? DrawRandomOptionFromPool(qualityPool)
+            ? DrawRandomOptionFromPool(qualityPool, true)
             : DrawRandomOptionFromPool(fallbackOptionPool);
 
         pendingEliteTileQualityBoosts = Mathf.Max(0, pendingEliteTileQualityBoosts - 1);
@@ -841,13 +850,26 @@ public class PathBuildManager : MonoBehaviour
     {
         List<PathBuildOption> optionPool = new List<PathBuildOption>();
 
-        if (eliteQualityOptions == null)
-            return optionPool;
-
-        foreach (PathBuildOption option in eliteQualityOptions)
+        if (eliteQualityOptions != null)
         {
-            if (IsSupportedSpecialOption(option))
-                AddOptionIfTypeMissing(optionPool, CreateDisplayOption(option));
+            foreach (PathBuildOption option in eliteQualityOptions)
+            {
+                if (IsSupportedSpecialOption(option) && IsPathBuildOptionUnlocked(option.optionType))
+                    AddOptionIfTypeMissing(optionPool, CreateDisplayOption(option));
+            }
+        }
+
+        foreach (PathBuildOption defaultOption in CreateDefaultSpecialOptions())
+        {
+            if (defaultOption == null || IsRemovedPathBuildSelectionOption(defaultOption.optionType))
+                continue;
+
+            PathBuildOptionRarity rarity = GetOptionRarity(defaultOption.optionType);
+            if (rarity == PathBuildOptionRarity.Common)
+                continue;
+
+            if (IsPathBuildOptionUnlocked(defaultOption.optionType))
+                AddOptionIfTypeMissing(optionPool, CreateDisplayOption(defaultOption));
         }
 
         return optionPool;
@@ -867,15 +889,70 @@ public class PathBuildManager : MonoBehaviour
         }
     }
 
-    private PathBuildOption DrawRandomOptionFromPool(List<PathBuildOption> optionPool)
+    private PathBuildOption DrawRandomOptionFromPool(List<PathBuildOption> optionPool, bool eliteQualityBias = false)
     {
         if (optionPool == null || optionPool.Count == 0)
             return CreateFallbackSpecialOption();
 
-        int randomIndex = Random.Range(0, optionPool.Count);
+        int randomIndex = GetWeightedRandomOptionIndex(optionPool, eliteQualityBias);
         PathBuildOption option = optionPool[randomIndex];
         optionPool.RemoveAt(randomIndex);
         return option;
+    }
+
+    private int GetWeightedRandomOptionIndex(List<PathBuildOption> optionPool, bool eliteQualityBias)
+    {
+        if (optionPool == null || optionPool.Count == 0)
+            return 0;
+
+        int totalWeight = 0;
+        for (int i = 0; i < optionPool.Count; i++)
+            totalWeight += Mathf.Max(1, GetOptionWeight(optionPool[i], eliteQualityBias));
+
+        int roll = Random.Range(0, Mathf.Max(1, totalWeight));
+        int accumulated = 0;
+
+        for (int i = 0; i < optionPool.Count; i++)
+        {
+            accumulated += Mathf.Max(1, GetOptionWeight(optionPool[i], eliteQualityBias));
+            if (roll < accumulated)
+                return i;
+        }
+
+        return optionPool.Count - 1;
+    }
+
+    private int GetOptionWeight(PathBuildOption option, bool eliteQualityBias)
+    {
+        if (option == null)
+            return 1;
+
+        PathBuildOptionRarity rarity = GetOptionRarity(option.optionType);
+
+        if (eliteQualityBias)
+        {
+            switch (rarity)
+            {
+                case PathBuildOptionRarity.Legendary:
+                    return 5;
+                case PathBuildOptionRarity.Rare:
+                    return 4;
+                default:
+                    return 1;
+            }
+        }
+
+        switch (rarity)
+        {
+            case PathBuildOptionRarity.Common:
+                return 8;
+            case PathBuildOptionRarity.Rare:
+                return 3;
+            case PathBuildOptionRarity.Legendary:
+                return 1;
+            default:
+                return 1;
+        }
     }
 
     private PathBuildOption CreateDisplayOption(PathBuildOption option)
@@ -891,9 +968,19 @@ public class PathBuildManager : MonoBehaviour
         return new PathBuildOption
         {
             displayName = string.IsNullOrWhiteSpace(option.displayName) ? defaultOption.displayName : option.displayName,
-            description = ShouldUseDefaultDescription(option.description) ? defaultOption.description : option.description,
+            description = AddRarityPrefix(ShouldUseDefaultDescription(option.description) ? defaultOption.description : option.description, option.optionType),
             optionType = option.optionType
         };
+    }
+
+    private string AddRarityPrefix(string description, PathBuildOptionType optionType)
+    {
+        string safeDescription = string.IsNullOrWhiteSpace(description) ? "" : description;
+
+        if (safeDescription.Contains("Seltenheit:"))
+            return safeDescription;
+
+        return "Seltenheit: " + GetRarityDisplayName(GetOptionRarity(optionType)) + " | " + safeDescription;
     }
 
     private bool ShouldUseDefaultDescription(string description)
@@ -926,17 +1013,22 @@ public class PathBuildManager : MonoBehaviour
             if (defaultOption == null || IsRemovedPathBuildSelectionOption(defaultOption.optionType))
                 continue;
 
-            AddOptionIfTypeMissing(optionPool, defaultOption);
+            if (IsPathBuildOptionUnlocked(defaultOption.optionType))
+                AddOptionIfTypeMissing(optionPool, CreateDisplayOption(defaultOption));
         }
     }
 
     private PathBuildOption CreateFallbackSpecialOption()
     {
+        PathBuildOption fallback = GetDefaultSpecialOption(PathBuildOptionType.SlowTile);
+        if (fallback != null)
+            return CreateDisplayOption(fallback);
+
         return new PathBuildOption
         {
-            displayName = "Trap Tile",
-            description = "Trap-Tile: Weg-Tile. Gegner bluten 20s lang: 2 Schaden alle 3s.",
-            optionType = PathBuildOptionType.TrapTile
+            displayName = "Slow Tile",
+            description = "Seltenheit: Common | Slow-Tile: Weg-Tile. Gegner werden kurz stark verlangsamt.",
+            optionType = PathBuildOptionType.SlowTile
         };
     }
 
@@ -969,6 +1061,7 @@ public class PathBuildManager : MonoBehaviour
             return false;
 
         return option.optionType == PathBuildOptionType.TrapTile ||
+               option.optionType == PathBuildOptionType.GoldTile ||
                option.optionType == PathBuildOptionType.SlowTile ||
                option.optionType == PathBuildOptionType.KnockTile ||
                option.optionType == PathBuildOptionType.RangeTile ||
@@ -983,6 +1076,12 @@ public class PathBuildManager : MonoBehaviour
     {
         return new List<PathBuildOption>
         {
+            new PathBuildOption
+            {
+                displayName = "Gold Tile",
+                description = "Gold-Tile: kein Weg. Gibt sofort Bonusgold und startet danach die naechste Welle.",
+                optionType = PathBuildOptionType.GoldTile
+            },
             new PathBuildOption
             {
                 displayName = "Trap Tile",
@@ -1040,6 +1139,59 @@ public class PathBuildManager : MonoBehaviour
         };
     }
 
+    private PathBuildOptionRarity GetOptionRarity(PathBuildOptionType optionType)
+    {
+        switch (optionType)
+        {
+            case PathBuildOptionType.PathTile:
+            case PathBuildOptionType.GoldTile:
+            case PathBuildOptionType.SlowTile:
+                return PathBuildOptionRarity.Common;
+            case PathBuildOptionType.TrapTile:
+            case PathBuildOptionType.RangeTile:
+            case PathBuildOptionType.DamageTile:
+            case PathBuildOptionType.RateTile:
+            case PathBuildOptionType.KnockTile:
+                return PathBuildOptionRarity.Rare;
+            case PathBuildOptionType.XPTile:
+            case PathBuildOptionType.UpgradeTile:
+            case PathBuildOptionType.ComboTile:
+                return PathBuildOptionRarity.Legendary;
+            default:
+                return PathBuildOptionRarity.Common;
+        }
+    }
+
+    private string GetRarityDisplayName(PathBuildOptionRarity rarity)
+    {
+        switch (rarity)
+        {
+            case PathBuildOptionRarity.Common:
+                return "Common";
+            case PathBuildOptionRarity.Rare:
+                return "Rare";
+            case PathBuildOptionRarity.Legendary:
+                return "Legendary";
+            default:
+                return rarity.ToString();
+        }
+    }
+
+    private bool IsPathBuildOptionUnlocked(PathBuildOptionType optionType)
+    {
+        if (optionType == PathBuildOptionType.BridgeTile || optionType == PathBuildOptionType.SpecialTile)
+            return false;
+
+        GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
+        return generalMeta == null || generalMeta.IsTileUnlocked(optionType);
+    }
+
+    private GeneralMetaProgressionManager GetGeneralMetaProgressionManager()
+    {
+        ResolveGameManagerReference();
+        return gameManager != null ? gameManager.GetGeneralMetaProgressionManager() : GeneralMetaProgressionManager.GetOrCreate();
+    }
+
     private void UpdateOptionUI()
     {
         if (optionText1 != null)
@@ -1095,6 +1247,16 @@ public class PathBuildManager : MonoBehaviour
         {
             Debug.Log("Gewählte Position ist nicht mehr gültig.");
             CancelChoice();
+            return;
+        }
+
+        if (!IsPathBuildOptionUnlocked(option.optionType))
+        {
+            Debug.Log(option.displayName + " ist noch nicht freigeschaltet.");
+
+            if (descriptionText != null)
+                descriptionText.text = option.displayName + " ist noch nicht freigeschaltet.";
+
             return;
         }
 

@@ -16,6 +16,7 @@ public class ChaosUnlockManager : MonoBehaviour
     public ChaosLexiconManager lexiconManager;
     public ChaosUnlockUI unlockUI;
     public ChaosUnlockRuntimeUI gameplayUnlockUI;
+    public MetaHubController metaHubController;
     public Canvas targetCanvas;
 
     [Header("Unlock Behaviour V1")]
@@ -123,10 +124,13 @@ public class ChaosUnlockManager : MonoBehaviour
 
     private bool IsToggleKeyPressed()
     {
-        if (Input.GetKeyDown(toggleKey))
-            return true;
+        if (gameManager == null)
+            ResolveReferences();
 
-        return secondaryToggleKey != KeyCode.None && secondaryToggleKey != toggleKey && Input.GetKeyDown(secondaryToggleKey);
+        if (gameManager == null || gameManager.startMenuOpen || gameManager.isGameOver)
+            return false;
+
+        return Input.GetKeyDown(toggleKey);
     }
 
     public void ToggleUnlocks()
@@ -178,6 +182,9 @@ public class ChaosUnlockManager : MonoBehaviour
 
         if (ShouldUseMainMenuUnlockView())
         {
+            if (TryOpenMainMenuMetaHubFallback())
+                return;
+
             if (unlockUI != null)
                 unlockUI.OpenUnlocks();
             else if (gameplayUnlockUI != null)
@@ -186,6 +193,10 @@ public class ChaosUnlockManager : MonoBehaviour
         else if (gameplayUnlockUI != null)
         {
             gameplayUnlockUI.OpenUnlocks();
+        }
+        else if (TryOpenMetaHubFallback())
+        {
+            return;
         }
         else if (unlockUI != null)
         {
@@ -202,6 +213,9 @@ public class ChaosUnlockManager : MonoBehaviour
 
         if (gameplayUnlockUI != null)
             gameplayUnlockUI.CloseUnlocks();
+
+        if (metaHubController != null)
+            metaHubController.CloseFromUnlockManager();
 
         RestoreGamePauseFromUnlockUI();
     }
@@ -502,6 +516,32 @@ public class ChaosUnlockManager : MonoBehaviour
     private bool ShouldUseMainMenuUnlockView()
     {
         return gameManager != null && gameManager.startMenuOpen;
+    }
+
+    private bool TryOpenMetaHubFallback()
+    {
+        if (gameManager == null || gameManager.startMenuOpen || gameManager.isGameOver)
+            return false;
+
+        metaHubController = MetaHubController.CreateRuntimeInstance(gameManager);
+        if (metaHubController == null)
+            return false;
+
+        metaHubController.OpenFromUnlockManager(this, gameManager);
+        return true;
+    }
+
+    private bool TryOpenMainMenuMetaHubFallback()
+    {
+        if (gameManager == null || !gameManager.startMenuOpen || gameManager.isGameOver)
+            return false;
+
+        metaHubController = MetaHubController.CreateRuntimeInstance(gameManager);
+        if (metaHubController == null)
+            return false;
+
+        metaHubController.OpenMainMenuUnlocks(this, gameManager);
+        return true;
     }
 
     private int GetProgressForEntry(ChaosUnlockEntry entry)

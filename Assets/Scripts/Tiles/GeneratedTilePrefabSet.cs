@@ -38,8 +38,6 @@ public class GeneratedTilePrefabSet : MonoBehaviour
                 return comboTilePrefab;
             case PathBuildOptionType.SpecialTile:
                 return specialTilePrefab;
-            case PathBuildOptionType.BridgeTile:
-                return bridgeTilePrefab;
             case PathBuildOptionType.GoldTile:
                 return goldTilePrefab;
             case PathBuildOptionType.RangeTile:
@@ -79,7 +77,6 @@ public class GeneratedTilePrefabSet : MonoBehaviour
         AddMissing(missing, knockTilePrefab, "Knock Tile");
         AddMissing(missing, comboTilePrefab, "Combo Tile");
         AddMissing(missing, specialTilePrefab, "Special Tile");
-        AddMissing(missing, bridgeTilePrefab, "Bridge Tile");
         AddMissing(missing, goldTilePrefab, "Gold Tile");
         AddMissing(missing, rangeTilePrefab, "Range Tile");
         AddMissing(missing, damageTilePrefab, "Damage Tile");

@@ -14,3 +14,10 @@ public enum PathBuildOptionType
     UpgradeTile = 11,
     ComboTile = 12
 }
+
+public enum PathBuildOptionRarity
+{
+    Common = 0,
+    Rare = 1,
+    Legendary = 2
+}

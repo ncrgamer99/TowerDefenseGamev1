@@ -1533,18 +1533,25 @@ public class ChaosUnlockUI : MonoBehaviour
     private List<MetaHubEntry> BuildGeneralEntries()
     {
         GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
-        List<MetaHubEntry> entries = new List<MetaHubEntry>
+        GeneralMetaCategory selectedCategory;
+        bool filterByCategory = TryGetSelectedGeneralCategoryFilter(generalMeta, out selectedCategory);
+        List<MetaHubEntry> entries = new List<MetaHubEntry>();
+
+        if (!filterByCategory)
         {
-            Entry("general_account", "Account-Uebersicht", GetGeneralAccountStateText(generalMeta), BuildGeneralAccountText(generalMeta)),
-            Entry("general_tower_unlocks", "Tower-Freischaltungen", GetGeneralCategoryStateText(generalMeta, GeneralMetaCategory.TowerUnlock), BuildGeneralTowerUnlocksText()),
-            Entry("general_tile_unlocks", "Tile-Freischaltungen", GetGeneralCategoryStateText(generalMeta, GeneralMetaCategory.TileUnlock), BuildGeneralTileUnlocksText()),
-            Entry("general_qol", "Komfort / QoL", GetGeneralCategoryStateText(generalMeta, GeneralMetaCategory.QoL), BuildGeneralQoLText()),
-            Entry("general_start_options", "Startoptionen", GetGeneralCategoryStateText(generalMeta, GeneralMetaCategory.StartOption), BuildGeneralStartOptionsText()),
-            Entry("general_enemy_research", "Gegnerforschung", GetGeneralCategoryStateText(generalMeta, GeneralMetaCategory.EnemyResearch), BuildGeneralEnemyResearchText()),
-            Entry("general_loadout", "Meta-Loadout", GetGeneralLoadoutStateText(generalMeta), BuildGeneralLoadoutText(generalMeta))
-        };
+            entries.Add(Entry("general_account", "Account-Uebersicht", GetGeneralAccountStateText(generalMeta), BuildGeneralAccountText(generalMeta)));
+            entries.Add(Entry("general_tower_unlocks", "Tower-Freischaltungen", GetGeneralCategoryStateText(generalMeta, GeneralMetaCategory.TowerUnlock), BuildGeneralTowerUnlocksText()));
+            entries.Add(Entry("general_tile_unlocks", "Tile-Freischaltungen", GetGeneralCategoryStateText(generalMeta, GeneralMetaCategory.TileUnlock), BuildGeneralTileUnlocksText()));
+            entries.Add(Entry("general_qol", "Komfort / QoL", GetGeneralCategoryStateText(generalMeta, GeneralMetaCategory.QoL), BuildGeneralQoLText()));
+            entries.Add(Entry("general_start_options", "Startoptionen", GetGeneralCategoryStateText(generalMeta, GeneralMetaCategory.StartOption), BuildGeneralStartOptionsText()));
+            entries.Add(Entry("general_enemy_research", "Gegnerforschung", GetGeneralCategoryStateText(generalMeta, GeneralMetaCategory.EnemyResearch), BuildGeneralEnemyResearchText()));
+            entries.Add(Entry("general_loadout", "Meta-Loadout", GetGeneralLoadoutStateText(generalMeta), BuildGeneralLoadoutText(generalMeta)));
+        }
 
         if (generalMeta == null)
+            return entries;
+
+        if (!filterByCategory)
             return entries;
 
         foreach (GeneralMetaNodeDefinition definition in generalMeta.GetDefinitions())
@@ -1552,10 +1559,62 @@ public class ChaosUnlockUI : MonoBehaviour
             if (definition == null)
                 continue;
 
+            if (definition.category != selectedCategory)
+                continue;
+
             entries.Add(Entry("general_node_" + definition.nodeId, definition.displayName, generalMeta.GetNodeStateText(definition), "", IsGeneralNodeLocked(generalMeta, definition)));
         }
 
         return entries;
+    }
+
+    private bool TryGetSelectedGeneralCategoryFilter(GeneralMetaProgressionManager generalMeta, out GeneralMetaCategory category)
+    {
+        if (TryGetGeneralCategoryFilterFromOverviewEntry(selectedMetaHubEntryId, out category))
+            return true;
+
+        string generalNodeId = GetGeneralNodeIdFromEntry(selectedMetaHubEntryId);
+        if (!string.IsNullOrEmpty(generalNodeId) && generalMeta != null)
+        {
+            GeneralMetaNodeDefinition definition = generalMeta.GetDefinition(generalNodeId);
+            if (definition != null && definition.category != GeneralMetaCategory.Account)
+            {
+                category = definition.category;
+                return true;
+            }
+        }
+
+        category = GeneralMetaCategory.Account;
+        return false;
+    }
+
+    private bool TryGetGeneralCategoryFilterFromOverviewEntry(string entryId, out GeneralMetaCategory category)
+    {
+        category = GeneralMetaCategory.Account;
+
+        switch (entryId)
+        {
+            case "general_tower_unlocks":
+                category = GeneralMetaCategory.TowerUnlock;
+                return true;
+            case "general_tile_unlocks":
+                category = GeneralMetaCategory.TileUnlock;
+                return true;
+            case "general_qol":
+                category = GeneralMetaCategory.QoL;
+                return true;
+            case "general_start_options":
+                category = GeneralMetaCategory.StartOption;
+                return true;
+            case "general_enemy_research":
+                category = GeneralMetaCategory.EnemyResearch;
+                return true;
+            case "general_loadout":
+                category = GeneralMetaCategory.MetaLoadout;
+                return true;
+            default:
+                return false;
+        }
     }
 
     private List<MetaHubEntry> BuildTowerMasteryEntries()
@@ -3682,18 +3741,20 @@ public class ChaosUnlockUI : MonoBehaviour
     {
         return "<b>Tower-Freischaltungen</b>\n" +
                "<size=90%><color=#B9C2D0>Content-Unlocks, immer aktiv</color></size>\n\n" +
-               "Start: Basic, Rapid, Heavy und Slow.\n" +
-               "Frueh: Fire und Poison.\n" +
+               "Start: Basic, Rapid und Heavy.\n" +
+               "Frueh: Slow, Fire und Poison.\n" +
                "Spaeter: Sniper, Alchemist, Lightning, Mortar und Spike.\n\n" +
-               "Freigeschaltete Tower bleiben dauerhaft verfuegbar und brauchen keine Loadout-Slots. BuildSelectionUI kann diese Daten spaeter als Filter fuer den Build-Pool nutzen.";
+               "Freigeschaltete Tower bleiben dauerhaft verfuegbar und brauchen keine Loadout-Slots. BuildSelectionUI nutzt diese Daten als aktiven Filter fuer den Build-Pool.";
     }
 
     private string BuildGeneralTileUnlocksText()
     {
         return "<b>Tile-Freischaltungen</b>\n" +
                "<size=90%><color=#B9C2D0>Content-Pool fuer PathBuild-Angebote</color></size>\n\n" +
-               "Path Tile ist immer verfuegbar. Trap, Gold, Bridge, Slow, Range, XP, Damage, Rate, Upgrade und Combo werden ueber Account-Level und Run-Leistungen geoeffnet.\n\n" +
-               "Power-Tiles wie Damage, Rate und Upgrade bleiben seltene, vorsichtig gegatete Optionen. PathBuildManager kann spaeter nur freigeschaltete Tile-Typen in den Spezialpool lassen.";
+               "Start/Common: Path Tile, Gold Tile und Slow Tile.\n" +
+               "Rare: Trap Tile, Range Tile, Damage Tile, Rate Tile und Knock Tile.\n" +
+               "Legendary: XP Tile, Upgrade Tile und Combo Tile.\n\n" +
+               "PathBuildManager nutzt nur freigeschaltete Tile-Typen und gewichtet die Angebote nach Seltenheit; Elite-Qualitaet verschiebt die Auswahl staerker Richtung Rare/Legendary.";
     }
 
     private string BuildGeneralQoLText()
@@ -3896,7 +3957,7 @@ public class ChaosUnlockUI : MonoBehaviour
     {
         return "<b>Event-Pool</b>\n" +
                "<size=90%><color=#B9C2D0>Neue Verbau-Optionen, keine Sofort-Farm</color></size>\n\n" +
-               "Dieser Bereich erweitert, welche Optionen bei einer echten Verbau-Krise erscheinen koennen: Baupause, Pfadscan, Notfall-Ausbildung, Evolutionsfunke, Nachschulung, Basisversatz, Notbruecke, Teleporterbasis, Chaos ordnen und Rissanker.\n\n" +
+               "Dieser Bereich erweitert, welche Optionen bei einer echten Verbau-Krise erscheinen koennen: Baupause, Pfadscan, Notfall-Ausbildung, Evolutionsfunke, Nachschulung, Basisversatz, Teleporterbasis, Chaos ordnen und Rissanker.\n\n" +
                "Grundregel: Verbau selbst gibt keine Bauplaene. Erst Ueberleben nach der Krise zahlt aus.";
     }
 
@@ -3920,15 +3981,15 @@ public class ChaosUnlockUI : MonoBehaviour
     {
         return "<b>Pfadwerkzeuge</b>\n" +
                "<size=90%><color=#B9C2D0>Planung, Vorschau und spaete Rettungswerkzeuge</color></size>\n\n" +
-               "Letzte-Erweiterung-Warnung, Richtungs-Vorschau, Pfadscan, Pfadwahl-Reroll, Basisversatz, Teleporter und Notbruecke helfen, Krisen besser zu lesen und zu loesen.\n\n" +
-               "Basisversatz, Teleporter und Brueckenrettung sind bewusst spaet und slotpflichtig, weil sie Pfadfehler stark abfedern koennen.";
+               "Letzte-Erweiterung-Warnung, Richtungs-Vorschau, Pfadscan, Pfadwahl-Reroll, Basisversatz und Teleporter helfen, Krisen besser zu lesen und zu loesen.\n\n" +
+               "Basisversatz und Teleporter sind bewusst spaet und slotpflichtig, weil sie Pfadfehler stark abfedern koennen.";
     }
 
     private string BuildPathTileTechniqueText()
     {
         return "<b>Tile-Technik</b>\n" +
                "<size=90%><color=#B9C2D0>Allgemein schaltet frei, Pfadtechnik verbessert</color></size>\n\n" +
-               "Trap, Gold, Bridge, Slow, Range, XP, Damage, Rate, Upgrade und Combo Tiles werden hier verstaendlicher, stabiler oder etwas staerker.\n\n" +
+               "Trap, Gold, Slow, Knock, Range, XP, Damage, Rate, Upgrade und Combo Tiles werden hier verstaendlicher, stabiler oder etwas staerker.\n\n" +
                "Power-Tiles bleiben selten und brauchen Slots. Combo-Tiles bleiben ein spaeter Status-/Endgame-Bereich.";
     }
 

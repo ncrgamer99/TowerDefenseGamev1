@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Meta-Hub UI Preview</title>
+  <style>
+    :root {
+      --bg: #061014;
+      --bg2: #081820;
+      --panel: #0b1518;
+      --panel2: #101b1e;
+      --line: #69451d;
+      --line-soft: rgba(214, 162, 74, .34);
+      --gold: #d6a24a;
+      --gold2: #f3c66a;
+      --text: #e8d7b5;
+      --muted: #a99b84;
+      --cyan: #38bfe6;
+      --purple: #a460f2;
+      --red: #e9574e;
+      --green: #6fdd65;
+      --blue: #2d9bd2;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      width: 1602px;
+      height: 982px;
+      overflow: hidden;
+      background: #020608;
+      color: var(--text);
+      font-family: "Segoe UI", Tahoma, sans-serif;
+    }
+
+    #app {
+      position: relative;
+      width: 1602px;
+      height: 982px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 49% 10%, rgba(214,162,74,.12), transparent 16%),
+        radial-gradient(circle at 70% 45%, rgba(110,35,35,.13), transparent 25%),
+        radial-gradient(circle at 35% 60%, rgba(33,153,198,.10), transparent 30%),
+        repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 5px),
+        linear-gradient(180deg, #071014 0%, #060d10 50%, #071015 100%);
+    }
+
+    .topbar {
+      position: absolute;
+      left: 13px;
+      top: 21px;
+      width: 1576px;
+      height: 54px;
+      border: 1px solid var(--line);
+      background: linear-gradient(90deg, rgba(5,12,15,.85), rgba(10,18,20,.75), rgba(5,12,15,.85));
+      clip-path: polygon(0 14px, 14px 0, 490px 0, 520px 32px, 620px 32px, 640px 54px, 960px 54px, 980px 32px, 1080px 32px, 1110px 0, 1562px 0, 1576px 14px, 1576px 54px, 0 54px);
+      box-shadow: inset 0 0 26px rgba(214,162,74,.08), 0 0 30px rgba(0,0,0,.55);
+    }
+
+    .resource-strip, .account-strip {
+      position: absolute;
+      top: 34px;
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      height: 26px;
+      z-index: 3;
+    }
+
+    .resource-strip { left: 34px; }
+    .account-strip { right: 88px; gap: 18px; }
+
+    .resource {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      text-shadow: 0 0 8px rgba(214,162,74,.25);
+    }
+
+    .title {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 18px;
+      text-align: center;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 38px;
+      line-height: 40px;
+      letter-spacing: 6px;
+      color: var(--gold2);
+      text-shadow: 0 0 8px rgba(214,162,74,.35), 0 2px 0 #2b1908;
+      z-index: 4;
+    }
+
+    .crest {
+      position: absolute;
+      left: 767px;
+      top: 60px;
+      width: 70px;
+      height: 54px;
+      z-index: 5;
+      filter: drop-shadow(0 0 8px rgba(214,162,74,.45));
+    }
+
+    .crest:before, .crest:after {
+      content: "";
+      position: absolute;
+      top: 6px;
+      width: 30px;
+      height: 40px;
+      border: 2px solid var(--gold);
+      border-top: 0;
+      transform: skewY(34deg);
+    }
+
+    .crest:before { left: 5px; border-right: 0; }
+    .crest:after { right: 5px; border-left: 0; transform: skewY(-34deg); }
+    .crest i {
+      position: absolute;
+      left: 29px;
+      top: 0;
+      width: 12px;
+      height: 52px;
+      background: linear-gradient(var(--gold2), #6b3f12);
+      clip-path: polygon(50% 0, 100% 35%, 66% 100%, 50% 82%, 34% 100%, 0 35%);
+    }
+
+    .xpbar {
+      width: 158px;
+      height: 7px;
+      border: 1px solid #7b6535;
+      border-radius: 7px;
+      background: #121014;
+      box-shadow: inset 0 0 8px rgba(0,0,0,.9);
+    }
+
+    .xpbar > span {
+      display: block;
+      height: 100%;
+      width: var(--p);
+      border-radius: 7px;
+      background: linear-gradient(90deg, #6e5fe7, #bfc6ff);
+      box-shadow: 0 0 8px rgba(132,125,255,.55);
+    }
+
+    .icon-btn {
+      position: absolute;
+      top: 30px;
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--line);
+      color: var(--gold);
+      display: grid;
+      place-items: center;
+      font-size: 24px;
+      line-height: 1;
+      background: rgba(12,13,13,.8);
+      box-shadow: inset 0 0 12px rgba(214,162,74,.08);
+    }
+
+    .settings { right: 68px; font-size: 22px; }
+    .close { right: 22px; font-size: 31px; }
+
+    .frame {
+      position: absolute;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(12,24,27,.92), rgba(7,14,16,.94)),
+        repeating-linear-gradient(120deg, rgba(255,255,255,.02) 0 1px, transparent 1px 7px);
+      box-shadow: inset 0 0 34px rgba(35,66,74,.14), inset 0 0 0 1px rgba(255,210,110,.04), 0 0 22px rgba(0,0,0,.5);
+    }
+
+    .frame:before, .frame:after, .panel:before, .panel:after {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      pointer-events: none;
+      border-color: var(--gold);
+      opacity: .72;
+    }
+
+    .frame:before, .panel:before { left: -1px; top: -1px; border-left: 2px solid; border-top: 2px solid; }
+    .frame:after, .panel:after { right: -1px; bottom: -1px; border-right: 2px solid; border-bottom: 2px solid; }
+
+    .sidebar { left: 13px; top: 91px; width: 273px; height: 823px; }
+    .main { left: 296px; top: 90px; width: 1292px; height: 820px; }
+
+    .sidebar-title, .page-title {
+      position: absolute;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--gold2);
+      text-transform: uppercase;
+      text-shadow: 0 0 8px rgba(214,162,74,.3);
+    }
+
+    .sidebar-title {
+      top: 20px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 24px;
+      letter-spacing: 1px;
+    }
+
+    .page-title {
+      left: 31px;
+      top: 22px;
+      font-size: 26px;
+      letter-spacing: 1px;
+    }
+
+    .nav {
+      position: absolute;
+      left: 12px;
+      right: 14px;
+      top: 64px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .nav-item {
+      position: relative;
+      height: 64px;
+      border: 1px solid rgba(214,162,74,.34);
+      background: rgba(11,18,20,.72);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      padding-left: 63px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: .2px;
+      text-transform: uppercase;
+      box-shadow: inset 0 0 16px rgba(0,0,0,.35);
+    }
+
+    .nav-item.selected {
+      color: #fff1c6;
+      border-color: var(--gold2);
+      background: linear-gradient(90deg, rgba(161,103,18,.75), rgba(74,47,10,.55), rgba(20,21,17,.75));
+      box-shadow: inset 0 0 24px rgba(255,191,60,.28), 0 0 16px rgba(240,174,44,.26);
+    }
+
+    .nav-item.tower { border-color: rgba(164,96,242,.65); color: #c185ff; }
+    .nav-item.chaos { border-color: rgba(164,96,242,.65); color: #d278ff; }
+    .nav-item.path { border-color: rgba(56,191,230,.55); color: #4bd4ff; }
+    .nav-item.elite { border-color: rgba(233,87,78,.62); color: #ff746b; }
+
+    .nav-icon, .small-icon, .metric-icon {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      color: var(--tone);
+      text-shadow: 0 0 10px currentColor;
+    }
+
+    .nav-icon {
+      left: 16px;
+      width: 37px;
+      height: 37px;
+      border: 1px solid currentColor;
+      transform: rotate(45deg);
+      background: rgba(0,0,0,.35);
+    }
+
+    .nav-icon span { transform: rotate(-45deg); font-size: 18px; }
+
+    .keystone-panel {
+      position: absolute;
+      left: 12px;
+      right: 14px;
+      bottom: 36px;
+      height: 214px;
+      border: 1px solid rgba(214,162,74,.55);
+      background: rgba(6,12,14,.76);
+      box-shadow: inset 0 0 26px rgba(0,0,0,.46);
+    }
+
+    .section-title {
+      position: absolute;
+      left: 18px;
+      top: 16px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 17px;
+      color: var(--gold2);
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .keystone-list {
+      position: absolute;
+      left: 22px;
+      right: 20px;
+      top: 64px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .keystone { width: 70px; text-align: center; color: var(--gold2); }
+    .gem {
+      width: 62px;
+      height: 62px;
+      margin: 0 auto 10px;
+      position: relative;
+      transform: rotate(45deg);
+      border: 2px solid var(--tone);
+      background: radial-gradient(circle, color-mix(in srgb, var(--tone), white 15%), rgba(0,0,0,.4) 65%);
+      box-shadow: 0 0 18px color-mix(in srgb, var(--tone), transparent 55%), inset 0 0 16px rgba(0,0,0,.5);
+    }
+    .gem:after {
+      content: "";
+      position: absolute;
+      inset: 13px;
+      border: 2px solid rgba(255,255,255,.35);
+      background: rgba(255,255,255,.08);
+    }
+    .gem-level { font-size: 15px; }
+    .mini-line { height: 4px; margin: 8px auto 0; width: 62px; border: 1px solid #403018; border-radius: 3px; background: #07090a; }
+    .mini-line span { display: block; height: 100%; width: 18%; background: var(--gold2); border-radius: 3px; }
+
+    .metric-row {
+      position: absolute;
+      left: 22px;
+      top: 68px;
+      right: 14px;
+      height: 170px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 11px;
+    }
+
+    .panel {
+      position: relative;
+      border: 1px solid rgba(214,162,74,.34);
+      background: linear-gradient(180deg, rgba(13,22,24,.88), rgba(8,13,15,.9));
+      box-shadow: inset 0 0 30px rgba(0,0,0,.35);
+      overflow: hidden;
+    }
+
+    .panel.cyan { border-color: rgba(56,191,230,.35); }
+    .panel.purple { border-color: rgba(164,96,242,.5); }
+    .panel.red { border-color: rgba(233,87,78,.55); }
+    .panel.green { border-color: rgba(111,221,101,.45); }
+
+    .metric-title {
+      position: absolute;
+      top: 20px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      text-transform: uppercase;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: #e8dfcf;
+      letter-spacing: .5px;
+    }
+
+    .metric-icon {
+      left: 35px;
+      top: 61px;
+      width: 62px;
+      height: 62px;
+      border: 2px solid var(--tone);
+      transform: rotate(45deg);
+      background: radial-gradient(circle, color-mix(in srgb, var(--tone), white 8%), rgba(0,0,0,.55) 64%);
+    }
+
+    .metric-icon span { transform: rotate(-45deg); font-size: 24px; }
+
+    .metric-value {
+      position: absolute;
+      left: 108px;
+      top: 69px;
+      width: 92px;
+      font-size: 28px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-weight: 700;
+      color: var(--gold2);
+      text-align: center;
+    }
+
+    .metric-sub {
+      position: absolute;
+      left: 100px;
+      top: 101px;
+      width: 110px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .metric-progress {
+      position: absolute;
+      left: 108px;
+      bottom: 18px;
+      width: 105px;
+      height: 5px;
+      border: 1px solid rgba(214,162,74,.45);
+      border-radius: 4px;
+      background: #0a0d0e;
+    }
+
+    .metric-progress span {
+      display: block;
+      height: 100%;
+      width: var(--p);
+      border-radius: 4px;
+      background: var(--tone);
+      box-shadow: 0 0 8px var(--tone);
+    }
+
+    .metric-ratio {
+      position: absolute;
+      left: 108px;
+      bottom: 32px;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .progress-panel { position: absolute; left: 20px; top: 260px; width: 405px; height: 314px; }
+    .balance-panel { position: absolute; left: 436px; top: 260px; width: 495px; height: 314px; }
+    .goals-panel { position: absolute; left: 947px; top: 260px; width: 332px; height: 314px; }
+    .buffs-panel { position: absolute; left: 20px; top: 595px; width: 390px; height: 207px; }
+    .risks-panel { position: absolute; left: 423px; top: 595px; width: 507px; height: 207px; }
+    .run-panel { position: absolute; left: 947px; top: 595px; width: 332px; height: 207px; }
+
+    .panel-heading {
+      position: absolute;
+      top: 16px;
+      left: 17px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 21px;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      color: #f2e3c0;
+    }
+    .panel-heading.gold { color: var(--gold2); }
+    .panel-heading.green { color: var(--green); }
+    .panel-heading.red { color: #ff6b62; }
+
+    .level-ring {
+      position: absolute;
+      left: 33px;
+      top: 70px;
+      width: 184px;
+      height: 184px;
+      border-radius: 50%;
+      background:
+        conic-gradient(var(--cyan) 0deg 63deg, transparent 63deg 153deg, var(--cyan) 153deg 204deg, transparent 204deg 360deg);
+      box-shadow: 0 0 20px rgba(56,191,230,.14);
+    }
+    .level-ring:before {
+      content: "";
+      position: absolute;
+      inset: 11px;
+      border-radius: 50%;
+      background: var(--panel);
+      border: 2px solid rgba(214,162,74,.2);
+      box-shadow: inset 0 0 26px rgba(0,0,0,.7);
+    }
+    .level-ring:after {
+      content: "";
+      position: absolute;
+      inset: 30px;
+      border-radius: 50%;
+      border: 1px solid rgba(214,162,74,.36);
+    }
+    .level-center {
+      position: absolute;
+      left: 59px;
+      top: 126px;
+      width: 130px;
+      text-align: center;
+    }
+    .level-center b {
+      display: block;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 42px;
+      color: #f8e6c2;
+    }
+    .level-center span { display: block; font-size: 13px; font-weight: 700; text-transform: uppercase; color: #e5d6b2; }
+    .account-xp {
+      position: absolute;
+      left: 55px;
+      bottom: 24px;
+      width: 160px;
+      text-align: center;
+      color: #e6d6bd;
+      font-size: 16px;
+    }
+    .progress-stats {
+      position: absolute;
+      right: 18px;
+      top: 60px;
+      width: 170px;
+      display: grid;
+      gap: 8px;
+    }
+    .side-stat {
+      height: 48px;
+      border: 1px solid rgba(110,130,140,.33);
+      background: rgba(12,20,23,.74);
+      padding: 13px 42px 0 12px;
+      color: var(--muted);
+      position: relative;
+      font-size: 13px;
+    }
+    .side-stat .small-icon { right: 14px; top: 13px; width: 22px; height: 22px; font-size: 17px; }
+
+    .balance-top {
+      position: absolute;
+      left: 18px;
+      top: 61px;
+      right: 18px;
+      height: 100px;
+    }
+    .scale-symbol, .chaos-symbol {
+      position: absolute;
+      top: 12px;
+      width: 68px;
+      height: 68px;
+      display: grid;
+      place-items: center;
+      border: 2px solid currentColor;
+      border-radius: 50%;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 32px;
+      font-weight: 700;
+      text-shadow: 0 0 14px currentColor;
+      background: rgba(0,0,0,.2);
+    }
+    .scale-symbol { left: 0; color: var(--gold2); }
+    .chaos-symbol { right: 0; color: var(--red); }
+    .balance-labels {
+      position: absolute;
+      left: 80px;
+      right: 80px;
+      top: 22px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .balance-labels span:nth-child(1) { color: var(--gold2); }
+    .balance-labels span:nth-child(2) { color: var(--gold2); }
+    .balance-labels span:nth-child(3) { color: var(--red); }
+    .balance-bar {
+      position: absolute;
+      left: 75px;
+      right: 75px;
+      top: 62px;
+      height: 18px;
+      border: 1px solid rgba(214,162,74,.65);
+      border-radius: 12px;
+      background: linear-gradient(90deg, #d99f23 0%, #e8bd40 49%, #812722 52%, #4e1518 100%);
+      box-shadow: inset 0 0 10px rgba(0,0,0,.65), 0 0 12px rgba(214,162,74,.2);
+    }
+    .balance-marker {
+      position: absolute;
+      left: calc(50% + 12px);
+      top: -10px;
+      width: 3px;
+      height: 37px;
+      background: #ffe0a1;
+      box-shadow: 0 0 8px rgba(255,224,161,.75);
+    }
+    .score-boxes {
+      position: absolute;
+      left: 15px;
+      right: 15px;
+      top: 170px;
+      height: 88px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+    .score {
+      border: 1px solid rgba(214,162,74,.18);
+      background: rgba(6,12,14,.58);
+      text-align: center;
+      padding-top: 18px;
+    }
+    .score small {
+      display: block;
+      color: var(--gold2);
+      text-transform: uppercase;
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .score b {
+      display: block;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 30px;
+      color: var(--gold2);
+    }
+    .score.chaos small, .score.chaos b { color: #ff6962; }
+    .score .sub { color: var(--muted); font-size: 14px; }
+    .details-btn {
+      position: absolute;
+      left: 138px;
+      bottom: 8px;
+      width: 210px;
+      height: 35px;
+      border: 1px solid var(--gold);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      letter-spacing: 1px;
+      background: rgba(11,15,17,.82);
+      text-transform: uppercase;
+    }
+
+    .list-area { position: absolute; left: 14px; right: 14px; top: 56px; }
+    .goal-row, .effect-row, .run-row {
+      position: relative;
+      border-top: 1px solid rgba(214,162,74,.12);
+      min-height: 48px;
+    }
+    .goal-row { height: 47px; padding: 12px 52px 0 56px; font-size: 14px; }
+    .goal-row .small-icon { left: 14px; top: 11px; width: 28px; height: 28px; }
+    .goal-row .value { position: absolute; right: 12px; top: 12px; color: var(--text); }
+
+    .long-btn {
+      position: absolute;
+      left: 17px;
+      right: 17px;
+      bottom: 17px;
+      height: 42px;
+      border: 1px solid rgba(140,154,160,.42);
+      display: grid;
+      place-items: center;
+      color: #e1d7c2;
+      background: rgba(12,17,20,.72);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 13px;
+    }
+
+    .effect-row {
+      height: 68px;
+      margin: 0 10px 4px 10px;
+      border: 1px solid rgba(111,221,101,.22);
+      background: rgba(13,28,18,.43);
+      padding: 14px 100px 0 60px;
+    }
+    .effect-row.risk {
+      border-color: rgba(233,87,78,.35);
+      background: rgba(33,12,12,.42);
+    }
+    .effect-row .small-icon { left: 15px; top: 16px; width: 34px; height: 34px; }
+    .effect-title { color: var(--green); font-size: 15px; font-weight: 800; }
+    .effect-row.risk .effect-title { color: #ff7169; }
+    .effect-desc { color: #d8ccb5; font-size: 14px; margin-top: 2px; }
+    .waves { position: absolute; right: 22px; top: 25px; color: #e2d0ad; font-size: 15px; }
+
+    .run-list { position: absolute; left: 18px; right: 18px; top: 50px; }
+    .run-row { height: 26px; display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 14px; }
+    .run-row b { color: var(--gold2); }
+    .run-panel .run-list { top: 49px; }
+    .run-panel .run-row { min-height: 24px; height: 24px; }
+    .run-panel .long-btn { bottom: 12px; height: 38px; }
+
+    .bottom {
+      position: absolute;
+      left: 0;
+      top: 929px;
+      width: 1602px;
+      height: 53px;
+      border-top: 1px solid rgba(214,162,74,.22);
+      background: rgba(5,11,13,.92);
+    }
+    .tip {
+      position: absolute;
+      left: 23px;
+      top: 15px;
+      color: var(--muted);
+      font-size: 16px;
+    }
+    .footer-btn {
+      position: absolute;
+      top: 6px;
+      height: 42px;
+      border: 1px solid var(--line);
+      background: rgba(11,15,17,.82);
+      color: var(--gold2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%, 10px 50%);
+    }
+    .options { right: 234px; width: 185px; }
+    .back { right: 13px; width: 194px; }
+
+    .small-icon {
+      border: 1px solid currentColor;
+      transform: rotate(45deg);
+      background: rgba(0,0,0,.3);
+      color: var(--tone);
+    }
+    .small-icon span { transform: rotate(-45deg); font-size: 13px; }
+
+    .resource-icon {
+      width: 30px;
+      height: 30px;
+      transform: rotate(45deg);
+      border: 2px solid var(--tone);
+      background: radial-gradient(circle, color-mix(in srgb, var(--tone), white 15%), rgba(0,0,0,.55) 62%);
+      box-shadow: 0 0 12px color-mix(in srgb, var(--tone), transparent 55%);
+      display: grid;
+      place-items: center;
+    }
+    .resource-icon span { transform: rotate(-45deg); font-size: 11px; color: #fff8dc; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const data = {
+      resources: [
+        { key: "gold", value: "12.450", icon: "G", tone: "var(--gold2)" },
+        { key: "xp", value: "8.760", icon: "XP", tone: "var(--cyan)" },
+        { key: "chaos", value: "350", icon: "C", tone: "var(--purple)" },
+        { key: "special", value: "15", icon: "K", tone: "#c6a5ff" }
+      ],
+      account: { level: 11, currentXp: 3250, requiredXp: 7500 },
+      nav: [
+        { label: "UEBERSICHT", icon: "H", tone: "var(--gold2)", selected: true },
+        { label: "ALLGEMEIN", icon: "S", tone: "#b9ad91" },
+        { label: "TOWER MASTERY", icon: "T", tone: "var(--purple)", cls: "tower" },
+        { label: "CHAOS-FORSCHUNG", icon: "R", tone: "var(--purple)", cls: "chaos" },
+        { label: "VERBAU / PFADTECHNIK", icon: "P", tone: "var(--cyan)", cls: "path" },
+        { label: "ELITE-JAGD", icon: "E", tone: "var(--red)", cls: "elite" },
+        { label: "ARCHIV", icon: "B", tone: "#b9ad91" }
+      ],
+      keystones: [
+        { label: "Ruby", level: 1, tone: "var(--red)" },
+        { label: "Void", level: 1, tone: "var(--purple)" },
+        { label: "Frost", level: 1, tone: "var(--cyan)" }
+      ],
+      metrics: [
+        { title: "TOWER MASTERY", value: "11", sub: "Aktive Tower", ratio: "11 / 17 Mastered", p: 65, icon: "T", tone: "var(--gold)" },
+        { title: "CHAOS-WISSEN", value: "0", sub: "Forschungsstufen", ratio: "0 / 25", p: 0, icon: "C", tone: "var(--purple)", panel: "purple" },
+        { title: "RISIKOKERNE", value: "0", sub: "Aktive Kerne", ratio: "", p: 0, icon: "R", tone: "var(--red)" },
+        { title: "BAUPLAENE", value: "0", sub: "Freigeschaltet", ratio: "", p: 0, icon: "B", tone: "var(--blue)", panel: "cyan" },
+        { title: "ELITE-JAGD", value: "0", sub: "Elite besiegt", ratio: "", p: 0, icon: "E", tone: "var(--red)", panel: "red" }
+      ],
+      progressStats: [
+        { label: "Freie Punkte", icon: "0", tone: "var(--purple)" },
+        { label: "Chaos-Level", icon: "0", tone: "var(--red)" },
+        { label: "Gold-Gerechtigkeit", icon: "G", tone: "var(--gold2)" },
+        { label: "XP-Gerechtigkeit", icon: "XP", tone: "var(--cyan)" }
+      ],
+      goals: [
+        { label: "Tower Mastery Level 12", value: "11 / 12", icon: "T", tone: "var(--gold2)" },
+        { label: "Chaos-Forschung Stufe 1", value: "0 / 1", icon: "C", tone: "var(--purple)" },
+        { label: "Risikokern aktivieren", value: "0 / 1", icon: "R", tone: "#e540b4" },
+        { label: "Elite besiegen", value: "0 / 1", icon: "E", tone: "var(--red)" }
+      ],
+      buffs: [
+        { title: "Gold-Boost I", desc: "+10% Goldgewinn", waves: "2 Wellen", icon: "G", tone: "var(--green)" },
+        { title: "XP-Boost I", desc: "+10% XP-Gewinn", waves: "2 Wellen", icon: "XP", tone: "var(--green)" }
+      ],
+      risks: [
+        { title: "Mehr Runner I", desc: "+20% Runner", waves: "3 Wellen", icon: "?", tone: "var(--red)" },
+        { title: "Schnellere Spawns I", desc: "-15% Spawn-Delay", waves: "3 Wellen", icon: "C", tone: "var(--red)" }
+      ],
+      lastRun: [
+        ["Wellen ueberlebt", "10"],
+        ["Boss besiegt", "1"],
+        ["Chaos-Level erreicht", "0"],
+        ["Punkte verdient", "8.450"]
+      ]
+    };
+
+    const app = document.getElementById("app");
+    const xpPercent = Math.round((data.account.currentXp / data.account.requiredXp) * 100);
+
+    function icon(cls, text, tone) {
+      return `<span class="${cls}" style="--tone:${tone}"><span>${text}</span></span>`;
+    }
+
+    function renderTopbar() {
+      const resources = data.resources.map(r => `
+        <div class="resource">${icon("resource-icon", r.icon, r.tone)}<span>${r.value}</span></div>
+      `).join("");
+      return `
+        <div class="topbar"></div>
+        <div class="resource-strip">${resources}</div>
+        <div class="title">TOWER DEFENSE</div>
+        <div class="crest"><i></i></div>
+        <div class="account-strip">
+          <div style="font-size:16px;font-weight:700;color:var(--text)">Account Lv. ${data.account.level}</div>
+          <div class="xpbar" style="--p:${xpPercent}%"><span></span></div>
+          <div style="font-size:14px;color:var(--text)">${data.account.currentXp.toLocaleString("de-DE")} / ${data.account.requiredXp.toLocaleString("de-DE")} XP</div>
+        </div>
+        <div class="icon-btn settings">O</div>
+        <div class="icon-btn close">X</div>
+      `;
+    }
+
+    function renderSidebar() {
+      const nav = data.nav.map(n => `
+        <div class="nav-item ${n.selected ? "selected" : ""} ${n.cls || ""}">
+          ${icon("nav-icon", n.icon, n.tone)}
+          ${n.label}
+        </div>
+      `).join("");
+      const keys = data.keystones.map(k => `
+        <div class="keystone" style="--tone:${k.tone}">
+          <div class="gem"></div>
+          <div class="gem-level">Lv. ${k.level}</div>
+          <div class="mini-line"><span></span></div>
+        </div>
+      `).join("");
+      return `
+        <aside class="frame sidebar">
+          <div class="sidebar-title">META-HUB</div>
+          <div class="nav">${nav}</div>
+          <div class="keystone-panel">
+            <div class="section-title">AKTIVE KEYSTONES</div>
+            <div class="keystone-list">${keys}</div>
+          </div>
+        </aside>
+      `;
+    }
+
+    function renderMetrics() {
+      return data.metrics.map(m => `
+        <div class="panel ${m.panel || ""}">
+          <div class="metric-title">${m.title}</div>
+          ${icon("metric-icon", m.icon, m.tone)}
+          <div class="metric-value">${m.value}</div>
+          <div class="metric-sub">${m.sub}</div>
+          ${m.ratio ? `<div class="metric-ratio">${m.ratio}</div><div class="metric-progress" style="--tone:${m.tone};--p:${m.p}%"><span></span></div>` : ""}
+        </div>
+      `).join("");
+    }
+
+    function renderProgress() {
+      const stats = data.progressStats.map(s => `
+        <div class="side-stat">${s.label}${icon("small-icon", s.icon, s.tone)}</div>
+      `).join("");
+      return `
+        <section class="panel progress-panel">
+          <div class="panel-heading">FORTSCHRITT</div>
+          <div class="level-ring"></div>
+          <div class="level-center"><b>${data.account.level}</b><span>ACCOUNT LEVEL</span></div>
+          <div class="account-xp">${data.account.currentXp.toLocaleString("de-DE")} / ${data.account.requiredXp.toLocaleString("de-DE")} XP</div>
+          <div class="progress-stats">${stats}</div>
+        </section>
+      `;
+    }
+
+    function renderBalance() {
+      return `
+        <section class="panel balance-panel">
+          <div class="panel-heading gold">CHAOS / GERECHTIGKEIT</div>
+          <div class="balance-top">
+            <div class="scale-symbol">W</div>
+            <div class="chaos-symbol">X</div>
+            <div class="balance-labels"><span>GERECHTIGKEIT</span><span>BALANCE</span><span>CHAOS</span></div>
+            <div class="balance-bar"><div class="balance-marker"></div></div>
+          </div>
+          <div class="score-boxes">
+            <div class="score"><small>SAFETY SCORE</small><b>6</b></div>
+            <div class="score"><b>100%</b><div class="sub">Stabil</div></div>
+            <div class="score chaos"><small>CHAOS SCORE</small><b>0</b></div>
+          </div>
+          <div class="details-btn">DETAILS ANZEIGEN</div>
+        </section>
+      `;
+    }
+
+    function renderGoals() {
+      const rows = data.goals.map(g => `
+        <div class="goal-row">${icon("small-icon", g.icon, g.tone)}<span>${g.label}</span><span class="value">${g.value}</span></div>
+      `).join("");
+      return `
+        <section class="panel goals-panel">
+          <div class="panel-heading">NAECHSTE ZIELE</div>
+          <div class="list-area">${rows}</div>
+          <div class="long-btn">ALLE ZIELE ANZEIGEN</div>
+        </section>
+      `;
+    }
+
+    function renderEffects(items, risk = false) {
+      return items.map(e => `
+        <div class="effect-row ${risk ? "risk" : ""}">
+          ${icon("small-icon", e.icon, e.tone)}
+          <div class="effect-title">${e.title}</div>
+          <div class="effect-desc">${e.desc}</div>
+          <div class="waves">${e.waves}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderRun() {
+      const rows = data.lastRun.map(([label, value]) => `<div class="run-row"><span>${label}</span><b>${value}</b></div>`).join("");
+      return `
+        <section class="panel run-panel">
+          <div class="panel-heading">LETZTER RUN</div>
+          <div class="run-list">${rows}</div>
+          <div class="long-btn">RUN-STATISTIKEN</div>
+        </section>
+      `;
+    }
+
+    function renderMain() {
+      return `
+        <main class="frame main">
+          <div class="page-title">UEBERSICHT</div>
+          <div class="metric-row">${renderMetrics()}</div>
+          ${renderProgress()}
+          ${renderBalance()}
+          ${renderGoals()}
+          <section class="panel green buffs-panel">
+            <div class="panel-heading green">AKTIVE BUFFS</div>
+            <div class="list-area" style="top:46px">${renderEffects(data.buffs)}</div>
+          </section>
+          <section class="panel red risks-panel">
+            <div class="panel-heading red">AKTIVE RISIKEN</div>
+            <div class="list-area" style="top:46px">${renderEffects(data.risks, true)}</div>
+          </section>
+          ${renderRun()}
+        </main>
+      `;
+    }
+
+    function renderBottom() {
+      return `
+        <footer class="bottom">
+          <div class="tip">&lt;&gt; Tipp: Aktiviere Keystones im Tower Mastery und baue dein System strategisch auf.</div>
+          <div class="footer-btn options">O OPTIONEN</div>
+          <div class="footer-btn back">&lt; ZURUECK</div>
+        </footer>
+      `;
+    }
+
+    app.innerHTML = renderTopbar() + renderSidebar() + renderMain() + renderBottom();
+  </script>
+</body>
+</html>

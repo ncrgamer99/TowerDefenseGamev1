@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -516,7 +517,14 @@ public class GameManager : MonoBehaviour
 
         if (tileManager != null)
         {
-            tileManager.InitializeRunPath();
+            int extraStartPathTiles = 0;
+            if (mode == GameStartMode.Normal)
+            {
+                GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
+                extraStartPathTiles = generalMeta != null ? generalMeta.GetActiveStartPathBonus() : 0;
+            }
+
+            tileManager.InitializeRunPath(extraStartPathTiles);
             tileManager.SetCanBuild(true);
         }
 
@@ -1254,10 +1262,78 @@ public class GameManager : MonoBehaviour
             return "Keine Wave Preview verfügbar.";
 
         string enemyPreview = enemySpawner.GetPreviewTextForWave(data.waveNumber, data.requestedEnemyCount);
+        GeneralMetaProgressionManager generalMeta = currentStartMode == GameStartMode.Normal ? GetGeneralMetaProgressionManager() : null;
 
-        return
+        string previewText =
             "Wave " + data.waveNumber + " - " + data.scenarioName +
             "\n\n" + enemyPreview;
+
+        previewText += BuildMetaPreviewDetails(data, generalMeta);
+        previewText += BuildStartScoutPreview(data.waveNumber, generalMeta);
+
+        return previewText;
+    }
+
+    private string BuildMetaPreviewDetails(WaveData data, GeneralMetaProgressionManager generalMeta)
+    {
+        if (data == null || generalMeta == null)
+            return "";
+
+        StringBuilder builder = new StringBuilder();
+
+        if (generalMeta.HasRolePreviewI() && enemySpawner != null)
+            builder.AppendLine("Hinweis: " + enemySpawner.GetSpecialHintForWave(data.waveNumber));
+
+        if (generalMeta.HasRolePreviewII())
+            builder.AppendLine("Gesamt: " + data.totalSpawnCount + " Gegner | Normal " + data.normalEnemyCount + " | Spezial " + data.specialEnemyCount);
+
+        if (generalMeta.HasBossPreview() && (data.IsMiniBossWave() || data.IsBossWave()))
+        {
+            string label = data.IsBossWave() ? "Boss-Wave" : "MiniBoss-Wave";
+            builder.AppendLine(label + ": Boss/MiniBoss zerstoeren keine Tower und geben wichtige XP/Rewards.");
+        }
+
+        if (generalMeta.HasChaosPreview())
+        {
+            if (!string.IsNullOrEmpty(data.modifierSummary))
+                builder.AppendLine("Risiken: " + data.modifierSummary);
+
+            if (data.hasChaosVariants && !string.IsNullOrEmpty(data.chaosVariantSummary))
+                builder.AppendLine("Chaos-Varianten: " + data.chaosVariantSummary);
+        }
+
+        if (generalMeta.HasChaosWavePreview() && data.hasChaosWaveBlocks)
+            builder.AppendLine("Chaos-Wave: " + data.GetChaosWaveDetailsText());
+
+        if (builder.Length <= 0)
+            return "";
+
+        return "\n\n" + builder.ToString().TrimEnd();
+    }
+
+    private string BuildStartScoutPreview(int nextWaveNumber, GeneralMetaProgressionManager generalMeta)
+    {
+        if (generalMeta == null || !generalMeta.IsStartScoutActive() || nextWaveNumber >= 3)
+            return "";
+
+        StringBuilder builder = new StringBuilder();
+
+        for (int wave = nextWaveNumber + 1; wave <= 3; wave++)
+        {
+            WaveData scoutData = BuildWaveDataForGameWave(wave);
+            if (scoutData == null)
+                continue;
+
+            if (builder.Length == 0)
+                builder.AppendLine("Start-Scout:");
+
+            builder.AppendLine("Wave " + scoutData.waveNumber + " - " + scoutData.scenarioName + " | " + scoutData.totalSpawnCount + " Gegner");
+        }
+
+        if (builder.Length <= 0)
+            return "";
+
+        return "\n\n" + builder.ToString().TrimEnd();
     }
 
     private void CreateCurrentWaveResult(WaveData waveData)
@@ -1883,7 +1959,12 @@ public class GameManager : MonoBehaviour
 
     public int GetCurrentMaxLives()
     {
-        return Mathf.Max(1, currentStartMode == GameStartMode.Balancing ? balancingStartLives : normalStartLives);
+        if (currentStartMode == GameStartMode.Balancing)
+            return Mathf.Max(1, balancingStartLives);
+
+        GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
+        int startLifeBonus = generalMeta != null ? Mathf.Max(0, generalMeta.GetActiveStartLifeBonus()) : 0;
+        return Mathf.Max(1, normalStartLives + startLifeBonus);
     }
 
     public void AddEliteTileChoiceQualityBoosts(int amount)
