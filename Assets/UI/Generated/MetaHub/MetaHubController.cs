@@ -1,5 +1,7 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -41,15 +43,40 @@ public class MetaHubController : MonoBehaviour
     private bool callbacksRegistered = false;
     private bool isVisible = false;
     private bool mainMenuUnlockMode = false;
+    private bool runtimeUnlockInfoMode = false;
     private Canvas fallbackCanvas;
     private GameObject fallbackRoot;
     private GameObject fallbackDesignRoot;
     private string selectedNavigationId = "overview";
     private TowerRole selectedTowerRole = TowerRole.Basic;
+    private string selectedGeneralTreeCategory = "tower";
+    private string selectedTowerTreeCategory = "Trunk";
+    private ChaosResearchCategory selectedChaosTreeCategory = ChaosResearchCategory.RiskPool;
+    private PathTechniqueCategory selectedPathTreeCategory = PathTechniqueCategory.EventPool;
+    private EliteHuntCategory selectedEliteTreeCategory = EliteHuntCategory.Contracts;
+    private bool showGeneralLoadoutPicker = false;
+    private bool showGeneralLoadoutEditor = false;
     private bool showAllGoalsOverlay = false;
     private float liveRefreshTimer = 0f;
     private readonly Dictionary<string, Sprite> artSprites = new Dictionary<string, Sprite>();
     private readonly Dictionary<string, Sprite> panelSprites = new Dictionary<string, Sprite>();
+
+    private class TowerMasteryNodeView
+    {
+        public object definition;
+        public string nodeId;
+        public string displayName;
+        public string effectText;
+        public string pathKey;
+        public string pathLabel;
+        public bool isKeystone;
+        public int rank;
+        public int maxRank;
+        public int nextCost;
+        public bool canPurchase;
+        public string stateText;
+        public MetaHubTone tone;
+    }
 
     public bool IsOpen
     {
@@ -127,10 +154,12 @@ public class MetaHubController : MonoBehaviour
     private void OpenFromUnlockManager(ChaosUnlockManager unlockManager, GameManager sourceGameManager, bool useMainMenuUnlockMode)
     {
         owningUnlockManager = unlockManager;
-        if (!isVisible || mainMenuUnlockMode != useMainMenuUnlockMode)
+        bool useRuntimeUnlockInfoMode = !useMainMenuUnlockMode && sourceGameManager != null && sourceGameManager.gameStarted && !sourceGameManager.startMenuOpen && !sourceGameManager.isGameOver;
+        if (!isVisible || mainMenuUnlockMode != useMainMenuUnlockMode || runtimeUnlockInfoMode != useRuntimeUnlockInfoMode)
             selectedNavigationId = "overview";
 
         mainMenuUnlockMode = useMainMenuUnlockMode;
+        runtimeUnlockInfoMode = useRuntimeUnlockInfoMode;
 
         if (sourceGameManager != null)
             gameManager = sourceGameManager;
@@ -160,6 +189,7 @@ public class MetaHubController : MonoBehaviour
     {
         owningUnlockManager = null;
         mainMenuUnlockMode = false;
+        runtimeUnlockInfoMode = false;
         SetVisible(false);
         SetCanvasFallbackVisible(false);
     }
@@ -167,7 +197,7 @@ public class MetaHubController : MonoBehaviour
     public void SetData(MetaHubData data)
     {
         currentData = data != null ? data : MetaHubMockData.Create();
-        ApplyMainMenuUnlockMode(currentData);
+        ApplyUnlockLayoutMode(currentData);
         ApplySelectedNavigation(currentData);
         EnsureDocument();
         Bind(currentData);
@@ -320,13 +350,6 @@ public class MetaHubController : MonoBehaviour
 
         RegisterButton("AllGoalsButton", RequestAllGoals);
 
-        RegisterButton("RunStatsButton", delegate
-        {
-            if (RunStatisticsRequested != null)
-                RunStatisticsRequested.Invoke();
-            Debug.Log("MetaHub: Run statistics button requested.");
-        });
-
         RegisterButton("OptionsButton", delegate
         {
             if (OptionsRequested != null)
@@ -337,13 +360,6 @@ public class MetaHubController : MonoBehaviour
         RegisterButton("MainMenuButton", RequestReturnToMainMenu);
         RegisterButton("BackButton", RequestClose);
         RegisterButton("CloseButton", RequestClose);
-        RegisterButton("SettingsButton", delegate
-        {
-            if (OptionsRequested != null)
-                OptionsRequested.Invoke();
-            Debug.Log("MetaHub: Settings button requested.");
-        });
-
         callbacksRegistered = true;
     }
 
@@ -358,6 +374,8 @@ public class MetaHubController : MonoBehaviour
     {
         selectedNavigationId = string.IsNullOrEmpty(navId) ? "overview" : navId;
         showAllGoalsOverlay = false;
+        showGeneralLoadoutPicker = false;
+        showGeneralLoadoutEditor = false;
 
         if (useLiveDataWhenAvailable)
             RefreshData();
@@ -365,14 +383,27 @@ public class MetaHubController : MonoBehaviour
             SetData(currentData);
     }
 
-    private void ApplyMainMenuUnlockMode(MetaHubData data)
+    private bool IsUnlockLayoutMode()
     {
-        if (!mainMenuUnlockMode || data == null)
+        return mainMenuUnlockMode || runtimeUnlockInfoMode;
+    }
+
+    private void ApplyUnlockLayoutMode(MetaHubData data)
+    {
+        if (!IsUnlockLayoutMode() || data == null)
             return;
 
         data.screenSubtitle = "FREISCHALTUNGEN";
-        data.footerTip = "Tipp: Permanente Freischaltungen staerken deinen naechsten Run.";
-        ApplyMainMenuUnlockLiveValues(data);
+        if (runtimeUnlockInfoMode)
+        {
+            data.footerTip = "Tipp: F1 zeigt deinen aktuellen Run. Permanente Freischaltungen aenderst du im Hauptmenue.";
+            ApplyRuntimeUnlockRunValues(data);
+        }
+        else
+        {
+            data.footerTip = "Tipp: Permanente Freischaltungen staerken deinen naechsten Run.";
+            ApplyMainMenuUnlockLiveValues(data);
+        }
 
         if (data.navigation == null)
             return;
@@ -383,6 +414,132 @@ public class MetaHubController : MonoBehaviour
             if (item != null && item.id == "archive")
                 data.navigation.RemoveAt(i);
         }
+    }
+
+    private void ApplyRuntimeUnlockRunValues(MetaHubData data)
+    {
+        if (data == null || gameManager == null)
+            return;
+
+        RunStatistics runStats = gameManager.GetRunStatistics();
+        ChaosJusticeManager chaosJustice = gameManager.GetChaosJusticeManager();
+        int currentWave = Mathf.Max(0, gameManager.waveNumber);
+        int currentGold = Mathf.Max(0, gameManager.gold);
+        int currentLives = Mathf.Max(0, gameManager.lives);
+        int chaosLevel = chaosJustice != null ? Mathf.Max(0, chaosJustice.GetChaosLevel()) : 0;
+        int eliteKills = runStats != null ? Mathf.Max(0, runStats.eliteKills) : 0;
+        int towerXp = runStats != null ? Mathf.Max(0, runStats.totalTowerXPGranted) : 0;
+        int towersBuilt = runStats != null ? Mathf.Max(0, runStats.towersBuilt) : 0;
+        int metaPrepared = runStats != null ? Mathf.Max(0, runStats.metaPointsPrepared) : 0;
+
+        data.account.level = Mathf.Max(1, currentWave + 1);
+        data.account.currentXP = towerXp;
+        data.account.requiredXP = Mathf.Max(1, towerXp + Mathf.Max(25, (currentWave + 1) * 25));
+
+        SetDataResource(data, "gold", "Gold", "G", currentGold, MetaHubTone.Gold);
+        SetDataResource(data, "xp", "Leben", "LP", currentLives, MetaHubTone.Cyan);
+        SetDataResource(data, "chaos", "Chaos", "C", chaosLevel, MetaHubTone.Purple);
+        SetDataResource(data, "special", "Elite", "E", eliteKills, MetaHubTone.Red);
+
+        int runtimeRiskCount = GetRuntimeRiskCount();
+        SetDataMetric(data, "tower_mastery", towersBuilt.ToString(), "Tower gebaut", towersBuilt, Mathf.Max(1, towersBuilt), false);
+        SetDataMetric(data, "chaos_wissen", chaosLevel.ToString(), "Chaos-Level", chaosLevel, Mathf.Max(1, chaosLevel), false);
+        SetDataMetric(data, "risikokerne", runtimeRiskCount.ToString(), "Aktive Risiken", runtimeRiskCount, Mathf.Max(1, runtimeRiskCount), false);
+        SetDataMetric(data, "bauplaene", currentWave.ToString(), "Aktuelle Welle", currentWave, Mathf.Max(1, currentWave + 1), false);
+        SetDataMetric(data, "elite_jagd", eliteKills.ToString(), "Elite-Kills", eliteKills, Mathf.Max(1, eliteKills), false);
+
+        SetDataSideStat(data, "free_points", metaPrepared.ToString());
+        SetDataSideStat(data, "chaos_level", chaosLevel.ToString());
+        SetDataSideStat(data, "gold_justice", currentGold.ToString());
+        SetDataSideStat(data, "xp_justice", currentLives.ToString());
+
+        data.nextGoals.Clear();
+        data.nextGoals.Add(CreateDataGoal("run_wave", "Naechste Welle erreichen", "W", currentWave, currentWave + 1, MetaHubTone.Gold));
+        data.nextGoals.Add(CreateDataGoal("run_gold", "Gold fuer den Run sichern", "G", currentGold, Mathf.Max(currentGold + 1, currentGold + 50), MetaHubTone.Gold));
+        data.nextGoals.Add(CreateDataGoal("run_towers", "Tower im Run ausbauen", "T", towersBuilt, Mathf.Max(1, towersBuilt + 1), MetaHubTone.Purple));
+        data.nextGoals.Add(CreateDataGoal("run_elite", "Elite-Ziele im Run pruefen", "E", eliteKills, Mathf.Max(1, eliteKills + 1), MetaHubTone.Red));
+
+        if (data.lastRunStats == null)
+            data.lastRunStats = new List<MetaHubRunStatData>();
+
+        data.lastRunStats.Clear();
+        AddDataRunStat(data, "gold", "Gold aktuell", MetaHubMockData.FormatNumber(currentGold));
+        AddDataRunStat(data, "lives", "Leben aktuell", MetaHubMockData.FormatNumber(currentLives));
+        AddDataRunStat(data, "wave", "Aktuelle Welle", MetaHubMockData.FormatNumber(currentWave));
+        AddDataRunStat(data, "tower_xp", "Tower-XP im Run", MetaHubMockData.FormatNumber(towerXp));
+    }
+
+    private void SetDataMetric(MetaHubData data, string id, string valueText, string caption, int current, int maximum, bool showProgress)
+    {
+        if (data == null || data.metricCards == null || string.IsNullOrEmpty(id))
+            return;
+
+        for (int i = 0; i < data.metricCards.Count; i++)
+        {
+            MetaHubMetricCardData card = data.metricCards[i];
+            if (card == null || card.id != id)
+                continue;
+
+            card.valueText = valueText;
+            card.caption = caption;
+            card.current = Mathf.Max(0, current);
+            card.maximum = Mathf.Max(0, maximum);
+            card.showProgress = showProgress;
+            return;
+        }
+    }
+
+    private void SetDataSideStat(MetaHubData data, string id, string valueText)
+    {
+        if (data == null || data.progressStats == null || string.IsNullOrEmpty(id))
+            return;
+
+        for (int i = 0; i < data.progressStats.Count; i++)
+        {
+            MetaHubSideStatData stat = data.progressStats[i];
+            if (stat == null || stat.id != id)
+                continue;
+
+            stat.valueText = valueText;
+            return;
+        }
+    }
+
+    private MetaHubGoalData CreateDataGoal(string id, string title, string iconText, int current, int required, MetaHubTone tone)
+    {
+        MetaHubGoalData goal = new MetaHubGoalData();
+        goal.id = id;
+        goal.title = title;
+        goal.iconText = iconText;
+        goal.current = Mathf.Max(0, current);
+        goal.required = Mathf.Max(1, required);
+        goal.tone = tone;
+        return goal;
+    }
+
+    private int GetRuntimeWaveNumber()
+    {
+        return gameManager != null ? Mathf.Max(0, gameManager.waveNumber) : 0;
+    }
+
+    private int GetRuntimeGold()
+    {
+        return gameManager != null ? Mathf.Max(0, gameManager.gold) : 0;
+    }
+
+    private int GetRuntimeLives()
+    {
+        return gameManager != null ? Mathf.Max(0, gameManager.lives) : 0;
+    }
+
+    private int GetRuntimeRiskCount()
+    {
+        ChaosJusticeManager chaosJustice = gameManager != null ? gameManager.GetChaosJusticeManager() : null;
+        if (chaosJustice == null)
+            return 0;
+
+        List<string> risks = chaosJustice.GetSelectedRiskModifierDisplayNames();
+        return risks != null ? risks.Count : 0;
     }
 
     private void ApplyMainMenuUnlockLiveValues(MetaHubData data)
@@ -515,15 +672,15 @@ public class MetaHubController : MonoBehaviour
         if (screenRoot == null || data == null)
             return;
 
-        screenRoot.EnableInClassList("main-menu-unlocks", mainMenuUnlockMode);
+        screenRoot.EnableInClassList("main-menu-unlocks", IsUnlockLayoutMode());
 
         SetText("ScreenTitle", data.screenTitle);
         SetText("SidebarTitle", data.screenSubtitle);
         SetText("SectionTitle", data.selectedSectionTitle);
         SetText("FooterTip", data.footerTip);
 
-        SetText("AccountLevelTop", "Account Lv. " + data.account.level);
-        SetText("AccountXpTop", MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP");
+        SetText("AccountLevelTop", runtimeUnlockInfoMode ? "Run Wave " + Mathf.Max(0, GetRuntimeWaveNumber()) : "Account Lv. " + data.account.level);
+        SetText("AccountXpTop", runtimeUnlockInfoMode ? "Gold " + MetaHubMockData.FormatNumber(GetRuntimeGold()) + " / Leben " + MetaHubMockData.FormatNumber(GetRuntimeLives()) : MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP");
         SetText("AccountLevelCenter", data.account.level.ToString());
         SetText("AccountXpBottom", MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP");
         SetFillPercent("AccountXpFill", Percent(data.account.currentXP, data.account.requiredXP));
@@ -542,7 +699,7 @@ public class MetaHubController : MonoBehaviour
 
         VisualElement mainMenuButton = Query("MainMenuButton");
         if (mainMenuButton != null)
-            mainMenuButton.style.display = mainMenuUnlockMode ? DisplayStyle.None : DisplayStyle.Flex;
+            mainMenuButton.style.display = IsUnlockLayoutMode() ? DisplayStyle.None : DisplayStyle.Flex;
     }
 
     private void BindChaosJustice(MetaHubChaosJusticeData chaosJustice)
@@ -902,6 +1059,7 @@ public class MetaHubController : MonoBehaviour
     private void RebuildCanvasFallback(MetaHubData data)
     {
         EnsureCanvasFallback();
+        bool unlockLayout = IsUnlockLayoutMode();
 
         Transform root = fallbackDesignRoot != null ? fallbackDesignRoot.transform : fallbackRoot.transform;
         for (int i = root.childCount - 1; i >= 0; i--)
@@ -912,30 +1070,31 @@ public class MetaHubController : MonoBehaviour
         CreateLine(root, "TopRightOrnament", new Vector2(1322f, -23f), new Vector2(465f, 1f), new Color32(116, 77, 24, 210));
         TextMeshProUGUI title = CreateCanvasLabel(root, "Title", data.screenTitle, new Vector2(800f, -36f), new Vector2(540f, 48f), 34f, new Color32(244, 198, 98, 255), TextAlignmentOptions.Center, FontStyles.Bold);
         title.characterSpacing = 9f;
-        if (mainMenuUnlockMode)
-            CreateCanvasLabel(root, "TopSubtitle", "FREISCHALTUNGEN - META-PROGRESSION", new Vector2(800f, -64f), new Vector2(430f, 18f), 11f, new Color32(225, 164, 54, 255), TextAlignmentOptions.Center, FontStyles.Normal);
+        if (unlockLayout)
+            CreateCanvasLabel(root, "TopSubtitle", runtimeUnlockInfoMode ? "FREISCHALTUNGEN - RUN-INFORMATION" : "FREISCHALTUNGEN - META-PROGRESSION", new Vector2(800f, -64f), new Vector2(430f, 18f), 11f, new Color32(225, 164, 54, 255), TextAlignmentOptions.Center, FontStyles.Normal);
         for (int i = 0; i < data.resources.Count && i < 4; i++)
             CreateReferenceResource(root, data.resources[i], i);
 
-        CreateCanvasLabel(root, "AccountTop", "Account Lv. " + data.account.level, new Vector2(1188f, -46f), new Vector2(160f, 24f), 16f, new Color32(244, 226, 186, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(root, "AccountTop", runtimeUnlockInfoMode ? "Run Wave " + Mathf.Max(0, GetRuntimeWaveNumber()) : "Account Lv. " + data.account.level, new Vector2(1188f, -46f), new Vector2(160f, 24f), 16f, new Color32(244, 226, 186, 255), TextAlignmentOptions.Left, FontStyles.Bold);
         CreateCanvasBar(root, "AccountXP", new Vector2(1312f, -47f), new Vector2(140f, 7f), Percent(data.account.currentXP, data.account.requiredXP), new Color32(150, 126, 255, 255));
-        CreateCanvasLabel(root, "AccountXPText", MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP", new Vector2(1443f, -46f), new Vector2(125f, 23f), 14f, new Color32(244, 226, 186, 255), TextAlignmentOptions.Right, FontStyles.Normal);
-        CreateCanvasButton(root, "SettingsButton", "O", new Vector2(1531f, -47f), new Vector2(34f, 42f), delegate { Debug.Log("MetaHub: Options button requested."); });
+        CreateCanvasLabel(root, "AccountXPText", runtimeUnlockInfoMode ? "G " + MetaHubMockData.FormatNumber(GetRuntimeGold()) + " / L " + MetaHubMockData.FormatNumber(GetRuntimeLives()) : MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP", new Vector2(1443f, -46f), new Vector2(125f, 23f), 14f, new Color32(244, 226, 186, 255), TextAlignmentOptions.Right, FontStyles.Normal);
         CreateCanvasButton(root, "CloseTopButton", "X", new Vector2(1570f, -47f), new Vector2(34f, 42f), RequestClose);
 
         Transform sidebar = CreateOrnatePanel(root, "Sidebar", new Vector2(146f, -473f), new Vector2(274f, 774f), new Color32(5, 17, 18, 246), new Color32(143, 99, 41, 255));
-        TextMeshProUGUI sidebarTitle = CreateCanvasLabelTop(sidebar, "SidebarTitle", data.screenSubtitle, new Vector2(0f, -35f), new Vector2(268f, 42f), mainMenuUnlockMode ? 18f : 21f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Center, FontStyles.Bold);
-        sidebarTitle.characterSpacing = mainMenuUnlockMode ? 0.5f : 2f;
+        TextMeshProUGUI sidebarTitle = CreateCanvasLabelTop(sidebar, "SidebarTitle", data.screenSubtitle, new Vector2(0f, -35f), new Vector2(268f, 42f), unlockLayout ? 18f : 21f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        sidebarTitle.characterSpacing = unlockLayout ? 0.5f : 2f;
         for (int i = 0; i < data.navigation.Count; i++)
             CreateReferenceNavRow(sidebar, data.navigation[i], i);
         CreateCanvasLabelTop(sidebar, "KeystoneTitle", "AKTIVE KEYSTONES", new Vector2(-5f, -525f), new Vector2(238f, 30f), 17f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
         for (int i = 0; i < data.activeKeystones.Count && i < 3; i++)
             CreateReferenceKeystone(sidebar, data.activeKeystones[i], i);
 
-        Transform main = CreateOrnatePanel(root, "MainFrame", new Vector2(885f, -473f), new Vector2(1216f, 774f), new Color32(7, 18, 19, 241), new Color32(104, 82, 45, 255));
-        CreateCanvasLabelTop(main, "SectionTitle", data.selectedSectionTitle, new Vector2(-300f, -58f), new Vector2(560f, 32f), 21f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        Vector2 mainPosition = unlockLayout ? new Vector2(938.5f, -473f) : new Vector2(885f, -473f);
+        Vector2 mainSize = unlockLayout ? new Vector2(1307f, 774f) : new Vector2(1216f, 774f);
+        Transform main = CreateOrnatePanel(root, "MainFrame", mainPosition, mainSize, new Color32(7, 18, 19, 241), new Color32(104, 82, 45, 255));
+        CreateCanvasLabelTop(main, "SectionTitle", data.selectedSectionTitle, new Vector2(unlockLayout ? -352f : -300f, -58f), new Vector2(560f, 32f), 21f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
 
-        if (mainMenuUnlockMode)
+        if (unlockLayout)
         {
             CreateMainMenuUnlockContent(main, data);
         }
@@ -956,7 +1115,7 @@ public class MetaHubController : MonoBehaviour
             CreateAllGoalsOverlay(main, data.nextGoals);
 
         CreateCanvasLabel(root, "Tip", "<> " + data.footerTip, new Vector2(375f, -907f), new Vector2(720f, 28f), 14f, new Color32(217, 194, 159, 255), TextAlignmentOptions.Left, FontStyles.Normal);
-        if (mainMenuUnlockMode)
+        if (unlockLayout)
         {
             CreateCanvasButton(root, "OptionsButton", "OPTIONEN", new Vector2(1300f, -942f), new Vector2(170f, 42f), delegate { Debug.Log("MetaHub: Options button requested."); });
             CreateCanvasButton(root, "BackButton", "< ZURÜCK", new Vector2(1510f, -942f), new Vector2(170f, 42f), RequestClose);
@@ -999,95 +1158,1123 @@ public class MetaHubController : MonoBehaviour
         for (int i = 0; i < data.metricCards.Count && i < 5; i++)
             CreateReferenceMetricCard(main, data.metricCards[i], i);
 
-        CreateReferenceProgressPanel(main, data);
-        CreateReferenceGoalPanel(main, data.nextGoals, new Vector2(285f, -10f), new Vector2(650f, 296f));
-        CreateReferenceEffectPanel(main, "BuffPanel", "AKTIVE BONI", data.activeBuffs, new Vector2(-230f, -270f), new Vector2(700f, 192f), new Color32(64, 156, 72, 255));
-        CreateReferenceRunPanel(main, data.lastRunStats);
+        float mainWidth = GetPanelWidth(main, 1216f);
+        float left = -mainWidth * 0.5f + 10f;
+        float right = mainWidth * 0.5f - 10f;
+        float progressWidth = 404f;
+        float rowGap = 16f;
+        float progressCenterX = left + progressWidth * 0.5f;
+        float goalsLeft = progressCenterX + progressWidth * 0.5f + rowGap;
+        float goalsWidth = Mathf.Max(360f, right - goalsLeft);
+
+        CreateReferenceProgressPanel(main, data, new Vector2(progressCenterX, -10f), new Vector2(progressWidth, 296f));
+        CreateReferenceGoalPanel(main, data.nextGoals, new Vector2(goalsLeft + goalsWidth * 0.5f, -10f), new Vector2(goalsWidth, 296f));
+        CreateReferenceRunPanel(main, data.lastRunStats, new Vector2((left + right) * 0.5f, -270f), new Vector2(right - left, 192f));
     }
 
     private void CreateUnlockGeneralContent(Transform main, MetaHubData data)
     {
         GeneralMetaProgressionManager general = GetGeneralMetaManager();
+        float mainWidth = GetPanelWidth(main, 1307f);
+        float left = -mainWidth * 0.5f + 22f;
+        float right = mainWidth * 0.5f - 22f;
+        float topY = 216f;
+        float topPanelHeight = 180f;
 
-        Transform account = CreateUnlockPanel(main, "GeneralAccount", "ACCOUNT", new Vector2(-438f, 210f), new Vector2(320f, 140f), new Color32(126, 98, 51, 255));
+        Transform account = CreateUnlockPanel(main, "GeneralAccount", "ACCOUNT", new Vector2(left + 175f, topY), new Vector2(350f, topPanelHeight), new Color32(126, 98, 51, 255));
         CreateDonutImage(account, "AccountRing", new Vector2(-108f, -13f), 70f, Percent(data.account.currentXP, data.account.requiredXP), new Color32(55, 209, 235, 255), new Color32(55, 46, 29, 210));
         CreateCanvasLabel(account, "Level", data.account.level.ToString(), new Vector2(-108f, -7f), new Vector2(58f, 28f), 22f, new Color32(255, 255, 255, 255), TextAlignmentOptions.Center, FontStyles.Bold);
         CreateCanvasLabel(account, "LevelCaption", "ACCOUNT LEVEL", new Vector2(-108f, -34f), new Vector2(104f, 18f), 7.5f, new Color32(242, 191, 75, 255), TextAlignmentOptions.Center, FontStyles.Bold);
         CreateCanvasLabel(account, "AccountXP", MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP", new Vector2(66f, 30f), new Vector2(160f, 18f), 11f, new Color32(224, 210, 184, 255), TextAlignmentOptions.Left, FontStyles.Normal);
         CreateCanvasBar(account, "AccountBar", new Vector2(70f, 10f), new Vector2(142f, 6f), Percent(data.account.currentXP, data.account.requiredXP), new Color32(55, 209, 235, 255));
-        string accountInfo = "Kernwissen  " + (general != null ? MetaHubMockData.FormatNumber(general.kernwissen) : "0") +
-            "\nLoadout  " + (general != null ? general.GetUsedLoadoutSlots() + " / " + general.GetLoadoutSlotCapacity() : "0 / 0");
+        string accountInfo = runtimeUnlockInfoMode
+            ? "Gold  " + MetaHubMockData.FormatNumber(GetRuntimeGold()) + "\nLeben  " + MetaHubMockData.FormatNumber(GetRuntimeLives())
+            : "Kernwissen  " + (general != null ? MetaHubMockData.FormatNumber(general.kernwissen) : "0") +
+                "\nLoadout  " + (general != null ? general.GetUsedLoadoutSlots() + " / " + general.GetLoadoutSlotCapacity() : "0 / 0");
         CreateCanvasLabel(account, "Bonus", accountInfo, new Vector2(82f, -34f), new Vector2(170f, 38f), 10f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Normal);
 
-        Transform loadout = CreateUnlockPanel(main, "Loadout", "LOADOUT", new Vector2(-84f, 210f), new Vector2(330f, 140f), new Color32(89, 68, 41, 255));
-        CreateUnlockRow(loadout, "Loadout1", "icon_gold", "Slots belegt", "Aktive Meta-Boni", general != null ? general.GetUsedLoadoutSlots() + " / " + general.GetLoadoutSlotCapacity() : "0 / 0", MetaHubTone.Gold, 12f, 285f);
-        CreateUnlockRow(loadout, "Loadout2", "icon_tower", "Freie Slots", "Verfuegbar", general != null ? general.GetAvailableLoadoutSlots().ToString() : "0", MetaHubTone.Green, -42f, 285f);
+        float loadoutLeft = left + 366f;
+        float loadoutWidth = right - loadoutLeft;
+        Transform loadout = CreateUnlockPanel(main, "Loadout", "LOADOUT", new Vector2(loadoutLeft + loadoutWidth * 0.5f, topY), new Vector2(loadoutWidth, topPanelHeight), new Color32(89, 68, 41, 255));
+        int activeLoadout = general != null ? general.GetActiveLoadoutIndex() : 0;
+        string loadoutName = runtimeUnlockInfoMode ? "Aktueller Run" : general != null ? general.GetLoadoutDisplayName(activeLoadout) : "Loadout 1";
+        float loadoutRowWidth = loadoutWidth - 68f;
+        if (runtimeUnlockInfoMode)
+        {
+            RunStatistics runStats = gameManager != null ? gameManager.GetRunStatistics() : null;
+            CreateUnlockRow(loadout, "Loadout1", "icon_gold", loadoutName, "Welle / Gold", GetRuntimeWaveNumber() + " / " + MetaHubMockData.FormatNumber(GetRuntimeGold()), MetaHubTone.Gold, 34f, loadoutRowWidth);
+            CreateUnlockRow(loadout, "Loadout2", "icon_tower", "Run-Fortschritt", "Tower-XP / Elites", (runStats != null ? Mathf.Max(0, runStats.totalTowerXPGranted).ToString() : "0") + " / " + (runStats != null ? Mathf.Max(0, runStats.eliteKills).ToString() : "0"), MetaHubTone.Green, -20f, loadoutRowWidth);
+            CreateCanvasLabel(loadout, "RuntimeInfo", "Read-only: permanente Loadouts im Hauptmenue aendern.", new Vector2(0f, -68f), new Vector2(loadoutRowWidth, 20f), 9f, new Color32(188, 178, 155, 255), TextAlignmentOptions.Center, FontStyles.Normal);
+        }
+        else
+        {
+            CreateUnlockRow(loadout, "Loadout1", "icon_gold", loadoutName, "Aktives Profil", general != null ? general.GetUsedLoadoutSlots() + " / " + general.GetLoadoutSlotCapacity() : "0 / 0", MetaHubTone.Gold, 34f, loadoutRowWidth);
+            CreateUnlockRow(loadout, "Loadout2", "icon_tower", "Freie Slots", "Verfuegbar", general != null ? general.GetAvailableLoadoutSlots().ToString() : "0", MetaHubTone.Green, -20f, loadoutRowWidth);
+            CreateCanvasButton(loadout, "ChooseGeneralLoadout", "LOADOUT WAEHLEN", new Vector2(-126f, -67f), new Vector2(210f, 28f), OpenGeneralLoadoutPicker);
+            CreateCanvasButton(loadout, "EditGeneralLoadout", "BONI EINSETZEN", new Vector2(126f, -67f), new Vector2(210f, 28f), OpenGeneralLoadoutEditor);
+        }
 
-        CreateReferenceGoalPanel(main, data.nextGoals, new Vector2(380f, 210f), new Vector2(360f, 160f));
+        Transform tree = CreateUnlockPanel(main, "GeneralSkillTree", "FREISCHALTBAUM", new Vector2((left + right) * 0.5f, -150f), new Vector2(right - left, 430f), new Color32(126, 98, 51, 255));
+        CreateGeneralTreeTabs(tree, right - left);
+        CreateGeneralFocusedSkillTree(tree, right - left);
 
-        Transform tree = CreateUnlockPanel(main, "GeneralSkillTree", "FREISCHALTBAUM", new Vector2(0f, -110f), new Vector2(1040f, 450f), new Color32(126, 98, 51, 255));
-        CreateGeneralSkillBranch(tree, "GeneralBranchTower", "TOWER", new GeneralMetaCategory[] { GeneralMetaCategory.TowerUnlock }, 118f, MetaHubTone.Purple, 5,
-            "general.tower.basic", "general.tower.rapid", "general.tower.heavy", "general.tower.slow", "general.tower.fire");
-        CreateGeneralSkillBranch(tree, "GeneralBranchTile", "TILES", new GeneralMetaCategory[] { GeneralMetaCategory.TileUnlock }, 34f, MetaHubTone.Cyan, 5,
-            "general.tile.path", "general.tile.gold", "general.tile.slow", "general.tile.trap", "general.tile.knock");
-        CreateGeneralSkillBranch(tree, "GeneralBranchQol", "KOMFORT", new GeneralMetaCategory[] { GeneralMetaCategory.QoL }, -50f, MetaHubTone.Blue, 5,
-            "general.qol.speed_fast", "general.qol.preview_roles_1", "general.qol.goal_pin_1", "general.qol.preview_boss", "general.qol.preview_chaos_1");
-        CreateGeneralSkillBranch(tree, "GeneralBranchStart", "START / LOADOUT", new GeneralMetaCategory[] { GeneralMetaCategory.StartOption, GeneralMetaCategory.MetaLoadout }, -134f, MetaHubTone.Gold, 5,
-            "general.start.gold_1", "general.start.life_1", "general.start.path_1", "general.loadout.slot_4", "general.start.discount_1");
+        if (showGeneralLoadoutPicker)
+            CreateGeneralLoadoutPickerOverlay(main);
+        else if (showGeneralLoadoutEditor)
+            CreateGeneralLoadoutEditorOverlay(main);
+    }
+
+    private void CreateGeneralTreeTabs(Transform parent, float panelWidth)
+    {
+        List<string> categoryIds = GetVisibleGeneralTreeCategoryIds();
+        if (categoryIds.Count == 0)
+            return;
+
+        if (!categoryIds.Contains(selectedGeneralTreeCategory))
+            selectedGeneralTreeCategory = categoryIds[0];
+
+        float tabWidth = Mathf.Min(190f, (panelWidth - 110f) / categoryIds.Count);
+        float gap = 18f;
+        float gridWidth = categoryIds.Count * tabWidth + (categoryIds.Count - 1) * gap;
+        float startX = -gridWidth * 0.5f + tabWidth * 0.5f;
+        for (int i = 0; i < categoryIds.Count; i++)
+        {
+            string categoryId = categoryIds[i];
+            CreateGeneralTreeTab(parent, categoryId, GetGeneralTreeTabLabel(categoryId), GetGeneralTreeTone(categoryId), new Vector2(startX + i * (tabWidth + gap), 168f), new Vector2(tabWidth, 36f));
+        }
+    }
+
+    private void CreateGeneralTreeTab(Transform parent, string categoryId, string label, MetaHubTone tone, Vector2 position, Vector2 size)
+    {
+        bool selected = selectedGeneralTreeCategory == categoryId;
+        Color32 toneColor = ToneColor(tone);
+        Color32 fill = selected ? new Color32(54, 39, 13, 248) : new Color32(5, 18, 18, 238);
+        Transform tab = CreateCanvasPanel(parent, "GeneralTreeTab_" + categoryId, position, size, fill, selected ? toneColor : new Color32(toneColor.r, toneColor.g, toneColor.b, 150));
+        CreateCanvasLabel(tab, "Label", label, Vector2.zero, size, 12f, selected ? new Color32(255, 236, 186, 255) : new Color32(224, 214, 194, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        string capturedCategoryId = categoryId;
+        MakeCanvasClickable(tab, delegate { SelectGeneralTreeCategory(capturedCategoryId); }, fill, toneColor);
+    }
+
+    private void CreateGeneralFocusedSkillTree(Transform parent, float panelWidth)
+    {
+        GeneralMetaCategory[] categories = GetGeneralTreeCategories(selectedGeneralTreeCategory);
+        MetaHubTone tone = GetGeneralTreeTone(selectedGeneralTreeCategory);
+        string title = GetGeneralTreeTitle(selectedGeneralTreeCategory);
+        List<GeneralMetaNodeDefinition> nodes = GetGeneralBranchNodes(categories, 99, GetGeneralTreePreferredIds(selectedGeneralTreeCategory));
+        int total = runtimeUnlockInfoMode ? nodes.Count : CountGeneralBranchNodes(categories);
+        int purchased = runtimeUnlockInfoMode ? nodes.Count : CountPurchasedGeneralBranchNodes(categories);
+        Color32 toneColor = ToneColor(tone);
+
+        float left = -panelWidth * 0.5f + 58f;
+        CreateCanvasLabel(parent, "FocusedTreeTitle", title, new Vector2(left + 76f, 122f), new Vector2(190f, 24f), 14f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(parent, "FocusedTreeCount", GetUnlockCountText(purchased, total), new Vector2(panelWidth * 0.5f - 82f, 122f), new Vector2(100f, 20f), 10f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
+        CreateLine(parent, "FocusedTreeLine", new Vector2(0f, 98f), new Vector2(panelWidth - 150f, 2f), new Color32(toneColor.r, toneColor.g, toneColor.b, 130));
+
+        if (nodes.Count == 0)
+        {
+            CreateCanvasLabel(parent, "FocusedTreeEmpty", "Noch keine Freischaltungen in dieser Gruppe.", new Vector2(0f, -18f), new Vector2(560f, 26f), 12f, new Color32(224, 214, 196, 255), TextAlignmentOptions.Center, FontStyles.Normal);
+            return;
+        }
+
+        int columns = 5;
+        int maxVisible = Mathf.Min(nodes.Count, 15);
+        Vector2 cardSize = new Vector2(174f, 82f);
+        float gapX = 22f;
+        float gapY = 18f;
+        float gridWidth = columns * cardSize.x + (columns - 1) * gapX;
+        float startX = -gridWidth * 0.5f + cardSize.x * 0.5f;
+        float startY = 54f;
+
+        for (int i = 0; i < maxVisible; i++)
+        {
+            GeneralMetaNodeDefinition definition = nodes[i];
+            if (definition == null)
+                continue;
+
+            int column = i % columns;
+            int row = i / columns;
+            Vector2 position = new Vector2(startX + column * (cardSize.x + gapX), startY - row * (cardSize.y + gapY));
+            CreateReadableGeneralNode(parent, "GeneralFocused_" + i, definition, position, cardSize, tone);
+        }
+
+        if (nodes.Count > maxVisible)
+            CreateCanvasLabel(parent, "FocusedTreeMore", "+" + (nodes.Count - maxVisible) + " weitere Freischaltungen nach naechstem Fortschritt", new Vector2(0f, -200f), new Vector2(520f, 20f), 10f, new Color32(190, 178, 150, 255), TextAlignmentOptions.Center, FontStyles.Normal);
+    }
+
+    private void CreateReadableGeneralNode(Transform parent, string name, GeneralMetaNodeDefinition definition, Vector2 position, Vector2 size, MetaHubTone fallbackTone)
+    {
+        string nodeId = definition.nodeId;
+        string capturedNodeId = nodeId;
+        MetaHubTone tone = GeneralNodeTone(nodeId, GetGeneralNodeDisplayTone(nodeId, fallbackTone));
+        Color32 toneColor = ToneColor(tone);
+        Color32 fill = new Color32(6, 18, 18, 235);
+        Transform node = CreateCanvasPanel(parent, name, position, size, fill, toneColor);
+        CreateArtIcon(node, "Icon", GetGeneralNodeDisplayArt(nodeId, GetCategoryArtName(definition.category)), new Vector2(-size.x * 0.5f + 28f, 19f), new Vector2(36f, 36f));
+        CreateCanvasLabel(node, "Title", Shorten(definition.displayName, 20), new Vector2(26f, 22f), new Vector2(size.x - 62f, 18f), 8.6f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        TextMeshProUGUI effect = CreateCanvasLabel(node, "Effect", ToTwoLineText(string.IsNullOrEmpty(definition.effectText) ? definition.requirementText : definition.effectText, 26, 62), new Vector2(26f, -5f), new Vector2(size.x - 62f, 34f), 6.9f, new Color32(188, 178, 155, 255), TextAlignmentOptions.TopLeft, FontStyles.Normal);
+        effect.enableWordWrapping = true;
+        string costLabel = runtimeUnlockInfoMode ? "" : definition.cost + " KW";
+        CreateCanvasLabel(node, "Cost", costLabel, new Vector2(-size.x * 0.25f, -31f), new Vector2(size.x * 0.44f, 14f), 7.3f, new Color32(244, 196, 88, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        CreateCanvasLabel(node, "State", Shorten(GeneralNodeStateLabel(nodeId), 10), new Vector2(size.x * 0.25f, -31f), new Vector2(size.x * 0.44f, 14f), 7.3f, toneColor, TextAlignmentOptions.Center, FontStyles.Bold);
+        MakeCanvasClickable(node, delegate { HandleGeneralNodeClick(capturedNodeId); }, fill, toneColor);
+    }
+
+    private void CreateGeneralLoadoutPickerOverlay(Transform main)
+    {
+        GeneralMetaProgressionManager general = GetGeneralMetaManager();
+        float mainWidth = GetPanelWidth(main, 1307f);
+        CreateCanvasPanel(main, "GeneralLoadoutShade", Vector2.zero, new Vector2(mainWidth - 28f, 720f), new Color32(0, 0, 0, 165), new Color32(0, 0, 0, 0));
+        Transform panel = CreateUnlockPanel(main, "GeneralLoadoutPicker", "LOADOUT WAEHLEN", Vector2.zero, new Vector2(540f, 340f), new Color32(170, 113, 35, 255));
+        CreateCanvasLabel(panel, "Hint", "Waehle das Profil fuer den naechsten Run.", new Vector2(0f, 102f), new Vector2(450f, 22f), 11f, new Color32(224, 214, 196, 255), TextAlignmentOptions.Center, FontStyles.Normal);
+
+        int count = general != null ? general.GetLoadoutProfileCount() : 3;
+        for (int i = 0; i < count; i++)
+            CreateGeneralLoadoutChoiceRow(panel, general, i, 58f - i * 72f);
+
+        CreateCanvasButton(panel, "CloseLoadoutPicker", "SCHLIESSEN", new Vector2(0f, -138f), new Vector2(210f, 34f), CloseGeneralLoadoutOverlay);
+    }
+
+    private void CreateGeneralLoadoutChoiceRow(Transform parent, GeneralMetaProgressionManager general, int loadoutIndex, float y)
+    {
+        bool selected = general != null && general.GetActiveLoadoutIndex() == loadoutIndex;
+        MetaHubTone tone = selected ? MetaHubTone.Gold : MetaHubTone.Neutral;
+        Color32 toneColor = ToneColor(tone);
+        Color32 fill = selected ? new Color32(54, 39, 13, 248) : new Color32(6, 18, 18, 238);
+        Transform row = CreateCanvasPanel(parent, "LoadoutChoice_" + loadoutIndex, new Vector2(0f, y), new Vector2(440f, 56f), fill, toneColor);
+        CreateArtIcon(row, "Icon", selected ? "icon_gold" : "icon_keystone", new Vector2(-178f, 0f), new Vector2(38f, 38f));
+        string name = general != null ? general.GetLoadoutDisplayName(loadoutIndex) : "Loadout " + (loadoutIndex + 1);
+        string slots = general != null ? general.GetUsedLoadoutSlots(loadoutIndex) + " / " + general.GetLoadoutSlotCapacity() + " Slots" : "0 / 0 Slots";
+        CreateCanvasLabel(row, "Title", name, new Vector2(-58f, 9f), new Vector2(210f, 18f), 12f, new Color32(236, 225, 202, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(row, "Slots", slots, new Vector2(-58f, -11f), new Vector2(210f, 16f), 8.5f, new Color32(188, 178, 155, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        CreateCanvasLabel(row, "State", selected ? "AKTIV" : "WAEHLEN", new Vector2(162f, 0f), new Vector2(95f, 20f), 10f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
+        int capturedIndex = loadoutIndex;
+        MakeCanvasClickable(row, delegate { SelectGeneralLoadout(capturedIndex); }, fill, toneColor);
+    }
+
+    private void CreateGeneralLoadoutEditorOverlay(Transform main)
+    {
+        GeneralMetaProgressionManager general = GetGeneralMetaManager();
+        float mainWidth = GetPanelWidth(main, 1307f);
+        CreateCanvasPanel(main, "GeneralLoadoutEditorShade", Vector2.zero, new Vector2(mainWidth - 28f, 720f), new Color32(0, 0, 0, 165), new Color32(0, 0, 0, 0));
+        Transform panel = CreateUnlockPanel(main, "GeneralLoadoutEditor", "BONI EINSETZEN", Vector2.zero, new Vector2(960f, 560f), new Color32(170, 113, 35, 255));
+        int activeLoadout = general != null ? general.GetActiveLoadoutIndex() : 0;
+        string loadoutName = general != null ? general.GetLoadoutDisplayName(activeLoadout) : "Loadout 1";
+        string slotText = general != null ? general.GetUsedLoadoutSlots() + " / " + general.GetLoadoutSlotCapacity() + " Slots belegt" : "0 / 0 Slots belegt";
+        CreateCanvasLabel(panel, "ActiveLoadout", loadoutName + "  |  " + slotText, new Vector2(-210f, 222f), new Vector2(390f, 22f), 12f, new Color32(236, 225, 202, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasButton(panel, "SwitchLoadoutFromEditor", "LOADOUT WECHSELN", new Vector2(250f, 222f), new Vector2(210f, 32f), OpenGeneralLoadoutPicker);
+
+        List<GeneralMetaNodeDefinition> nodes = GetPurchasedLoadoutNodes(general);
+        if (nodes.Count == 0)
+        {
+            CreateCanvasLabel(panel, "NoLoadoutNodes", "Noch keine einsetzbaren Loadout-Boni freigeschaltet.", new Vector2(0f, 20f), new Vector2(620f, 30f), 13f, new Color32(224, 214, 196, 255), TextAlignmentOptions.Center, FontStyles.Normal);
+        }
+        else
+        {
+            int columns = 4;
+            Vector2 cardSize = new Vector2(188f, 78f);
+            float gapX = 26f;
+            float gapY = 18f;
+            float gridWidth = columns * cardSize.x + (columns - 1) * gapX;
+            float startX = -gridWidth * 0.5f + cardSize.x * 0.5f;
+            float startY = 150f;
+            int maxVisible = Mathf.Min(nodes.Count, 16);
+            for (int i = 0; i < maxVisible; i++)
+            {
+                int column = i % columns;
+                int row = i / columns;
+                Vector2 position = new Vector2(startX + column * (cardSize.x + gapX), startY - row * (cardSize.y + gapY));
+                CreateGeneralLoadoutSlotCard(panel, nodes[i], position, cardSize);
+            }
+        }
+
+        CreateCanvasButton(panel, "CloseLoadoutEditor", "FERTIG", new Vector2(0f, -244f), new Vector2(220f, 36f), CloseGeneralLoadoutOverlay);
+    }
+
+    private List<GeneralMetaNodeDefinition> GetPurchasedLoadoutNodes(GeneralMetaProgressionManager general)
+    {
+        List<GeneralMetaNodeDefinition> nodes = new List<GeneralMetaNodeDefinition>();
+        if (general == null)
+            return nodes;
+
+        List<GeneralMetaNodeDefinition> definitions = general.GetDefinitions();
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            GeneralMetaNodeDefinition definition = definitions[i];
+            if (definition == null || !definition.RequiresLoadoutSlot())
+                continue;
+
+            GeneralMetaNodeState state = general.GetNodeState(definition.nodeId);
+            if (state != null && state.purchased)
+                nodes.Add(definition);
+        }
+
+        return nodes;
+    }
+
+    private void CreateGeneralLoadoutSlotCard(Transform parent, GeneralMetaNodeDefinition definition, Vector2 position, Vector2 size)
+    {
+        GeneralMetaProgressionManager general = GetGeneralMetaManager();
+        string nodeId = definition.nodeId;
+        bool active = general != null && general.IsNodeActive(nodeId);
+        bool canActivate = general != null && general.CanActivateNode(nodeId);
+        MetaHubTone tone = active ? MetaHubTone.Green : canActivate ? GetGeneralNodeDisplayTone(nodeId, MetaHubTone.Gold) : MetaHubTone.Neutral;
+        Color32 toneColor = ToneColor(tone);
+        Color32 fill = active ? new Color32(8, 35, 18, 238) : new Color32(6, 18, 18, 238);
+        Transform card = CreateCanvasPanel(parent, "LoadoutNode_" + nodeId, position, size, fill, toneColor);
+        CreateArtIcon(card, "Icon", GetGeneralNodeDisplayArt(nodeId, GetCategoryArtName(definition.category)), new Vector2(-size.x * 0.5f + 28f, 16f), new Vector2(34f, 34f));
+        CreateCanvasLabel(card, "Title", Shorten(definition.displayName, 19), new Vector2(28f, 20f), new Vector2(size.x - 64f, 18f), 8.8f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        TextMeshProUGUI effect = CreateCanvasLabel(card, "Effect", ToTwoLineText(definition.effectText, 28, 58), new Vector2(28f, -4f), new Vector2(size.x - 64f, 30f), 6.8f, new Color32(188, 178, 155, 255), TextAlignmentOptions.TopLeft, FontStyles.Normal);
+        effect.enableWordWrapping = true;
+        CreateCanvasLabel(card, "Slots", definition.slotCost + " Slot", new Vector2(-size.x * 0.28f, -30f), new Vector2(size.x * 0.42f, 14f), 7.1f, new Color32(244, 196, 88, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        string state = active ? "AKTIV" : canActivate ? "EINSETZEN" : "KEIN SLOT";
+        CreateCanvasLabel(card, "State", state, new Vector2(size.x * 0.25f, -30f), new Vector2(size.x * 0.46f, 14f), 7.1f, toneColor, TextAlignmentOptions.Center, FontStyles.Bold);
+        string capturedNodeId = nodeId;
+        MakeCanvasClickable(card, delegate { ToggleGeneralLoadoutNode(capturedNodeId); }, fill, toneColor);
+    }
+
+    private GeneralMetaCategory[] GetGeneralTreeCategories(string categoryId)
+    {
+        switch (categoryId)
+        {
+            case "tiles": return new GeneralMetaCategory[] { GeneralMetaCategory.TileUnlock };
+            case "comfort": return new GeneralMetaCategory[] { GeneralMetaCategory.QoL };
+            case "start": return new GeneralMetaCategory[] { GeneralMetaCategory.StartOption, GeneralMetaCategory.MetaLoadout };
+            case "tower":
+            default: return new GeneralMetaCategory[] { GeneralMetaCategory.TowerUnlock };
+        }
+    }
+
+    private MetaHubTone GetGeneralTreeTone(string categoryId)
+    {
+        switch (categoryId)
+        {
+            case "tiles": return MetaHubTone.Cyan;
+            case "comfort": return MetaHubTone.Blue;
+            case "start": return MetaHubTone.Gold;
+            case "tower":
+            default: return MetaHubTone.Purple;
+        }
+    }
+
+    private string GetGeneralTreeTitle(string categoryId)
+    {
+        switch (categoryId)
+        {
+            case "tiles": return "TILE-FREISCHALTUNGEN";
+            case "comfort": return "KOMFORT";
+            case "start": return "START / LOADOUT";
+            case "tower":
+            default: return "TOWER-FREISCHALTUNGEN";
+        }
+    }
+
+    private string GetGeneralTreeTabLabel(string categoryId)
+    {
+        switch (categoryId)
+        {
+            case "tiles": return "TILES";
+            case "comfort": return "KOMFORT";
+            case "start": return "START";
+            case "tower":
+            default: return "TOWER";
+        }
+    }
+
+    private List<string> GetVisibleGeneralTreeCategoryIds()
+    {
+        List<string> categoryIds = new List<string>();
+        AddVisibleGeneralTreeCategory(categoryIds, "tower");
+        AddVisibleGeneralTreeCategory(categoryIds, "tiles");
+        AddVisibleGeneralTreeCategory(categoryIds, "comfort");
+        AddVisibleGeneralTreeCategory(categoryIds, "start");
+        return categoryIds;
+    }
+
+    private void AddVisibleGeneralTreeCategory(List<string> categoryIds, string categoryId)
+    {
+        if (!runtimeUnlockInfoMode || HasUnlockedGeneralTreeCategory(categoryId))
+            categoryIds.Add(categoryId);
+    }
+
+    private bool HasUnlockedGeneralTreeCategory(string categoryId)
+    {
+        GeneralMetaProgressionManager general = GetGeneralMetaManager();
+        if (general == null)
+            return false;
+
+        GeneralMetaCategory[] categories = GetGeneralTreeCategories(categoryId);
+        List<GeneralMetaNodeDefinition> definitions = general.GetDefinitions();
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            GeneralMetaNodeDefinition definition = definitions[i];
+            if (definition != null && GeneralCategoryMatches(definition.category, categories) && IsGeneralNodeVisibleInRuntime(general, definition.nodeId))
+                return true;
+        }
+
+        return false;
+    }
+
+    private string[] GetGeneralTreePreferredIds(string categoryId)
+    {
+        switch (categoryId)
+        {
+            case "tiles":
+                return new string[] { "general.tile.path", "general.tile.gold", "general.tile.slow", "general.tile.trap", "general.tile.knock", "general.tile.range", "general.tile.xp", "general.tile.damage", "general.tile.rate", "general.tile.upgrade", "general.tile.combo" };
+            case "comfort":
+                return new string[] { "general.qol.speed_fast", "general.qol.preview_roles_1", "general.qol.goal_pin_1", "general.qol.preview_boss", "general.qol.preview_chaos_1", "general.qol.speed_faster", "general.qol.preview_roles_2", "general.qol.goal_pin_2", "general.qol.preview_chaos_wave" };
+            case "start":
+                return new string[] { "general.start.gold_1", "general.start.life_1", "general.start.path_1", "general.loadout.slot_4", "general.start.discount_1", "general.start.gold_2", "general.start.life_2", "general.loadout.slot_5", "general.start.scout_1", "general.start.gold_3", "general.start.life_3", "general.loadout.slot_6", "general.start.path_2", "general.loadout.slot_7", "general.loadout.slot_8" };
+            case "tower":
+            default:
+                return new string[] { "general.tower.basic", "general.tower.rapid", "general.tower.heavy", "general.tower.slow", "general.tower.fire", "general.tower.poison", "general.tower.sniper", "general.tower.alchemist", "general.tower.lightning", "general.tower.mortar", "general.tower.spike" };
+        }
+    }
+
+    private string ToTwoLineText(string text, int preferredBreak, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text))
+            return "";
+
+        string shortened = Shorten(text, maxLength);
+        if (shortened.Length <= preferredBreak)
+            return shortened;
+
+        int searchStart = Mathf.Min(preferredBreak, shortened.Length - 1);
+        int breakIndex = shortened.LastIndexOf(' ', searchStart);
+        if (breakIndex < 8)
+            breakIndex = searchStart;
+
+        return shortened.Substring(0, breakIndex).Trim() + "\n" + shortened.Substring(breakIndex).Trim();
     }
 
     private void CreateUnlockTowerContent(Transform main, MetaHubData data)
     {
         TowerMasteryManager towerMastery = GetTowerMasteryManager();
         TowerRole selectedRole = selectedTowerRole;
+        if (runtimeUnlockInfoMode && !HasUnlockedTowerRole(selectedRole))
+        {
+            TowerRole firstUnlockedRole;
+            if (TryGetFirstUnlockedTowerRole(out firstUnlockedRole))
+                selectedRole = firstUnlockedRole;
+        }
+        selectedTowerRole = selectedRole;
         TowerMasteryRoleProfile selectedProfile = towerMastery != null ? towerMastery.GetProfile(selectedRole) : null;
         int masteryLevel = towerMastery != null ? towerMastery.GetMasteryLevel(selectedRole) : 1;
         int masteryCurrentXP = towerMastery != null ? towerMastery.GetMasteryXPIntoCurrentLevel(selectedRole) : 0;
         int masteryRequiredXP = towerMastery != null ? towerMastery.GetXPToNextMasteryLevel(masteryLevel) : 1;
 
-        Transform list = CreateUnlockPanel(main, "TowerList", "TÜRME", new Vector2(-500f, 25f), new Vector2(165f, 525f), new Color32(126, 98, 51, 255));
-        TowerRole[] roles = TowerMasteryManager.GetOrderedTowerRoles();
-        for (int i = 0; i < roles.Length && i < 9; i++)
+        object roleManager = GetTowerRoleMasteryManager(selectedRole);
+        EnsureSelectedTowerTreeCategory(roleManager);
+
+        float mainWidth = GetPanelWidth(main, 1307f);
+        float left = -mainWidth * 0.5f + 22f;
+        float right = mainWidth * 0.5f - 22f;
+        float topY = 216f;
+        float topPanelHeight = 180f;
+
+        Transform account = CreateUnlockPanel(main, "TowerAccount", TowerMasteryManager.GetTowerDisplayName(selectedRole).ToUpperInvariant(), new Vector2(left + 175f, topY), new Vector2(350f, topPanelHeight), ToneColor(TowerTone(selectedRole)));
+        CreateDonutImage(account, "MasteryRing", new Vector2(-112f, -10f), 76f, Percent(masteryCurrentXP, masteryRequiredXP), ToneColor(TowerTone(selectedRole)), new Color32(55, 46, 29, 210));
+        CreateCanvasLabel(account, "Level", masteryLevel.ToString(), new Vector2(-112f, -4f), new Vector2(60f, 34f), 26f, new Color32(255, 255, 255, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        CreateCanvasLabel(account, "LevelCaption", "MASTERY", new Vector2(-112f, -38f), new Vector2(100f, 18f), 8f, new Color32(242, 191, 75, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        CreateCanvasLabel(account, "TowerXPText", MetaHubMockData.FormatNumber(masteryCurrentXP) + " / " + MetaHubMockData.FormatNumber(masteryRequiredXP) + " XP", new Vector2(72f, 32f), new Vector2(170f, 18f), 11f, new Color32(224, 210, 184, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        CreateCanvasBar(account, "TowerXP", new Vector2(76f, 12f), new Vector2(145f, 6f), Percent(masteryCurrentXP, masteryRequiredXP), ToneColor(TowerTone(selectedRole)));
+        string profileText = "Freie Punkte  " + (selectedProfile != null ? selectedProfile.unspentPoints.ToString() : "0") +
+            "\nGesetzt  " + (selectedProfile != null ? selectedProfile.spentPoints.ToString() : "0") +
+            "\nBester Lv.  " + (selectedProfile != null ? selectedProfile.bestLevelEver.ToString() : "1");
+        CreateCanvasLabel(account, "Profile", profileText, new Vector2(84f, -36f), new Vector2(172f, 50f), 9.5f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+
+        float selectorLeft = left + 366f;
+        float selectorWidth = right - selectorLeft;
+        Transform selector = CreateUnlockPanel(main, "TowerRoleSelector", "TOWER-ROLLEN", new Vector2(selectorLeft + selectorWidth * 0.5f, topY), new Vector2(selectorWidth, topPanelHeight), new Color32(126, 98, 51, 255));
+        CreateTowerRoleSelector(selector, towerMastery, selectedRole, selectorWidth);
+
+        Transform tree = CreateUnlockPanel(main, "TowerFocusedTree", "FREISCHALTBAUM", new Vector2((left + right) * 0.5f, -150f), new Vector2(right - left, 430f), ToneColor(GetTowerTreeCategoryTone(roleManager, selectedTowerTreeCategory)));
+        CreateTowerTreeTabs(tree, roleManager, right - left);
+        CreateTowerFocusedSkillTree(tree, roleManager, right - left);
+    }
+
+    private void CreateTowerRoleSelector(Transform parent, TowerMasteryManager towerMastery, TowerRole selectedRole, float panelWidth)
+    {
+        List<TowerRole> visibleRoles = GetVisibleTowerRoles();
+        if (visibleRoles.Count == 0)
         {
-            TowerRole role = roles[i];
-            int roleLevel = towerMastery != null ? towerMastery.GetMasteryLevel(role) : 1;
-            TowerRole capturedRole = role;
-            CreateTowerListRow(list, role.ToString(), Shorten(TowerMasteryManager.GetTowerDisplayName(role).Replace(" Tower", ""), 12), "Mastery " + roleLevel, role == selectedRole, 190f - i * 47f, TowerTone(role), delegate { SelectTowerRole(capturedRole); });
+            CreateCanvasLabel(parent, "NoTowerRoles", "Noch keine Tower-Mastery im Run freigeschaltet.", Vector2.zero, new Vector2(panelWidth - 80f, 28f), 12f, new Color32(224, 214, 196, 255), TextAlignmentOptions.Center, FontStyles.Normal);
+            return;
         }
 
-        Transform header = CreateUnlockPanel(main, "TowerHeader", TowerMasteryManager.GetTowerDisplayName(selectedRole).ToUpperInvariant() + " MASTERY", new Vector2(-145f, 210f), new Vector2(500f, 145f), new Color32(128, 83, 176, 255));
-        CreateArtIcon(header, "TowerIcon", "icon_tower", new Vector2(-175f, -4f), new Vector2(92f, 92f));
-        CreateCanvasLabel(header, "LevelLabel", "MASTERY LEVEL", new Vector2(-40f, 30f), new Vector2(160f, 20f), 12f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Normal);
-        CreateCanvasLabel(header, "Level", masteryLevel.ToString(), new Vector2(-80f, -2f), new Vector2(60f, 42f), 34f, new Color32(255, 255, 255, 255), TextAlignmentOptions.Center, FontStyles.Bold);
-        CreateCanvasLabel(header, "FreePoints", "FREIE PUNKTE  " + (selectedProfile != null ? selectedProfile.unspentPoints.ToString() : "0"), new Vector2(150f, 24f), new Vector2(180f, 22f), 12f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Normal);
-        CreateCanvasBar(header, "TowerXP", new Vector2(4f, -45f), new Vector2(250f, 6f), Percent(masteryCurrentXP, masteryRequiredXP), new Color32(176, 98, 255, 255));
-        CreateCanvasLabel(header, "TowerXPText", MetaHubMockData.FormatNumber(masteryCurrentXP) + " / " + MetaHubMockData.FormatNumber(masteryRequiredXP) + " XP", new Vector2(6f, -25f), new Vector2(250f, 20f), 11f, new Color32(235, 211, 169, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        int columns = 6;
+        Vector2 cardSize = new Vector2(Mathf.Min(132f, (panelWidth - 92f) / columns), 48f);
+        float gapX = 12f;
+        float gapY = 12f;
+        float gridWidth = columns * cardSize.x + (columns - 1) * gapX;
+        float startX = -gridWidth * 0.5f + cardSize.x * 0.5f;
+        float startY = 20f;
 
-        Transform tree = CreateUnlockPanel(main, "TowerTree", "MEILENSTEINE", new Vector2(-145f, -20f), new Vector2(500f, 270f), new Color32(126, 98, 51, 255));
-        CreateTowerMilestoneNode(tree, "Node1", towerMastery, selectedRole, selectedProfile, TowerMasteryMilestone.I, "Meilenstein I", "icon_shield", MetaHubTone.Gold, new Vector2(-165f, 60f));
-        CreateTowerMilestoneNode(tree, "Node2", towerMastery, selectedRole, selectedProfile, TowerMasteryMilestone.II, "Meilenstein II", "icon_blueprint", MetaHubTone.Cyan, new Vector2(0f, 60f));
-        CreateTowerMilestoneNode(tree, "Node3", towerMastery, selectedRole, selectedProfile, TowerMasteryMilestone.III, "Meilenstein III", "icon_risk_core", MetaHubTone.Red, new Vector2(165f, 60f));
-        CreateTowerMilestoneNode(tree, "Node4", towerMastery, selectedRole, selectedProfile, TowerMasteryMilestone.IV, "Meilenstein IV", "icon_gold", MetaHubTone.Gold, new Vector2(-165f, -25f));
-        CreateTowerMilestoneNode(tree, "Node5", towerMastery, selectedRole, selectedProfile, TowerMasteryMilestone.V, "Meilenstein V", "icon_shield", MetaHubTone.Neutral, new Vector2(0f, -25f));
-        CreateUnlockNode(tree, "Node6", "Bester Tower", selectedProfile != null ? "Lv. " + selectedProfile.bestLevelEver : "Lv. 1", "icon_tower", MetaHubTone.Purple, new Vector2(165f, -25f));
-        CreateUnlockNode(tree, "Node7", "Punkte frei", selectedProfile != null ? selectedProfile.unspentPoints.ToString() : "0", "icon_gold", MetaHubTone.Gold, new Vector2(-165f, -110f));
-        CreateUnlockNode(tree, "Node8", "Punkte gesetzt", selectedProfile != null ? selectedProfile.spentPoints.ToString() : "0", "icon_shield", MetaHubTone.Neutral, new Vector2(0f, -110f));
-        CreateUnlockNode(tree, "Node9", "Letzter Run", selectedProfile != null ? "+" + selectedProfile.lastRunMasteryXPGained + " XP" : "+0 XP", "icon_blue_star", MetaHubTone.Cyan, new Vector2(165f, -110f));
+        for (int i = 0; i < visibleRoles.Count; i++)
+        {
+            TowerRole role = visibleRoles[i];
+            int column = i % columns;
+            int row = i / columns;
+            Vector2 position = new Vector2(startX + column * (cardSize.x + gapX), startY - row * (cardSize.y + gapY));
+            CreateTowerRoleChoice(parent, towerMastery, role, role == selectedRole, position, cardSize);
+        }
+    }
 
-        Transform keystones = CreateUnlockPanel(main, "TowerKeystones", "KEYSTONES", new Vector2(-145f, -270f), new Vector2(500f, 155f), new Color32(128, 83, 176, 255));
-        string activeKeystone = selectedProfile != null && !string.IsNullOrEmpty(selectedProfile.activeKeystoneId) ? selectedProfile.activeKeystoneId : "Kein Keystone";
-        CreateUnlockKeystoneCard(keystones, "Aktiv", Shorten(activeKeystone, 18), "icon_keystone_purple", MetaHubTone.Purple, new Vector2(-165f, -15f));
-        CreateUnlockKeystoneCard(keystones, "Milestone IV", towerMastery != null && towerMastery.IsMilestoneUnlocked(selectedRole, TowerMasteryMilestone.IV) ? "FREI" : "GESPERRT", "icon_shield", MetaHubTone.Neutral, new Vector2(0f, -15f));
-        CreateUnlockKeystoneCard(keystones, "Milestone V", towerMastery != null && towerMastery.IsMilestoneUnlocked(selectedRole, TowerMasteryMilestone.V) ? "FREI" : "GESPERRT", "icon_shield", MetaHubTone.Neutral, new Vector2(165f, -15f));
+    private List<TowerRole> GetVisibleTowerRoles()
+    {
+        List<TowerRole> roles = new List<TowerRole>();
+        TowerRole[] orderedRoles = TowerMasteryManager.GetOrderedTowerRoles();
+        for (int i = 0; i < orderedRoles.Length; i++)
+        {
+            TowerRole role = orderedRoles[i];
+            if (!runtimeUnlockInfoMode || HasUnlockedTowerRole(role))
+                roles.Add(role);
+        }
 
-        Transform detail = CreateUnlockPanel(main, "TowerDetail", "MASTERY-STATUS", new Vector2(380f, -40f), new Vector2(330f, 555f), new Color32(128, 83, 176, 255));
-        CreateArtIcon(detail, "DetailIcon", "icon_blueprint", new Vector2(-105f, 170f), new Vector2(74f, 74f));
-        CreateCanvasLabel(detail, "DetailRank", "VISUAL TIER " + (towerMastery != null ? towerMastery.GetMasteryVisualTier(selectedRole).ToString() : "0"), new Vector2(46f, 192f), new Vector2(210f, 22f), 13f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
-        CreateCanvasLabel(detail, "DetailText", "Echte Werte der ausgewaehlten Tower-Rolle.", new Vector2(50f, 135f), new Vector2(220f, 50f), 11f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Normal);
-        CreateUnlockRow(detail, "NextRank", "icon_gold", "Gesamt-XP", "Mastery-Profil", selectedProfile != null ? MetaHubMockData.FormatNumber(selectedProfile.masteryXP) : "0", MetaHubTone.Gold, 52f, 280f);
-        CreateUnlockRow(detail, "Req1", "icon_shield", "Letzter Run", "Punkte / XP", selectedProfile != null ? "+" + selectedProfile.lastRunMasteryPointsGained + " / +" + selectedProfile.lastRunMasteryXPGained : "+0 / +0", MetaHubTone.Green, -18f, 280f);
-        CreateUnlockRow(detail, "Req2", "icon_keystone", "Freie Punkte", "Aktuell verfuegbar", selectedProfile != null ? selectedProfile.unspentPoints.ToString() : "0", MetaHubTone.Purple, -88f, 280f);
-        CreateCanvasButton(detail, "SpendPoint", "PUNKT VERWENDEN   1", new Vector2(0f, -225f), new Vector2(250f, 42f), TrySpendSelectedTowerPoint);
+        return roles;
+    }
+
+    private bool TryGetFirstUnlockedTowerRole(out TowerRole role)
+    {
+        TowerRole[] orderedRoles = TowerMasteryManager.GetOrderedTowerRoles();
+        for (int i = 0; i < orderedRoles.Length; i++)
+        {
+            if (HasUnlockedTowerRole(orderedRoles[i]))
+            {
+                role = orderedRoles[i];
+                return true;
+            }
+        }
+
+        role = TowerRole.Basic;
+        return false;
+    }
+
+    private bool HasUnlockedTowerRole(TowerRole role)
+    {
+        object roleManager = GetTowerRoleMasteryManager(role);
+        if (roleManager == null)
+            return false;
+
+        List<object> definitions = GetTowerDefinitionObjects(roleManager);
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            if (IsTowerDefinitionVisibleInRuntime(roleManager, definitions[i]))
+                return true;
+        }
+
+        return false;
+    }
+
+    private void CreateTowerRoleChoice(Transform parent, TowerMasteryManager towerMastery, TowerRole role, bool selected, Vector2 position, Vector2 size)
+    {
+        MetaHubTone tone = TowerTone(role);
+        Color32 toneColor = ToneColor(tone);
+        Color32 fill = selected ? new Color32(54, 39, 13, 248) : new Color32(6, 18, 18, 238);
+        Transform row = CreateCanvasPanel(parent, "TowerRole_" + role, position, size, fill, selected ? toneColor : new Color32(toneColor.r, toneColor.g, toneColor.b, 150));
+        CreateArtIcon(row, "Icon", "icon_tower", new Vector2(-size.x * 0.5f + 24f, 0f), new Vector2(30f, 30f));
+        CreateCanvasLabel(row, "Title", Shorten(TowerMasteryManager.GetTowerDisplayName(role).Replace(" Tower", ""), 12), new Vector2(18f, 8f), new Vector2(size.x - 58f, 17f), 8.2f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        int level = towerMastery != null ? towerMastery.GetMasteryLevel(role) : 1;
+        CreateCanvasLabel(row, "Level", "Lv. " + level, new Vector2(18f, -10f), new Vector2(size.x - 58f, 15f), 7.1f, new Color32(188, 178, 155, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        TowerRole capturedRole = role;
+        MakeCanvasClickable(row, delegate { SelectTowerRole(capturedRole); }, fill, toneColor);
+    }
+
+    private void CreateTowerTreeTabs(Transform parent, object roleManager, float panelWidth)
+    {
+        List<string> categories = GetTowerTreeCategoryKeys(roleManager);
+        int count = Mathf.Max(1, categories.Count);
+        float tabWidth = Mathf.Min(190f, (panelWidth - 74f - (count - 1) * 18f) / count);
+        float gap = 18f;
+        float gridWidth = count * tabWidth + (count - 1) * gap;
+        float startX = -gridWidth * 0.5f + tabWidth * 0.5f;
+
+        for (int i = 0; i < categories.Count; i++)
+        {
+            string category = categories[i];
+            MetaHubTone tone = GetTowerTreeCategoryTone(roleManager, category);
+            string label = GetTowerTreeCategoryDisplayName(roleManager, category).ToUpperInvariant();
+            CreateTowerTreeTab(parent, category, Shorten(label, 15), tone, new Vector2(startX + i * (tabWidth + gap), 168f), new Vector2(tabWidth, 36f));
+        }
+    }
+
+    private void CreateTowerTreeTab(Transform parent, string categoryId, string label, MetaHubTone tone, Vector2 position, Vector2 size)
+    {
+        bool selected = selectedTowerTreeCategory == categoryId;
+        Color32 toneColor = ToneColor(tone);
+        Color32 fill = selected ? new Color32(54, 39, 13, 248) : new Color32(5, 18, 18, 238);
+        Transform tab = CreateCanvasPanel(parent, "TowerTreeTab_" + categoryId, position, size, fill, selected ? toneColor : new Color32(toneColor.r, toneColor.g, toneColor.b, 150));
+        CreateCanvasLabel(tab, "Label", label, Vector2.zero, size, 11.5f, selected ? new Color32(255, 236, 186, 255) : new Color32(224, 214, 194, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        string capturedCategoryId = categoryId;
+        MakeCanvasClickable(tab, delegate { SelectTowerTreeCategory(capturedCategoryId); }, fill, toneColor);
+    }
+
+    private void CreateTowerFocusedSkillTree(Transform parent, object roleManager, float panelWidth)
+    {
+        List<TowerMasteryNodeView> nodes = GetTowerNodeViews(roleManager, selectedTowerTreeCategory);
+        int total = nodes.Count;
+        int purchased = 0;
+        for (int i = 0; i < nodes.Count; i++)
+        {
+            if (nodes[i].rank > 0)
+                purchased++;
+        }
+
+        MetaHubTone tone = GetTowerTreeCategoryTone(roleManager, selectedTowerTreeCategory);
+        Color32 toneColor = ToneColor(tone);
+        string title = selectedTowerTreeCategory == "Keystones" ? "KEYSTONES" : GetTowerTreeCategoryDisplayName(roleManager, selectedTowerTreeCategory).ToUpperInvariant() + "-MASTERY";
+
+        float left = -panelWidth * 0.5f + 58f;
+        CreateCanvasLabel(parent, "TowerFocusedTitle", title, new Vector2(left + 96f, 122f), new Vector2(260f, 24f), 14f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(parent, "TowerFocusedCount", GetUnlockCountText(purchased, total), new Vector2(panelWidth * 0.5f - 82f, 122f), new Vector2(100f, 20f), 10f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
+        CreateLine(parent, "TowerFocusedLine", new Vector2(0f, 98f), new Vector2(panelWidth - 150f, 2f), new Color32(toneColor.r, toneColor.g, toneColor.b, 130));
+
+        if (nodes.Count == 0)
+        {
+            string message = runtimeUnlockInfoMode ? "Im aktuellen Run ist hier noch nichts freigeschaltet." : "Keine Freischaltungen in dieser Gruppe.";
+            CreateCanvasLabel(parent, "TowerNoNodes", message, new Vector2(0f, -10f), new Vector2(560f, 24f), 12f, new Color32(224, 214, 196, 255), TextAlignmentOptions.Center, FontStyles.Normal);
+            return;
+        }
+
+        int columns = 5;
+        int maxVisible = Mathf.Min(nodes.Count, 15);
+        Vector2 cardSize = new Vector2(188f, 88f);
+        float gapX = 28f;
+        float gapY = 18f;
+        float gridWidth = columns * cardSize.x + (columns - 1) * gapX;
+        float startX = -gridWidth * 0.5f + cardSize.x * 0.5f;
+        float startY = 50f;
+
+        for (int i = 0; i < maxVisible; i++)
+        {
+            int column = i % columns;
+            int row = i / columns;
+            Vector2 position = new Vector2(startX + column * (cardSize.x + gapX), startY - row * (cardSize.y + gapY));
+            CreateReadableTowerMasteryNode(parent, "TowerFocusedNode_" + i, nodes[i], position, cardSize);
+        }
+
+        if (nodes.Count > maxVisible)
+            CreateCanvasLabel(parent, "TowerFocusedMore", "+" + (nodes.Count - maxVisible) + " weitere Freischaltungen in dieser Gruppe", new Vector2(0f, -200f), new Vector2(520f, 20f), 10f, new Color32(190, 178, 150, 255), TextAlignmentOptions.Center, FontStyles.Normal);
+    }
+
+    private void CreateReadableTowerMasteryNode(Transform parent, string name, TowerMasteryNodeView view, Vector2 position, Vector2 size)
+    {
+        if (view == null)
+            return;
+
+        Color32 toneColor = ToneColor(view.tone);
+        Color32 fill = view.rank >= view.maxRank ? new Color32(8, 35, 18, 235) : new Color32(6, 18, 18, 235);
+        Transform node = CreateCanvasPanel(parent, name, position, size, fill, toneColor);
+        CreateArtIcon(node, "Icon", view.isKeystone ? "icon_keystone_purple" : "icon_tower", new Vector2(-size.x * 0.5f + 30f, 21f), new Vector2(38f, 38f));
+        CreateCanvasLabel(node, "Title", Shorten(view.displayName, 21), new Vector2(30f, 24f), new Vector2(size.x - 68f, 18f), 8.8f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        TextMeshProUGUI effect = CreateCanvasLabel(node, "Effect", ToTwoLineText(view.effectText, 30, 74), new Vector2(30f, -4f), new Vector2(size.x - 68f, 34f), 6.8f, new Color32(188, 178, 155, 255), TextAlignmentOptions.TopLeft, FontStyles.Normal);
+        effect.textWrappingMode = TextWrappingModes.Normal;
+        CreateCanvasLabel(node, "Cost", GetTowerNodeCostLabel(view), new Vector2(-size.x * 0.25f, -34f), new Vector2(size.x * 0.44f, 14f), 7.2f, new Color32(244, 196, 88, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        CreateCanvasLabel(node, "State", Shorten(GetTowerNodeStateLabel(view), 11), new Vector2(size.x * 0.25f, -34f), new Vector2(size.x * 0.44f, 14f), 7.2f, toneColor, TextAlignmentOptions.Center, FontStyles.Bold);
+        string capturedNodeId = view.nodeId;
+        MakeCanvasClickable(node, delegate { HandleTowerMasteryNodeClick(capturedNodeId); }, fill, toneColor);
+    }
+
+    private object GetTowerRoleMasteryManager(TowerRole role)
+    {
+        ResolveGameManager();
+        switch (role)
+        {
+            case TowerRole.Basic: return gameManager != null ? gameManager.GetBasicTowerMasteryManager() : BasicTowerMasteryManager.GetOrCreate();
+            case TowerRole.Rapid: return gameManager != null ? gameManager.GetRapidTowerMasteryManager() : RapidTowerMasteryManager.GetOrCreate();
+            case TowerRole.Heavy: return gameManager != null ? gameManager.GetHeavyTowerMasteryManager() : HeavyTowerMasteryManager.GetOrCreate();
+            case TowerRole.Fire: return gameManager != null ? gameManager.GetFireTowerMasteryManager() : FireTowerMasteryManager.GetOrCreate();
+            case TowerRole.Slow: return gameManager != null ? gameManager.GetSlowTowerMasteryManager() : SlowTowerMasteryManager.GetOrCreate();
+            case TowerRole.Poison: return gameManager != null ? gameManager.GetPoisonTowerMasteryManager() : PoisonTowerMasteryManager.GetOrCreate();
+            case TowerRole.Sniper: return gameManager != null ? gameManager.GetSniperTowerMasteryManager() : SniperTowerMasteryManager.GetOrCreate();
+            case TowerRole.Alchemist: return gameManager != null ? gameManager.GetAlchemistTowerMasteryManager() : AlchemistTowerMasteryManager.GetOrCreate();
+            case TowerRole.Lightning: return gameManager != null ? gameManager.GetLightningTowerMasteryManager() : LightningTowerMasteryManager.GetOrCreate();
+            case TowerRole.Mortar: return gameManager != null ? gameManager.GetMortarTowerMasteryManager() : MortarTowerMasteryManager.GetOrCreate();
+            case TowerRole.Spike: return gameManager != null ? gameManager.GetSpikeTowerMasteryManager() : SpikeTowerMasteryManager.GetOrCreate();
+            default: return null;
+        }
+    }
+
+    private void EnsureSelectedTowerTreeCategory(object roleManager)
+    {
+        List<string> categories = GetTowerTreeCategoryKeys(roleManager);
+        if (categories.Count == 0)
+        {
+            selectedTowerTreeCategory = "Trunk";
+            return;
+        }
+
+        if (!categories.Contains(selectedTowerTreeCategory))
+            selectedTowerTreeCategory = categories[0];
+    }
+
+    private List<string> GetTowerTreeCategoryKeys(object roleManager)
+    {
+        List<string> categories = new List<string>();
+        List<object> definitions = GetTowerDefinitionObjects(roleManager);
+        bool hasKeystones = false;
+
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            object definition = definitions[i];
+            if (IsTowerKeystoneDefinition(definition))
+            {
+                hasKeystones = true;
+                continue;
+            }
+
+            string pathKey = GetTowerPathKey(definition);
+            if (!categories.Contains(pathKey))
+                categories.Add(pathKey);
+        }
+
+        if (categories.Remove("Trunk"))
+            categories.Insert(0, "Trunk");
+
+        if (hasKeystones)
+            categories.Add("Keystones");
+
+        if (runtimeUnlockInfoMode)
+            categories = FilterUnlockedTowerCategories(roleManager, categories);
+
+        if (categories.Count == 0 && !runtimeUnlockInfoMode)
+            categories.Add("Trunk");
+
+        return categories;
+    }
+
+    private List<string> FilterUnlockedTowerCategories(object roleManager, List<string> categories)
+    {
+        List<string> result = new List<string>();
+        if (roleManager == null || categories == null)
+            return result;
+
+        for (int i = 0; i < categories.Count; i++)
+        {
+            string categoryId = categories[i];
+            if (HasUnlockedTowerCategory(roleManager, categoryId))
+                result.Add(categoryId);
+        }
+
+        return result;
+    }
+
+    private bool HasUnlockedTowerCategory(object roleManager, string categoryId)
+    {
+        List<object> definitions = GetTowerDefinitionObjects(roleManager);
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            object definition = definitions[i];
+            if (definition == null)
+                continue;
+
+            bool isKeystone = IsTowerKeystoneDefinition(definition);
+            string pathKey = GetTowerPathKey(definition);
+            bool inCategory = categoryId == "Keystones" ? isKeystone : !isKeystone && pathKey == categoryId;
+            if (inCategory && IsTowerDefinitionVisibleInRuntime(roleManager, definition))
+                return true;
+        }
+
+        return false;
+    }
+
+    private List<TowerMasteryNodeView> GetTowerNodeViews(object roleManager, string categoryId)
+    {
+        List<TowerMasteryNodeView> views = new List<TowerMasteryNodeView>();
+        List<object> definitions = GetTowerDefinitionObjects(roleManager);
+
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            TowerMasteryNodeView view = BuildTowerMasteryNodeView(roleManager, definitions[i]);
+            if (view == null)
+                continue;
+
+            bool inCategory = categoryId == "Keystones" ? view.isKeystone : !view.isKeystone && view.pathKey == categoryId;
+            if (inCategory && (!runtimeUnlockInfoMode || IsTowerNodeVisibleInRuntime(view)))
+                views.Add(view);
+        }
+
+        return views;
+    }
+
+    private bool IsTowerNodeVisibleInRuntime(TowerMasteryNodeView view)
+    {
+        return view != null && (view.rank > 0 || (!string.IsNullOrEmpty(view.stateText) && view.stateText.IndexOf("Aktiv", StringComparison.OrdinalIgnoreCase) >= 0));
+    }
+
+    private bool IsTowerDefinitionVisibleInRuntime(object roleManager, object definition)
+    {
+        if (roleManager == null || definition == null)
+            return false;
+
+        string nodeId = ReadStringMember(definition, "nodeId", "");
+        if (string.IsNullOrEmpty(nodeId))
+            return false;
+
+        if (GetTowerNodeRank(roleManager, nodeId) > 0)
+            return true;
+
+        string stateText = GetTowerNodeStateText(roleManager, definition);
+        return !string.IsNullOrEmpty(stateText) && stateText.IndexOf("Aktiv", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private TowerMasteryNodeView BuildTowerMasteryNodeView(object roleManager, object definition)
+    {
+        if (definition == null)
+            return null;
+
+        string nodeId = ReadStringMember(definition, "nodeId", "");
+        if (string.IsNullOrEmpty(nodeId))
+            return null;
+
+        int rank = GetTowerNodeRank(roleManager, nodeId);
+        int maxRank = Mathf.Max(1, ReadIntMember(definition, "maxRank", 1));
+        string stateText = GetTowerNodeStateText(roleManager, definition);
+        bool canPurchase = GetTowerNodeCanPurchase(roleManager, nodeId);
+        bool isKeystone = IsTowerKeystoneDefinition(definition);
+        string pathKey = GetTowerPathKey(definition);
+        MetaHubTone baseTone = isKeystone ? MetaHubTone.Purple : GetTowerTreeCategoryTone(roleManager, pathKey);
+        MetaHubTone tone = rank >= maxRank || stateText.IndexOf("Aktiv", StringComparison.OrdinalIgnoreCase) >= 0 ? MetaHubTone.Green : canPurchase ? MetaHubTone.Gold : baseTone;
+
+        return new TowerMasteryNodeView
+        {
+            definition = definition,
+            nodeId = nodeId,
+            displayName = ReadStringMember(definition, "displayName", nodeId),
+            effectText = ReadStringMember(definition, "effectText", stateText),
+            pathKey = pathKey,
+            pathLabel = GetTowerTreeCategoryDisplayName(roleManager, pathKey),
+            isKeystone = isKeystone,
+            rank = rank,
+            maxRank = maxRank,
+            nextCost = GetTowerNodeNextCost(definition, rank),
+            canPurchase = canPurchase,
+            stateText = stateText,
+            tone = tone
+        };
+    }
+
+    private List<object> GetTowerDefinitionObjects(object roleManager)
+    {
+        List<object> definitions = new List<object>();
+        if (roleManager == null)
+            return definitions;
+
+        object result = InvokeNoArg(roleManager, "GetDefinitions");
+        IEnumerable enumerable = result as IEnumerable;
+        if (enumerable == null)
+            return definitions;
+
+        foreach (object definition in enumerable)
+        {
+            if (definition != null)
+                definitions.Add(definition);
+        }
+
+        return definitions;
+    }
+
+    private string GetTowerTreeCategoryDisplayName(object roleManager, string categoryId)
+    {
+        if (categoryId == "Keystones")
+            return "Keystones";
+
+        object pathValue = FindTowerPathValue(roleManager, categoryId);
+        string displayName = pathValue != null ? InvokeStringWithObjectArg(roleManager, "GetPathDisplayName", pathValue, "") : "";
+        if (!string.IsNullOrEmpty(displayName))
+            return displayName;
+
+        if (categoryId == "Trunk")
+            return "Basis";
+
+        return SplitPascalCase(categoryId);
+    }
+
+    private MetaHubTone GetTowerTreeCategoryTone(object roleManager, string categoryId)
+    {
+        if (categoryId == "Keystones")
+            return MetaHubTone.Purple;
+
+        List<string> categories = GetTowerTreeCategoryKeys(roleManager);
+        int index = categories.IndexOf(categoryId);
+        if (index <= 0)
+            return MetaHubTone.Purple;
+        if (index == 1)
+            return MetaHubTone.Gold;
+        if (index == 2)
+            return MetaHubTone.Cyan;
+        if (index == 3)
+            return MetaHubTone.Red;
+
+        return MetaHubTone.Blue;
+    }
+
+    private string GetTowerPathKey(object definition)
+    {
+        object pathValue = ReadMember(definition, "path");
+        return pathValue != null ? pathValue.ToString() : "Trunk";
+    }
+
+    private object FindTowerPathValue(object roleManager, string categoryId)
+    {
+        List<object> definitions = GetTowerDefinitionObjects(roleManager);
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            object pathValue = ReadMember(definitions[i], "path");
+            if (pathValue != null && pathValue.ToString() == categoryId)
+                return pathValue;
+        }
+
+        return null;
+    }
+
+    private bool IsTowerKeystoneDefinition(object definition)
+    {
+        object keystone = ReadMember(definition, "keystone");
+        if (keystone == null)
+            return false;
+
+        return !string.Equals(keystone.ToString(), "None", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private int GetTowerNodeRank(object roleManager, string nodeId)
+    {
+        object result = InvokeStringArg(roleManager, "GetNodeRank", nodeId);
+        return result is int ? Mathf.Max(0, (int)result) : 0;
+    }
+
+    private bool GetTowerNodeCanPurchase(object roleManager, string nodeId)
+    {
+        object result = InvokeStringArg(roleManager, "CanPurchaseNode", nodeId);
+        return result is bool && (bool)result;
+    }
+
+    private int GetTowerNodeNextCost(object definition, int rank)
+    {
+        object result = InvokeSingleArg(definition, "GetCostForNextRank", rank);
+        return result is int ? Mathf.Max(0, (int)result) : 0;
+    }
+
+    private string GetTowerNodeStateText(object roleManager, object definition)
+    {
+        return InvokeStringWithObjectArg(roleManager, "GetNodeStateText", definition, "");
+    }
+
+    private string GetTowerNodeCostLabel(TowerMasteryNodeView view)
+    {
+        if (runtimeUnlockInfoMode)
+            return "";
+
+        if (view.rank >= view.maxRank)
+            return view.isKeystone ? "KEYSTONE" : "MAX";
+
+        return Mathf.Max(0, view.nextCost) + " P";
+    }
+
+    private string GetTowerNodeStateLabel(TowerMasteryNodeView view)
+    {
+        if (runtimeUnlockInfoMode)
+        {
+            if (view == null)
+                return "";
+            if (!string.IsNullOrEmpty(view.stateText) && view.stateText.IndexOf("Aktiv", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "AKTIV";
+            if (view.rank > 0)
+                return "FREI";
+            return "";
+        }
+
+        if (view.stateText.IndexOf("Aktiv", StringComparison.OrdinalIgnoreCase) >= 0)
+            return "AKTIV";
+        if (view.rank >= view.maxRank)
+            return "FREI";
+        if (view.canPurchase)
+            return "KAUFEN";
+        if (view.stateText.IndexOf("Read-only", StringComparison.OrdinalIgnoreCase) >= 0)
+            return "RUN";
+        if (view.stateText.IndexOf("Voraus", StringComparison.OrdinalIgnoreCase) >= 0)
+            return "VORBED.";
+        if (view.stateText.IndexOf("Gesperrt", StringComparison.OrdinalIgnoreCase) >= 0)
+            return "GESPERRT";
+
+        return Shorten(view.stateText, 10);
+    }
+
+    private void HandleTowerMasteryNodeClick(string nodeId)
+    {
+        if (runtimeUnlockInfoMode)
+            return;
+
+        object roleManager = GetTowerRoleMasteryManager(selectedTowerRole);
+        object definition = GetTowerDefinitionObject(roleManager, nodeId);
+        if (roleManager == null || definition == null)
+            return;
+
+        int rank = GetTowerNodeRank(roleManager, nodeId);
+        int maxRank = Mathf.Max(1, ReadIntMember(definition, "maxRank", 1));
+        bool changed = false;
+
+        if (rank >= maxRank && IsTowerKeystoneDefinition(definition))
+            changed = TryActivateTowerKeystone(roleManager, definition);
+
+        if (!changed)
+            changed = TryPurchaseTowerNode(roleManager, nodeId);
+
+        if (changed)
+            RefreshData();
+    }
+
+    private object GetTowerDefinitionObject(object roleManager, string nodeId)
+    {
+        object direct = InvokeStringArg(roleManager, "GetDefinition", nodeId);
+        if (direct != null)
+            return direct;
+
+        List<object> definitions = GetTowerDefinitionObjects(roleManager);
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            if (ReadStringMember(definitions[i], "nodeId", "") == nodeId)
+                return definitions[i];
+        }
+
+        return null;
+    }
+
+    private bool TryPurchaseTowerNode(object roleManager, string nodeId)
+    {
+        object result = InvokeStringArg(roleManager, "TryPurchaseNode", nodeId);
+        return result is bool && (bool)result;
+    }
+
+    private bool TryActivateTowerKeystone(object roleManager, object definition)
+    {
+        object keystone = ReadMember(definition, "keystone");
+        if (keystone == null || string.Equals(keystone.ToString(), "None", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        object result = InvokeSingleArg(roleManager, "TryActivateKeystone", keystone);
+        return result is bool && (bool)result;
+    }
+
+    private object ReadMember(object instance, string name)
+    {
+        if (instance == null || string.IsNullOrEmpty(name))
+            return null;
+
+        Type type = instance.GetType();
+        FieldInfo field = type.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (field != null)
+            return field.GetValue(instance);
+
+        PropertyInfo property = type.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (property != null && property.GetIndexParameters().Length == 0)
+            return property.GetValue(instance, null);
+
+        return null;
+    }
+
+    private string ReadStringMember(object instance, string name, string fallback)
+    {
+        object value = ReadMember(instance, name);
+        return value != null ? value.ToString() : fallback;
+    }
+
+    private int ReadIntMember(object instance, string name, int fallback)
+    {
+        object value = ReadMember(instance, name);
+        if (value is int)
+            return (int)value;
+
+        if (value is Enum)
+            return Convert.ToInt32(value);
+
+        return fallback;
+    }
+
+    private object InvokeNoArg(object target, string methodName)
+    {
+        if (target == null || string.IsNullOrEmpty(methodName))
+            return null;
+
+        MethodInfo method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null);
+        if (method == null)
+            return null;
+
+        try
+        {
+            return method.Invoke(target, null);
+        }
+        catch (TargetInvocationException ex)
+        {
+            Debug.LogWarning("MetaHub: Tower mastery call failed: " + methodName + " - " + ex.Message);
+            return null;
+        }
+    }
+
+    private object InvokeStringArg(object target, string methodName, string value)
+    {
+        return InvokeSingleArg(target, methodName, value);
+    }
+
+    private string InvokeStringWithObjectArg(object target, string methodName, object value, string fallback)
+    {
+        object result = InvokeSingleArg(target, methodName, value);
+        return result != null ? result.ToString() : fallback;
+    }
+
+    private object InvokeSingleArg(object target, string methodName, object value)
+    {
+        if (target == null || string.IsNullOrEmpty(methodName))
+            return null;
+
+        MethodInfo[] methods = target.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        for (int i = 0; i < methods.Length; i++)
+        {
+            MethodInfo method = methods[i];
+            if (method.Name != methodName)
+                continue;
+
+            ParameterInfo[] parameters = method.GetParameters();
+            if (parameters.Length != 1 || !CanPassArgument(parameters[0].ParameterType, value))
+                continue;
+
+            try
+            {
+                return method.Invoke(target, new object[] { value });
+            }
+            catch (TargetInvocationException ex)
+            {
+                Debug.LogWarning("MetaHub: Tower mastery call failed: " + methodName + " - " + ex.Message);
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    private bool CanPassArgument(Type parameterType, object value)
+    {
+        if (value == null)
+            return !parameterType.IsValueType || Nullable.GetUnderlyingType(parameterType) != null;
+
+        return parameterType.IsAssignableFrom(value.GetType());
+    }
+
+    private string SplitPascalCase(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return "";
+
+        System.Text.StringBuilder builder = new System.Text.StringBuilder(value.Length + 8);
+        for (int i = 0; i < value.Length; i++)
+        {
+            char c = value[i];
+            if (i > 0 && char.IsUpper(c) && !char.IsWhiteSpace(value[i - 1]))
+                builder.Append(' ');
+            builder.Append(c);
+        }
+
+        return builder.ToString();
     }
 
     private void CreateUnlockChaosContent(Transform main, MetaHubData data)
@@ -1262,18 +2449,114 @@ public class MetaHubController : MonoBehaviour
     private void SelectTowerRole(TowerRole role)
     {
         selectedTowerRole = role;
+        selectedTowerTreeCategory = "Trunk";
+        RefreshData();
+    }
+
+    private void SelectTowerTreeCategory(string categoryId)
+    {
+        selectedTowerTreeCategory = string.IsNullOrEmpty(categoryId) ? "Trunk" : categoryId;
+        RefreshData();
+    }
+
+    private void SelectChaosTreeCategory(ChaosResearchCategory category)
+    {
+        selectedChaosTreeCategory = category == ChaosResearchCategory.Overview ? ChaosResearchCategory.RiskPool : category;
+        RefreshData();
+    }
+
+    private void SelectPathTreeCategory(PathTechniqueCategory category)
+    {
+        selectedPathTreeCategory = category == PathTechniqueCategory.Overview ? PathTechniqueCategory.EventPool : category;
+        RefreshData();
+    }
+
+    private void SelectEliteTreeCategory(EliteHuntCategory category)
+    {
+        selectedEliteTreeCategory = category == EliteHuntCategory.Overview ? EliteHuntCategory.Contracts : category;
         RefreshData();
     }
 
     private void TrySpendSelectedTowerPoint()
     {
+        if (runtimeUnlockInfoMode)
+            return;
+
         TowerMasteryManager towerMastery = GetTowerMasteryManager();
         if (towerMastery != null && towerMastery.TrySpendRolePoints(selectedTowerRole, 1))
             RefreshData();
     }
 
+    private void SelectGeneralTreeCategory(string categoryId)
+    {
+        selectedGeneralTreeCategory = string.IsNullOrEmpty(categoryId) ? "tower" : categoryId;
+        showGeneralLoadoutPicker = false;
+        showGeneralLoadoutEditor = false;
+        RefreshData();
+    }
+
+    private void OpenGeneralLoadoutPicker()
+    {
+        if (runtimeUnlockInfoMode)
+            return;
+
+        showGeneralLoadoutPicker = true;
+        showGeneralLoadoutEditor = false;
+        RefreshData();
+    }
+
+    private void OpenGeneralLoadoutEditor()
+    {
+        if (runtimeUnlockInfoMode)
+            return;
+
+        showGeneralLoadoutPicker = false;
+        showGeneralLoadoutEditor = true;
+        RefreshData();
+    }
+
+    private void CloseGeneralLoadoutOverlay()
+    {
+        showGeneralLoadoutPicker = false;
+        showGeneralLoadoutEditor = false;
+        RefreshData();
+    }
+
+    private void SelectGeneralLoadout(int loadoutIndex)
+    {
+        if (runtimeUnlockInfoMode)
+            return;
+
+        GeneralMetaProgressionManager general = GetGeneralMetaManager();
+        if (general != null)
+            general.SelectLoadout(loadoutIndex);
+
+        showGeneralLoadoutPicker = false;
+        showGeneralLoadoutEditor = true;
+        RefreshData();
+    }
+
+    private void ToggleGeneralLoadoutNode(string nodeId)
+    {
+        if (runtimeUnlockInfoMode)
+            return;
+
+        GeneralMetaProgressionManager general = GetGeneralMetaManager();
+        GeneralMetaNodeDefinition definition = general != null ? general.GetDefinition(nodeId) : null;
+        GeneralMetaNodeState state = general != null ? general.GetNodeState(nodeId) : null;
+        if (general == null || definition == null || state == null || !definition.RequiresLoadoutSlot() || !state.purchased)
+            return;
+
+        bool changed = state.active ? general.TryDeactivateNode(nodeId) : general.TryActivateNode(nodeId);
+        if (changed)
+            RefreshData();
+    }
+
     private void HandleGeneralNodeClick(string nodeId)
     {
+        if (runtimeUnlockInfoMode)
+            return;
+
         GeneralMetaProgressionManager general = GetGeneralMetaManager();
         GeneralMetaNodeDefinition definition = general != null ? general.GetDefinition(nodeId) : null;
         GeneralMetaNodeState state = general != null ? general.GetNodeState(nodeId) : null;
@@ -1294,6 +2577,9 @@ public class MetaHubController : MonoBehaviour
 
     private void HandleChaosNodeClick(string nodeId)
     {
+        if (runtimeUnlockInfoMode)
+            return;
+
         ChaosResearchProgressionManager chaos = GetChaosResearchManager();
         ChaosResearchNodeDefinition definition = chaos != null ? chaos.GetDefinition(nodeId) : null;
         ChaosResearchNodeState state = chaos != null ? chaos.GetNodeState(nodeId) : null;
@@ -1314,6 +2600,9 @@ public class MetaHubController : MonoBehaviour
 
     private void HandlePathNodeClick(string nodeId)
     {
+        if (runtimeUnlockInfoMode)
+            return;
+
         PathTechniqueProgressionManager path = GetPathTechniqueManager();
         PathTechniqueNodeDefinition definition = path != null ? path.GetDefinition(nodeId) : null;
         PathTechniqueNodeState state = path != null ? path.GetNodeState(nodeId) : null;
@@ -1334,6 +2623,9 @@ public class MetaHubController : MonoBehaviour
 
     private void HandleEliteNodeClick(string nodeId)
     {
+        if (runtimeUnlockInfoMode)
+            return;
+
         EliteHuntProgressionManager elite = GetEliteHuntManager();
         EliteHuntNodeDefinition definition = elite != null ? elite.GetDefinition(nodeId) : null;
         EliteHuntNodeState state = elite != null ? elite.GetNodeState(nodeId) : null;
@@ -1418,6 +2710,9 @@ public class MetaHubController : MonoBehaviour
 
     private string GeneralNodeCost(string nodeId)
     {
+        if (runtimeUnlockInfoMode)
+            return "";
+
         GeneralMetaProgressionManager general = GetGeneralMetaManager();
         GeneralMetaNodeDefinition definition = general != null ? general.GetDefinition(nodeId) : null;
         return definition != null ? definition.cost.ToString() : "0";
@@ -1425,6 +2720,16 @@ public class MetaHubController : MonoBehaviour
 
     private string GeneralNodeStateLabel(string nodeId)
     {
+        if (runtimeUnlockInfoMode)
+        {
+            GeneralMetaProgressionManager runtimeGeneral = GetGeneralMetaManager();
+            if (runtimeGeneral != null && runtimeGeneral.IsNodeActive(nodeId))
+                return "AKTIV";
+            if (runtimeGeneral != null && runtimeGeneral.IsNodePurchased(nodeId))
+                return "FREI";
+            return "";
+        }
+
         GeneralMetaProgressionManager general = GetGeneralMetaManager();
         GeneralMetaNodeDefinition definition = general != null ? general.GetDefinition(nodeId) : null;
         if (general == null || definition == null)
@@ -1444,6 +2749,9 @@ public class MetaHubController : MonoBehaviour
 
     private MetaHubTone GeneralNodeTone(string nodeId, MetaHubTone fallback)
     {
+        if (runtimeUnlockInfoMode)
+            return fallback;
+
         GeneralMetaProgressionManager general = GetGeneralMetaManager();
         if (general == null)
             return fallback;
@@ -1475,6 +2783,9 @@ public class MetaHubController : MonoBehaviour
 
     private string ChaosNodeCost(string nodeId)
     {
+        if (runtimeUnlockInfoMode)
+            return "";
+
         ChaosResearchProgressionManager chaos = GetChaosResearchManager();
         ChaosResearchNodeDefinition definition = chaos != null ? chaos.GetDefinition(nodeId) : null;
         if (definition == null)
@@ -1488,6 +2799,16 @@ public class MetaHubController : MonoBehaviour
 
     private string ChaosNodeStateLabel(string nodeId)
     {
+        if (runtimeUnlockInfoMode)
+        {
+            ChaosResearchProgressionManager runtimeChaos = GetChaosResearchManager();
+            if (runtimeChaos != null && runtimeChaos.IsNodeActive(nodeId))
+                return "AKTIV";
+            if (runtimeChaos != null && runtimeChaos.IsNodePurchased(nodeId))
+                return "ERFORSCHT";
+            return "";
+        }
+
         ChaosResearchProgressionManager chaos = GetChaosResearchManager();
         if (chaos == null || chaos.GetDefinition(nodeId) == null)
             return "OFFEN";
@@ -1502,6 +2823,9 @@ public class MetaHubController : MonoBehaviour
 
     private MetaHubTone ChaosNodeTone(string nodeId, MetaHubTone fallback)
     {
+        if (runtimeUnlockInfoMode)
+            return fallback;
+
         ChaosResearchProgressionManager chaos = GetChaosResearchManager();
         if (chaos == null)
             return fallback;
@@ -1529,6 +2853,9 @@ public class MetaHubController : MonoBehaviour
 
     private string PathNodeCost(string nodeId)
     {
+        if (runtimeUnlockInfoMode)
+            return "";
+
         PathTechniqueProgressionManager path = GetPathTechniqueManager();
         PathTechniqueNodeDefinition definition = path != null ? path.GetDefinition(nodeId) : null;
         if (definition == null)
@@ -1542,6 +2869,16 @@ public class MetaHubController : MonoBehaviour
 
     private string PathNodeStateLabel(string nodeId)
     {
+        if (runtimeUnlockInfoMode)
+        {
+            PathTechniqueProgressionManager runtimePath = GetPathTechniqueManager();
+            if (runtimePath != null && runtimePath.IsNodeActive(nodeId))
+                return "AKTIV";
+            if (runtimePath != null && runtimePath.IsNodePurchased(nodeId))
+                return "FREI";
+            return "";
+        }
+
         PathTechniqueProgressionManager path = GetPathTechniqueManager();
         if (path == null || path.GetDefinition(nodeId) == null)
             return "OFFEN";
@@ -1556,6 +2893,9 @@ public class MetaHubController : MonoBehaviour
 
     private MetaHubTone PathNodeTone(string nodeId, MetaHubTone fallback)
     {
+        if (runtimeUnlockInfoMode)
+            return fallback;
+
         PathTechniqueProgressionManager path = GetPathTechniqueManager();
         if (path == null)
             return fallback;
@@ -1583,6 +2923,9 @@ public class MetaHubController : MonoBehaviour
 
     private string EliteNodeCost(string nodeId)
     {
+        if (runtimeUnlockInfoMode)
+            return "";
+
         EliteHuntProgressionManager elite = GetEliteHuntManager();
         EliteHuntNodeDefinition definition = elite != null ? elite.GetDefinition(nodeId) : null;
         if (definition == null)
@@ -1598,6 +2941,16 @@ public class MetaHubController : MonoBehaviour
 
     private string EliteNodeStateLabel(string nodeId)
     {
+        if (runtimeUnlockInfoMode)
+        {
+            EliteHuntProgressionManager runtimeElite = GetEliteHuntManager();
+            if (runtimeElite != null && runtimeElite.IsNodeActive(nodeId))
+                return "AKTIV";
+            if (runtimeElite != null && runtimeElite.IsNodePurchased(nodeId))
+                return "FREI";
+            return "";
+        }
+
         EliteHuntProgressionManager elite = GetEliteHuntManager();
         if (elite == null || elite.GetDefinition(nodeId) == null)
             return "OFFEN";
@@ -1612,6 +2965,9 @@ public class MetaHubController : MonoBehaviour
 
     private MetaHubTone EliteNodeTone(string nodeId, MetaHubTone fallback)
     {
+        if (runtimeUnlockInfoMode)
+            return fallback;
+
         EliteHuntProgressionManager elite = GetEliteHuntManager();
         if (elite == null)
             return fallback;
@@ -1621,98 +2977,686 @@ public class MetaHubController : MonoBehaviour
     private bool CreateChaosSkillTreeLayout(Transform main, MetaHubData data)
     {
         ChaosResearchProgressionManager chaos = GetChaosResearchManager();
+        EnsureSelectedChaosTreeCategory(chaos);
+
+        float mainWidth = GetPanelWidth(main, 1307f);
+        float left = -mainWidth * 0.5f + 22f;
+        float right = mainWidth * 0.5f - 22f;
+        float topY = 216f;
+        float topPanelHeight = 180f;
+        float gap = 16f;
+        float statWidth = 260f;
+        float summaryLeft = left + statWidth * 2f + gap * 2f;
+        float summaryWidth = Mathf.Max(420f, right - summaryLeft);
+
         int riskPurchased = chaos != null ? chaos.GetPurchasedCount(ChaosResearchCategory.RiskPool) : 0;
         int riskTotal = chaos != null ? Mathf.Max(1, chaos.GetDefinitionCount(ChaosResearchCategory.RiskPool)) : 1;
         int variantsPurchased = chaos != null ? chaos.GetPurchasedCount(ChaosResearchCategory.ChaosVariants) : 0;
         int variantsTotal = chaos != null ? Mathf.Max(1, chaos.GetDefinitionCount(ChaosResearchCategory.ChaosVariants)) : 1;
+        int activeSlots = chaos != null ? chaos.GetUsedLoadoutSlots() : 0;
+        int maxSlots = chaos != null ? chaos.GetLoadoutSlotCapacity() : 0;
 
-        CreateUnlockStatCard(main, "ChaosKnowledge", "CHAOS-WISSEN", chaos != null ? MetaHubMockData.FormatNumber(chaos.chaosKnowledge) : GetResourceValue(data, "chaos").ToString(), "Forschung", "icon_chaos", MetaHubTone.Purple, new Vector2(-450f, 210f), new Vector2(225f, 135f));
-        CreateUnlockStatCard(main, "RiskCore", "RISIKOKERNE", chaos != null ? MetaHubMockData.FormatNumber(chaos.riftCores) : GetMetricValue(data, "risikokerne", "0"), "Endgame-Kerne", "icon_risk_core", MetaHubTone.Red, new Vector2(-205f, 210f), new Vector2(225f, 135f));
+        CreateUnlockStatCard(main, "ChaosKnowledge", "CHAOS-WISSEN", chaos != null ? MetaHubMockData.FormatNumber(chaos.chaosKnowledge) : GetResourceValue(data, "chaos").ToString(), "Forschung", "icon_chaos", MetaHubTone.Purple, new Vector2(left + statWidth * 0.5f, topY), new Vector2(statWidth, topPanelHeight));
+        CreateUnlockStatCard(main, "RiskCore", "RISIKOKERNE", chaos != null ? MetaHubMockData.FormatNumber(chaos.riftCores) : GetMetricValue(data, "risikokerne", "0"), "Endgame-Kerne", "icon_risk_core", MetaHubTone.Red, new Vector2(left + statWidth + gap + statWidth * 0.5f, topY), new Vector2(statWidth, topPanelHeight));
 
-        Transform summary = CreateUnlockPanel(main, "ChaosSummary", "CHAOS-FORTSCHRITT", new Vector2(64f, 210f), new Vector2(285f, 135f), new Color32(128, 83, 176, 255));
-        CreateUnlockRow(summary, "SummaryVariants", "icon_chaos", "Varianten", "Erforscht", variantsPurchased + " / " + variantsTotal, MetaHubTone.Purple, 18f, 240f);
-        CreateUnlockRow(summary, "SummaryRisk", "icon_risk_core", "Risiko-Pool", "Freigeschaltet", riskPurchased + " / " + riskTotal, MetaHubTone.Red, -38f, 240f);
-        CreateReferenceGoalPanel(main, data.nextGoals, new Vector2(410f, 205f), new Vector2(320f, 160f));
+        Transform summary = CreateUnlockPanel(main, "ChaosSummary", "CHAOS-STATUS", new Vector2(summaryLeft + summaryWidth * 0.5f, topY), new Vector2(summaryWidth, topPanelHeight), new Color32(128, 83, 176, 255));
+        float rowWidth = summaryWidth - 68f;
+        CreateUnlockCompactRow(summary, "SummaryVariants", "icon_chaos", "Varianten", "Erforscht", variantsPurchased + " / " + variantsTotal, MetaHubTone.Purple, 22f, rowWidth);
+        CreateUnlockCompactRow(summary, "SummaryRisk", "icon_risk_core", "Risiko-Pool", "Freigeschaltet", riskPurchased + " / " + riskTotal, MetaHubTone.Red, -22f, rowWidth);
+        CreateUnlockCompactRow(summary, "SummaryLoadout", "icon_keystone", "Chaos-Loadout", "Aktive Forschung", activeSlots + " / " + maxSlots, MetaHubTone.Gold, -66f, rowWidth);
 
-        Transform tree = CreateUnlockPanel(main, "ChaosSkillTree", "FORSCHUNGSBAUM", new Vector2(-125f, -110f), new Vector2(760f, 455f), new Color32(128, 83, 176, 255));
-        CreateChaosSkillBranch(tree, "ChaosRiskBranch", "RISIKO-POOL", ChaosResearchCategory.RiskPool, 128f, MetaHubTone.Purple, 4);
-        CreateChaosSkillBranch(tree, "ChaosVariantBranch", "VARIANTEN", ChaosResearchCategory.ChaosVariants, 40f, MetaHubTone.Red, 4);
-        CreateChaosSkillBranch(tree, "ChaosCounterBranch", "KONTER", ChaosResearchCategory.ChaosCounters, -48f, MetaHubTone.Cyan, 4);
-        CreateChaosSkillBranch(tree, "ChaosWaveBranch", "WAVES", ChaosResearchCategory.ChaosWaves, -136f, MetaHubTone.Red, 4);
-
-        Transform progress = CreateUnlockPanel(main, "ChaosProgress", "STATUS", new Vector2(420f, -110f), new Vector2(310f, 455f), new Color32(128, 83, 176, 255));
-        int highestWave = chaos != null ? Mathf.Max(0, chaos.highestWaveEver) : 0;
-        CreateDonutImage(progress, "WaveRing", new Vector2(-84f, 120f), 92f, Percent(highestWave, 30), new Color32(255, 84, 78, 255), new Color32(55, 46, 29, 210));
-        CreateCanvasLabel(progress, "WaveValue", highestWave.ToString(), new Vector2(-84f, 128f), new Vector2(70f, 34f), 28f, new Color32(255, 230, 180, 255), TextAlignmentOptions.Center, FontStyles.Bold);
-        CreateCanvasLabel(progress, "WaveCaption", "HOECHSTE WAVE", new Vector2(-84f, 84f), new Vector2(116f, 18f), 9f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Center, FontStyles.Bold);
-        CreateUnlockRow(progress, "Progress1", "icon_chaos", "Letzter Run", "Chaos-Wissen", chaos != null ? "+" + chaos.lastRunChaosKnowledgeGained : "+0", MetaHubTone.Purple, 32f, 255f);
-        CreateUnlockRow(progress, "Progress2", "icon_risk_core", "Risskerne", "Letzter Run", chaos != null ? "+" + chaos.lastRunRiftCoresGained : "+0", MetaHubTone.Red, -26f, 255f);
-        CreateUnlockRow(progress, "Progress3", "icon_chaos_sun", "Chaos-Waves", "Gesamt", chaos != null ? chaos.totalChaosWavesCompletedEver.ToString() : "0", MetaHubTone.Red, -84f, 255f);
-        CreateCanvasButton(progress, "AllChaosGoals", "ALLE ZIELE ANZEIGEN", new Vector2(0f, -178f), new Vector2(240f, 36f), RequestAllGoals);
+        Transform tree = CreateUnlockPanel(main, "ChaosFocusedTree", "FORSCHUNGSBAUM", new Vector2((left + right) * 0.5f, -150f), new Vector2(right - left, 430f), ToneColor(GetChaosTreeCategoryTone(selectedChaosTreeCategory)));
+        CreateChaosTreeTabs(tree, chaos, right - left);
+        CreateChaosFocusedSkillTree(tree, chaos, right - left);
         return true;
     }
 
     private bool CreatePathSkillTreeLayout(Transform main, MetaHubData data)
     {
         PathTechniqueProgressionManager path = GetPathTechniqueManager();
+        EnsureSelectedPathTreeCategory(path);
+
+        float mainWidth = GetPanelWidth(main, 1307f);
+        float left = -mainWidth * 0.5f + 22f;
+        float right = mainWidth * 0.5f - 22f;
+        float topY = 216f;
+        float topPanelHeight = 180f;
+        float gap = 16f;
+        float headerWidth = 540f;
+        float statWidth = 220f;
+        float summaryLeft = left + headerWidth + gap + statWidth + gap;
+        float summaryWidth = Mathf.Max(380f, right - summaryLeft);
         int pathLevel = path != null ? path.pathTechniqueLevel : 1;
         int pathCurrentXP = path != null ? path.GetXPIntoCurrentLevel() : 0;
         int pathRequiredXP = path != null ? path.GetXPToNextPathTechniqueLevel() : 1;
 
-        Transform header = CreateUnlockPanel(main, "PathHeader", "VERBAU / PFADTECHNIK", new Vector2(-210f, 210f), new Vector2(545f, 135f), new Color32(47, 169, 210, 255));
-        CreateArtIcon(header, "PathIcon", "icon_path", new Vector2(-210f, -2f), new Vector2(74f, 74f));
-        CreateDonutImage(header, "PathRing", new Vector2(-115f, -2f), 82f, Percent(pathCurrentXP, pathRequiredXP), new Color32(55, 209, 235, 255), new Color32(55, 46, 29, 210));
-        CreateCanvasLabel(header, "PathLevel", pathLevel.ToString(), new Vector2(-115f, 5f), new Vector2(64f, 32f), 26f, new Color32(255, 255, 255, 255), TextAlignmentOptions.Center, FontStyles.Bold);
-        CreateCanvasLabel(header, "PathXP", MetaHubMockData.FormatNumber(pathCurrentXP) + " / " + MetaHubMockData.FormatNumber(pathRequiredXP) + " XP", new Vector2(90f, 28f), new Vector2(235f, 20f), 12f, new Color32(244, 226, 186, 255), TextAlignmentOptions.Left, FontStyles.Normal);
-        CreateCanvasBar(header, "PathBar", new Vector2(94f, 6f), new Vector2(230f, 6f), Percent(pathCurrentXP, pathRequiredXP), new Color32(55, 209, 235, 255));
+        Transform header = CreateUnlockPanel(main, "PathHeader", "VERBAU / PFADTECHNIK", new Vector2(left + headerWidth * 0.5f, topY), new Vector2(headerWidth, topPanelHeight), new Color32(47, 169, 210, 255));
+        CreateArtIcon(header, "PathIcon", "icon_path", new Vector2(-headerWidth * 0.5f + 82f, -2f), new Vector2(78f, 78f));
+        CreateDonutImage(header, "PathRing", new Vector2(-headerWidth * 0.5f + 175f, -2f), 82f, Percent(pathCurrentXP, pathRequiredXP), new Color32(55, 209, 235, 255), new Color32(55, 46, 29, 210));
+        CreateCanvasLabel(header, "PathLevel", pathLevel.ToString(), new Vector2(-headerWidth * 0.5f + 175f, 5f), new Vector2(64f, 32f), 26f, new Color32(255, 255, 255, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        CreateCanvasLabel(header, "PathXP", MetaHubMockData.FormatNumber(pathCurrentXP) + " / " + MetaHubMockData.FormatNumber(pathRequiredXP) + " XP", new Vector2(120f, 32f), new Vector2(235f, 20f), 12f, new Color32(244, 226, 186, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        CreateCanvasBar(header, "PathBar", new Vector2(124f, 12f), new Vector2(230f, 6f), Percent(pathCurrentXP, pathRequiredXP), new Color32(55, 209, 235, 255));
         string pathInfo = "Blueprints " + (path != null ? path.blueprints.ToString() : "0") + " / Rissbauplaene " + (path != null ? path.riftBlueprints.ToString() : "0") +
             "\nSlots " + (path != null ? path.GetUsedLoadoutSlots() + " / " + path.GetLoadoutSlotCapacity() : "0 / 0");
-        CreateCanvasLabel(header, "PathInfo", pathInfo, new Vector2(112f, -36f), new Vector2(260f, 36f), 10f, new Color32(242, 191, 75, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        CreateCanvasLabel(header, "PathInfo", pathInfo, new Vector2(128f, -42f), new Vector2(260f, 36f), 10f, new Color32(242, 191, 75, 255), TextAlignmentOptions.Left, FontStyles.Normal);
 
-        CreateUnlockStatCard(main, "Blueprints", "BAUPLAENE", path != null ? MetaHubMockData.FormatNumber(path.blueprints) : GetMetricValue(data, "bauplaene", "0"), "Aktuell", "icon_blueprint", MetaHubTone.Blue, new Vector2(175f, 210f), new Vector2(180f, 135f));
-        CreateReferenceGoalPanel(main, data.nextGoals, new Vector2(440f, 205f), new Vector2(280f, 160f));
+        CreateUnlockStatCard(main, "Blueprints", "BAUPLAENE", path != null ? MetaHubMockData.FormatNumber(path.blueprints) : GetMetricValue(data, "bauplaene", "0"), "Aktuell", "icon_blueprint", MetaHubTone.Blue, new Vector2(left + headerWidth + gap + statWidth * 0.5f, topY), new Vector2(statWidth, topPanelHeight));
 
-        Transform tree = CreateUnlockPanel(main, "PathSkillTree", "PFADTECHNIK-BAUM", new Vector2(-130f, -110f), new Vector2(760f, 455f), new Color32(47, 169, 210, 255));
-        CreatePathSkillBranch(tree, "PathEventBranch", "EVENT-POOL", PathTechniqueCategory.EventPool, 128f, MetaHubTone.Cyan, 4);
-        CreatePathSkillBranch(tree, "PathRescueBranch", "RETTUNG", PathTechniqueCategory.RescuePower, 40f, MetaHubTone.Gold, 4);
-        CreatePathSkillBranch(tree, "PathToolsBranch", "WERKZEUGE", PathTechniqueCategory.PathTools, -48f, MetaHubTone.Cyan, 4);
-        CreatePathSkillBranch(tree, "PathTileBranch", "TILE-TECHNIK", PathTechniqueCategory.TileTechnique, -136f, MetaHubTone.Blue, 4);
+        Transform summary = CreateUnlockPanel(main, "PathSummary", "PFAD-STATUS", new Vector2(summaryLeft + summaryWidth * 0.5f, topY), new Vector2(summaryWidth, topPanelHeight), new Color32(47, 169, 210, 255));
+        float rowWidth = summaryWidth - 68f;
+        CreateUnlockCompactRow(summary, "PathLast1", "icon_path", "Pfad-XP", "Letzter Run", path != null ? "+" + path.lastRunPathTechniqueXPGained : "+0", MetaHubTone.Cyan, 22f, rowWidth);
+        CreateUnlockCompactRow(summary, "PathLast2", "icon_blueprint", "Bauplaene", "Letzter Run", path != null ? "+" + path.lastRunBlueprintsGained : "+0", MetaHubTone.Blue, -22f, rowWidth);
+        CreateUnlockCompactRow(summary, "PathSlots", "icon_keystone", "Pfad-Loadout", "Aktive Technik", path != null ? path.GetUsedLoadoutSlots() + " / " + path.GetLoadoutSlotCapacity() : "0 / 0", MetaHubTone.Gold, -66f, rowWidth);
 
-        Transform status = CreateUnlockPanel(main, "PathStatus", "LETZTE RETTUNGEN", new Vector2(420f, -110f), new Vector2(310f, 455f), new Color32(47, 169, 210, 255));
-        CreateUnlockRow(status, "PathLast1", "icon_path", "Pfad-XP", "Letzter Run", path != null ? "+" + path.lastRunPathTechniqueXPGained : "+0", MetaHubTone.Cyan, 112f, 255f);
-        CreateUnlockRow(status, "PathLast2", "icon_blueprint", "Bauplaene", "Letzter Run", path != null ? "+" + path.lastRunBlueprintsGained : "+0", MetaHubTone.Blue, 54f, 255f);
-        CreateUnlockRow(status, "PathLast3", "icon_path", "Rissbauplaene", "Letzter Run", path != null ? "+" + path.lastRunRiftBlueprintsGained : "+0", MetaHubTone.Cyan, -4f, 255f);
-        CreateUnlockRow(status, "PathLast4", "icon_gold", "Hoechste Wave", "Meta-Fortschritt", path != null ? path.highestWaveEver.ToString() : "0", MetaHubTone.Gold, -62f, 255f);
-        CreateCanvasButton(status, "AllPathGoals", "ALLE ZIELE ANZEIGEN", new Vector2(0f, -178f), new Vector2(240f, 36f), RequestAllGoals);
+        Transform tree = CreateUnlockPanel(main, "PathFocusedTree", "PFADTECHNIK-BAUM", new Vector2((left + right) * 0.5f, -150f), new Vector2(right - left, 430f), ToneColor(GetPathTreeCategoryTone(selectedPathTreeCategory)));
+        CreatePathTreeTabs(tree, path, right - left);
+        CreatePathFocusedSkillTree(tree, path, right - left);
         return true;
     }
 
     private bool CreateEliteSkillTreeLayout(Transform main, MetaHubData data)
     {
         EliteHuntProgressionManager elite = GetEliteHuntManager();
+        EnsureSelectedEliteTreeCategory(elite);
 
-        CreateUnlockStatCard(main, "EliteSeals", "ELITE-SIEGEL", elite != null ? MetaHubMockData.FormatNumber(elite.eliteSeals) : GetResourceValue(data, "special").ToString(), "Waehrung", "icon_skull", MetaHubTone.Red, new Vector2(-450f, 210f), new Vector2(225f, 135f));
-        CreateUnlockStatCard(main, "EliteRank", "ELITE-RANG", elite != null ? elite.eliteRank.ToString() : "1", elite != null ? EliteHuntProgressionManager.GetHuntModeDisplayName(elite.activeHuntMode) : "Aus", "icon_risk_core", MetaHubTone.Red, new Vector2(-205f, 210f), new Vector2(225f, 135f));
-        CreateUnlockStatCard(main, "EliteKills", "ELITE-KILLS", elite != null ? MetaHubMockData.FormatNumber(elite.totalEliteKillsEver) : GetMetricValue(data, "elite_jagd", "0"), "Gesamt", "icon_skull", MetaHubTone.Red, new Vector2(40f, 210f), new Vector2(225f, 135f));
-        CreateReferenceGoalPanel(main, data.nextGoals, new Vector2(410f, 205f), new Vector2(320f, 160f));
+        float mainWidth = GetPanelWidth(main, 1307f);
+        float left = -mainWidth * 0.5f + 22f;
+        float right = mainWidth * 0.5f - 22f;
+        float topY = 216f;
+        float topPanelHeight = 180f;
+        float gap = 16f;
+        float statWidth = 235f;
+        float summaryLeft = left + statWidth * 3f + gap * 3f;
+        float summaryWidth = Mathf.Max(330f, right - summaryLeft);
 
-        Transform tree = CreateUnlockPanel(main, "EliteSkillTree", "JAGD-BAUM", new Vector2(-125f, -110f), new Vector2(760f, 455f), new Color32(167, 54, 45, 255));
-        CreateEliteSkillBranch(tree, "EliteContractsBranch", "AUFTRAEGE", EliteHuntCategory.Contracts, 128f, MetaHubTone.Red, 4);
-        CreateEliteSkillBranch(tree, "EliteAffixesBranch", "AFFIXE", EliteHuntCategory.Affixes, 40f, MetaHubTone.Purple, 4);
-        CreateEliteSkillBranch(tree, "EliteRewardsBranch", "BELOHNUNGEN", EliteHuntCategory.Rewards, -48f, MetaHubTone.Gold, 4);
-        CreateEliteSkillBranch(tree, "EliteFrequencyBranch", "JAGDMODUS", EliteHuntCategory.Frequency, -136f, MetaHubTone.Red, 4);
+        CreateUnlockStatCard(main, "EliteSeals", "ELITE-SIEGEL", elite != null ? MetaHubMockData.FormatNumber(elite.eliteSeals) : GetResourceValue(data, "special").ToString(), "Waehrung", "icon_skull", MetaHubTone.Red, new Vector2(left + statWidth * 0.5f, topY), new Vector2(statWidth, topPanelHeight));
+        CreateUnlockStatCard(main, "EliteRank", "ELITE-RANG", elite != null ? elite.eliteRank.ToString() : "1", elite != null ? EliteHuntProgressionManager.GetHuntModeDisplayName(elite.activeHuntMode) : "Aus", "icon_risk_core", MetaHubTone.Red, new Vector2(left + statWidth + gap + statWidth * 0.5f, topY), new Vector2(statWidth, topPanelHeight));
+        CreateUnlockStatCard(main, "EliteKills", "ELITE-KILLS", elite != null ? MetaHubMockData.FormatNumber(elite.totalEliteKillsEver) : GetMetricValue(data, "elite_jagd", "0"), "Gesamt", "icon_skull", MetaHubTone.Red, new Vector2(left + statWidth * 2f + gap * 2f + statWidth * 0.5f, topY), new Vector2(statWidth, topPanelHeight));
 
-        Transform stats = CreateUnlockPanel(main, "EliteStatus", "JAGD-STATUS", new Vector2(420f, -110f), new Vector2(310f, 455f), new Color32(167, 54, 45, 255));
+        Transform summary = CreateUnlockPanel(main, "EliteSummary", "JAGD-STATUS", new Vector2(summaryLeft + summaryWidth * 0.5f, topY), new Vector2(summaryWidth, topPanelHeight), new Color32(167, 54, 45, 255));
         int eliteCurrentXP = elite != null ? elite.GetXPIntoCurrentRank() : 0;
         int eliteRequiredXP = elite != null ? elite.GetXPToNextEliteRank() : 1;
-        CreateCanvasLabel(stats, "RankXP", "Elite-Rang-XP: " + eliteCurrentXP + " / " + eliteRequiredXP, new Vector2(0f, 132f), new Vector2(250f, 22f), 12f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Center, FontStyles.Bold);
-        CreateCanvasBar(stats, "RankBar", new Vector2(0f, 108f), new Vector2(235f, 7f), Percent(eliteCurrentXP, eliteRequiredXP), new Color32(255, 84, 78, 255));
-        CreateUnlockRow(stats, "EliteLast1", "icon_skull", "Gesehen", "Gesamt / letzter Run", elite != null ? elite.totalElitesSeenEver + " / " + elite.lastRunElitesSeen : "0 / 0", MetaHubTone.Red, 54f, 255f);
-        CreateUnlockRow(stats, "EliteLast2", "icon_risk_core", "Besiegt", "Gesamt / letzter Run", elite != null ? elite.totalEliteKillsEver + " / " + elite.lastRunEliteKills : "0 / 0", MetaHubTone.Gold, -4f, 255f);
-        CreateUnlockRow(stats, "EliteLast3", "icon_skull", "Leaks", "Gesamt", elite != null ? elite.totalEliteLeaksEver.ToString() : "0", MetaHubTone.Red, -62f, 255f);
-        CreateUnlockRow(stats, "EliteLast4", "icon_gold", "Elite-Siegel", "Letzter Run", elite != null ? "+" + elite.lastRunEliteSealsGained : "+0", MetaHubTone.Gold, -120f, 255f);
-        CreateCanvasButton(stats, "AllEliteGoals", "ALLE ZIELE ANZEIGEN", new Vector2(0f, -178f), new Vector2(240f, 36f), RequestAllGoals);
+        CreateCanvasLabel(summary, "RankXP", "Elite-Rang-XP: " + eliteCurrentXP + " / " + eliteRequiredXP, new Vector2(10f, 44f), new Vector2(summaryWidth - 72f, 20f), 11f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasBar(summary, "RankBar", new Vector2(10f, 24f), new Vector2(summaryWidth - 100f, 6f), Percent(eliteCurrentXP, eliteRequiredXP), new Color32(255, 84, 78, 255));
+        float rowWidth = summaryWidth - 68f;
+        CreateUnlockCompactRow(summary, "EliteLast1", "icon_skull", "Besiegt", "Gesamt / letzter Run", elite != null ? elite.totalEliteKillsEver + " / " + elite.lastRunEliteKills : "0 / 0", MetaHubTone.Red, -18f, rowWidth);
+        CreateUnlockCompactRow(summary, "EliteLoadout", "icon_keystone", "Elite-Loadout", "Aktive Boni", elite != null ? elite.GetUsedLoadoutSlots() + " / " + elite.GetLoadoutSlotCapacity() : "0 / 0", MetaHubTone.Gold, -66f, rowWidth);
+
+        Transform tree = CreateUnlockPanel(main, "EliteFocusedTree", "JAGD-BAUM", new Vector2((left + right) * 0.5f, -150f), new Vector2(right - left, 430f), ToneColor(GetEliteTreeCategoryTone(selectedEliteTreeCategory)));
+        CreateEliteTreeTabs(tree, elite, right - left);
+        CreateEliteFocusedSkillTree(tree, elite, right - left);
         return true;
+    }
+
+    private void EnsureSelectedChaosTreeCategory(ChaosResearchProgressionManager chaos)
+    {
+        List<ChaosResearchCategory> categories = GetChaosTreeCategories(chaos);
+        if (categories.Count == 0)
+        {
+            selectedChaosTreeCategory = ChaosResearchCategory.RiskPool;
+            return;
+        }
+
+        if (!categories.Contains(selectedChaosTreeCategory))
+            selectedChaosTreeCategory = categories[0];
+    }
+
+    private void EnsureSelectedPathTreeCategory(PathTechniqueProgressionManager path)
+    {
+        List<PathTechniqueCategory> categories = GetPathTreeCategories(path);
+        if (categories.Count == 0)
+        {
+            selectedPathTreeCategory = PathTechniqueCategory.EventPool;
+            return;
+        }
+
+        if (!categories.Contains(selectedPathTreeCategory))
+            selectedPathTreeCategory = categories[0];
+    }
+
+    private void EnsureSelectedEliteTreeCategory(EliteHuntProgressionManager elite)
+    {
+        List<EliteHuntCategory> categories = GetEliteTreeCategories(elite);
+        if (categories.Count == 0)
+        {
+            selectedEliteTreeCategory = EliteHuntCategory.Contracts;
+            return;
+        }
+
+        if (!categories.Contains(selectedEliteTreeCategory))
+            selectedEliteTreeCategory = categories[0];
+    }
+
+    private List<ChaosResearchCategory> GetChaosTreeCategories(ChaosResearchProgressionManager chaos)
+    {
+        List<ChaosResearchCategory> categories = new List<ChaosResearchCategory>();
+        AddChaosTreeCategory(categories, chaos, ChaosResearchCategory.RiskPool);
+        AddChaosTreeCategory(categories, chaos, ChaosResearchCategory.ChaosVariants);
+        AddChaosTreeCategory(categories, chaos, ChaosResearchCategory.ChaosCounters);
+        AddChaosTreeCategory(categories, chaos, ChaosResearchCategory.ChaosWaves);
+        AddChaosTreeCategory(categories, chaos, ChaosResearchCategory.OfferControl);
+        AddChaosTreeCategory(categories, chaos, ChaosResearchCategory.Chaos5Endgame);
+        AddChaosTreeCategory(categories, chaos, ChaosResearchCategory.JusticeOrder);
+        return categories;
+    }
+
+    private void AddChaosTreeCategory(List<ChaosResearchCategory> categories, ChaosResearchProgressionManager chaos, ChaosResearchCategory category)
+    {
+        if (runtimeUnlockInfoMode)
+        {
+            if (CountVisibleChaosNodes(chaos, category) > 0)
+                categories.Add(category);
+            return;
+        }
+
+        if (chaos == null || chaos.GetDefinitionCount(category) > 0)
+            categories.Add(category);
+    }
+
+    private List<PathTechniqueCategory> GetPathTreeCategories(PathTechniqueProgressionManager path)
+    {
+        List<PathTechniqueCategory> categories = new List<PathTechniqueCategory>();
+        AddPathTreeCategory(categories, path, PathTechniqueCategory.EventPool);
+        AddPathTreeCategory(categories, path, PathTechniqueCategory.EventQuality);
+        AddPathTreeCategory(categories, path, PathTechniqueCategory.RescuePower);
+        AddPathTreeCategory(categories, path, PathTechniqueCategory.PathTools);
+        AddPathTreeCategory(categories, path, PathTechniqueCategory.TileTechnique);
+        AddPathTreeCategory(categories, path, PathTechniqueCategory.RiftArchitecture);
+        return categories;
+    }
+
+    private void AddPathTreeCategory(List<PathTechniqueCategory> categories, PathTechniqueProgressionManager path, PathTechniqueCategory category)
+    {
+        if (runtimeUnlockInfoMode)
+        {
+            if (CountVisiblePathNodes(path, category) > 0)
+                categories.Add(category);
+            return;
+        }
+
+        if (path == null || path.GetDefinitionCount(category) > 0)
+            categories.Add(category);
+    }
+
+    private List<EliteHuntCategory> GetEliteTreeCategories(EliteHuntProgressionManager elite)
+    {
+        List<EliteHuntCategory> categories = new List<EliteHuntCategory>();
+        AddEliteTreeCategory(categories, elite, EliteHuntCategory.Contracts);
+        AddEliteTreeCategory(categories, elite, EliteHuntCategory.Affixes);
+        AddEliteTreeCategory(categories, elite, EliteHuntCategory.Rewards);
+        AddEliteTreeCategory(categories, elite, EliteHuntCategory.Frequency);
+        AddEliteTreeCategory(categories, elite, EliteHuntCategory.Counters);
+        AddEliteTreeCategory(categories, elite, EliteHuntCategory.RiftElite);
+        return categories;
+    }
+
+    private void AddEliteTreeCategory(List<EliteHuntCategory> categories, EliteHuntProgressionManager elite, EliteHuntCategory category)
+    {
+        if (runtimeUnlockInfoMode)
+        {
+            if (CountVisibleEliteNodes(elite, category) > 0)
+                categories.Add(category);
+            return;
+        }
+
+        if (elite == null || elite.GetDefinitionCount(category) > 0)
+            categories.Add(category);
+    }
+
+    private int CountVisibleChaosNodes(ChaosResearchProgressionManager chaos, ChaosResearchCategory category)
+    {
+        if (chaos == null)
+            return 0;
+
+        int count = 0;
+        List<ChaosResearchNodeDefinition> definitions = chaos.GetDefinitions();
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            ChaosResearchNodeDefinition definition = definitions[i];
+            if (definition != null && definition.category == category && IsChaosNodeVisibleInRuntime(chaos, definition.nodeId))
+                count++;
+        }
+
+        return count;
+    }
+
+    private int CountVisiblePathNodes(PathTechniqueProgressionManager path, PathTechniqueCategory category)
+    {
+        if (path == null)
+            return 0;
+
+        int count = 0;
+        List<PathTechniqueNodeDefinition> definitions = path.GetDefinitions();
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            PathTechniqueNodeDefinition definition = definitions[i];
+            if (definition != null && definition.category == category && IsPathNodeVisibleInRuntime(path, definition.nodeId))
+                count++;
+        }
+
+        return count;
+    }
+
+    private int CountVisibleEliteNodes(EliteHuntProgressionManager elite, EliteHuntCategory category)
+    {
+        if (elite == null)
+            return 0;
+
+        int count = 0;
+        List<EliteHuntNodeDefinition> definitions = elite.GetDefinitions();
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            EliteHuntNodeDefinition definition = definitions[i];
+            if (definition != null && definition.category == category && IsEliteNodeVisibleInRuntime(elite, definition.nodeId))
+                count++;
+        }
+
+        return count;
+    }
+
+    private void CreateChaosTreeTabs(Transform parent, ChaosResearchProgressionManager chaos, float panelWidth)
+    {
+        List<ChaosResearchCategory> categories = GetChaosTreeCategories(chaos);
+        CreateChaosTreeTabs(parent, categories, panelWidth);
+    }
+
+    private void CreateChaosTreeTabs(Transform parent, List<ChaosResearchCategory> categories, float panelWidth)
+    {
+        int count = Mathf.Max(1, categories.Count);
+        float gap = 12f;
+        float tabWidth = Mathf.Min(162f, (panelWidth - 74f - (count - 1) * gap) / count);
+        float gridWidth = count * tabWidth + (count - 1) * gap;
+        float startX = -gridWidth * 0.5f + tabWidth * 0.5f;
+        for (int i = 0; i < categories.Count; i++)
+        {
+            ChaosResearchCategory category = categories[i];
+            CreateChaosTreeTab(parent, category, GetChaosTreeCategoryLabel(category), GetChaosTreeCategoryTone(category), new Vector2(startX + i * (tabWidth + gap), 150f), new Vector2(tabWidth, 34f));
+        }
+    }
+
+    private void CreatePathTreeTabs(Transform parent, PathTechniqueProgressionManager path, float panelWidth)
+    {
+        List<PathTechniqueCategory> categories = GetPathTreeCategories(path);
+        int count = Mathf.Max(1, categories.Count);
+        float gap = 14f;
+        float tabWidth = Mathf.Min(174f, (panelWidth - 74f - (count - 1) * gap) / count);
+        float gridWidth = count * tabWidth + (count - 1) * gap;
+        float startX = -gridWidth * 0.5f + tabWidth * 0.5f;
+        for (int i = 0; i < categories.Count; i++)
+        {
+            PathTechniqueCategory category = categories[i];
+            CreatePathTreeTab(parent, category, GetPathTreeCategoryLabel(category), GetPathTreeCategoryTone(category), new Vector2(startX + i * (tabWidth + gap), 150f), new Vector2(tabWidth, 34f));
+        }
+    }
+
+    private void CreateEliteTreeTabs(Transform parent, EliteHuntProgressionManager elite, float panelWidth)
+    {
+        List<EliteHuntCategory> categories = GetEliteTreeCategories(elite);
+        int count = Mathf.Max(1, categories.Count);
+        float gap = 14f;
+        float tabWidth = Mathf.Min(174f, (panelWidth - 74f - (count - 1) * gap) / count);
+        float gridWidth = count * tabWidth + (count - 1) * gap;
+        float startX = -gridWidth * 0.5f + tabWidth * 0.5f;
+        for (int i = 0; i < categories.Count; i++)
+        {
+            EliteHuntCategory category = categories[i];
+            CreateEliteTreeTab(parent, category, GetEliteTreeCategoryLabel(category), GetEliteTreeCategoryTone(category), new Vector2(startX + i * (tabWidth + gap), 150f), new Vector2(tabWidth, 34f));
+        }
+    }
+
+    private void CreateChaosTreeTab(Transform parent, ChaosResearchCategory category, string label, MetaHubTone tone, Vector2 position, Vector2 size)
+    {
+        bool selected = selectedChaosTreeCategory == category;
+        Color32 toneColor = ToneColor(tone);
+        Color32 fill = selected ? new Color32(54, 39, 13, 248) : new Color32(5, 18, 18, 238);
+        Transform tab = CreateCanvasPanel(parent, "ChaosTreeTab_" + category, position, size, fill, selected ? toneColor : new Color32(toneColor.r, toneColor.g, toneColor.b, 150));
+        CreateCanvasLabel(tab, "Label", Shorten(label, 16), Vector2.zero, size, 11.2f, selected ? new Color32(255, 236, 186, 255) : new Color32(224, 214, 194, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        ChaosResearchCategory capturedCategory = category;
+        MakeCanvasClickable(tab, delegate { SelectChaosTreeCategory(capturedCategory); }, fill, toneColor);
+    }
+
+    private void CreatePathTreeTab(Transform parent, PathTechniqueCategory category, string label, MetaHubTone tone, Vector2 position, Vector2 size)
+    {
+        bool selected = selectedPathTreeCategory == category;
+        Color32 toneColor = ToneColor(tone);
+        Color32 fill = selected ? new Color32(54, 39, 13, 248) : new Color32(5, 18, 18, 238);
+        Transform tab = CreateCanvasPanel(parent, "PathTreeTab_" + category, position, size, fill, selected ? toneColor : new Color32(toneColor.r, toneColor.g, toneColor.b, 150));
+        CreateCanvasLabel(tab, "Label", Shorten(label, 16), Vector2.zero, size, 11.2f, selected ? new Color32(255, 236, 186, 255) : new Color32(224, 214, 194, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        PathTechniqueCategory capturedCategory = category;
+        MakeCanvasClickable(tab, delegate { SelectPathTreeCategory(capturedCategory); }, fill, toneColor);
+    }
+
+    private void CreateEliteTreeTab(Transform parent, EliteHuntCategory category, string label, MetaHubTone tone, Vector2 position, Vector2 size)
+    {
+        bool selected = selectedEliteTreeCategory == category;
+        Color32 toneColor = ToneColor(tone);
+        Color32 fill = selected ? new Color32(54, 39, 13, 248) : new Color32(5, 18, 18, 238);
+        Transform tab = CreateCanvasPanel(parent, "EliteTreeTab_" + category, position, size, fill, selected ? toneColor : new Color32(toneColor.r, toneColor.g, toneColor.b, 150));
+        CreateCanvasLabel(tab, "Label", Shorten(label, 16), Vector2.zero, size, 11.2f, selected ? new Color32(255, 236, 186, 255) : new Color32(224, 214, 194, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        EliteHuntCategory capturedCategory = category;
+        MakeCanvasClickable(tab, delegate { SelectEliteTreeCategory(capturedCategory); }, fill, toneColor);
+    }
+
+    private void CreateChaosFocusedSkillTree(Transform parent, ChaosResearchProgressionManager chaos, float panelWidth)
+    {
+        ChaosResearchCategory category = selectedChaosTreeCategory;
+        List<ChaosResearchNodeDefinition> nodes = GetChaosTreeNodes(chaos, category, 15);
+        int total = runtimeUnlockInfoMode ? nodes.Count : chaos != null ? chaos.GetDefinitionCount(category) : nodes.Count;
+        int purchased = runtimeUnlockInfoMode ? nodes.Count : chaos != null ? chaos.GetPurchasedCount(category) : 0;
+        MetaHubTone tone = GetChaosTreeCategoryTone(category);
+        CreateFocusedTreeHeader(parent, "ChaosFocused", GetChaosTreeCategoryTitle(category), purchased, total, panelWidth, tone);
+
+        if (nodes.Count == 0)
+        {
+            string message = runtimeUnlockInfoMode ? "Im aktuellen Run ist hier noch nichts freigeschaltet." : "Keine Forschung in dieser Gruppe.";
+            CreateCanvasLabel(parent, "ChaosNoNodes", message, new Vector2(0f, -10f), new Vector2(560f, 24f), 12f, new Color32(224, 214, 196, 255), TextAlignmentOptions.Center, FontStyles.Normal);
+            return;
+        }
+
+        CreateFocusedNodeGrid(parent, nodes.Count, delegate(int i, Vector2 position, Vector2 size)
+        {
+            ChaosResearchNodeDefinition definition = nodes[i];
+            if (definition == null)
+                return;
+
+            string nodeId = definition.nodeId;
+            string effect = string.IsNullOrEmpty(definition.effectText) ? definition.requirementText : definition.effectText;
+            string capturedNodeId = nodeId;
+            string costLabel = runtimeUnlockInfoMode ? "" : ChaosNodeCost(nodeId);
+            CreateReadableProgressionNode(parent, "ChaosFocusedNode_" + i, definition.displayName, effect, costLabel, ChaosNodeStateLabel(nodeId), GetChaosCategoryArtName(category), ChaosNodeTone(nodeId, tone), position, size, delegate { HandleChaosNodeClick(capturedNodeId); });
+        });
+    }
+
+    private void CreatePathFocusedSkillTree(Transform parent, PathTechniqueProgressionManager path, float panelWidth)
+    {
+        PathTechniqueCategory category = selectedPathTreeCategory;
+        List<PathTechniqueNodeDefinition> nodes = GetPathTreeNodes(path, category, 15);
+        int total = runtimeUnlockInfoMode ? nodes.Count : path != null ? path.GetDefinitionCount(category) : nodes.Count;
+        int purchased = runtimeUnlockInfoMode ? nodes.Count : path != null ? path.GetPurchasedCount(category) : 0;
+        MetaHubTone tone = GetPathTreeCategoryTone(category);
+        CreateFocusedTreeHeader(parent, "PathFocused", GetPathTreeCategoryTitle(category), purchased, total, panelWidth, tone);
+
+        if (nodes.Count == 0)
+        {
+            string message = runtimeUnlockInfoMode ? "Im aktuellen Run ist hier noch nichts freigeschaltet." : "Keine Pfadtechnik in dieser Gruppe.";
+            CreateCanvasLabel(parent, "PathNoNodes", message, new Vector2(0f, -10f), new Vector2(560f, 24f), 12f, new Color32(224, 214, 196, 255), TextAlignmentOptions.Center, FontStyles.Normal);
+            return;
+        }
+
+        CreateFocusedNodeGrid(parent, nodes.Count, delegate(int i, Vector2 position, Vector2 size)
+        {
+            PathTechniqueNodeDefinition definition = nodes[i];
+            if (definition == null)
+                return;
+
+            string nodeId = definition.nodeId;
+            string effect = string.IsNullOrEmpty(definition.effectText) ? definition.requirementText : definition.effectText;
+            string capturedNodeId = nodeId;
+            string costLabel = runtimeUnlockInfoMode ? "" : PathNodeCost(nodeId);
+            CreateReadableProgressionNode(parent, "PathFocusedNode_" + i, definition.displayName, effect, costLabel, PathNodeStateLabel(nodeId), GetPathCategoryArtName(category), PathNodeTone(nodeId, tone), position, size, delegate { HandlePathNodeClick(capturedNodeId); });
+        });
+    }
+
+    private void CreateEliteFocusedSkillTree(Transform parent, EliteHuntProgressionManager elite, float panelWidth)
+    {
+        EliteHuntCategory category = selectedEliteTreeCategory;
+        List<EliteHuntNodeDefinition> nodes = GetEliteTreeNodes(elite, category, 15);
+        int total = runtimeUnlockInfoMode ? nodes.Count : elite != null ? elite.GetDefinitionCount(category) : nodes.Count;
+        int purchased = runtimeUnlockInfoMode ? nodes.Count : elite != null ? elite.GetPurchasedCount(category) : 0;
+        MetaHubTone tone = GetEliteTreeCategoryTone(category);
+        CreateFocusedTreeHeader(parent, "EliteFocused", GetEliteTreeCategoryTitle(category), purchased, total, panelWidth, tone);
+
+        if (nodes.Count == 0)
+        {
+            string message = runtimeUnlockInfoMode ? "Im aktuellen Run ist hier noch nichts freigeschaltet." : "Keine Jagd-Freischaltungen in dieser Gruppe.";
+            CreateCanvasLabel(parent, "EliteNoNodes", message, new Vector2(0f, -10f), new Vector2(560f, 24f), 12f, new Color32(224, 214, 196, 255), TextAlignmentOptions.Center, FontStyles.Normal);
+            return;
+        }
+
+        CreateFocusedNodeGrid(parent, nodes.Count, delegate(int i, Vector2 position, Vector2 size)
+        {
+            EliteHuntNodeDefinition definition = nodes[i];
+            if (definition == null)
+                return;
+
+            string nodeId = definition.nodeId;
+            string effect = string.IsNullOrEmpty(definition.effectText) ? definition.requirementText : definition.effectText;
+            string capturedNodeId = nodeId;
+            string costLabel = runtimeUnlockInfoMode ? "" : EliteNodeCost(nodeId);
+            CreateReadableProgressionNode(parent, "EliteFocusedNode_" + i, definition.displayName, effect, costLabel, EliteNodeStateLabel(nodeId), GetEliteCategoryArtName(category), EliteNodeTone(nodeId, tone), position, size, delegate { HandleEliteNodeClick(capturedNodeId); });
+        });
+    }
+
+    private void CreateFocusedTreeHeader(Transform parent, string prefix, string title, int purchased, int total, float panelWidth, MetaHubTone tone)
+    {
+        Color32 toneColor = ToneColor(tone);
+        float left = -panelWidth * 0.5f + 58f;
+        CreateCanvasLabel(parent, prefix + "Title", title, new Vector2(left + 130f, 110f), new Vector2(360f, 24f), 14f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(parent, prefix + "Count", GetUnlockCountText(purchased, total), new Vector2(panelWidth * 0.5f - 82f, 110f), new Vector2(100f, 20f), 10f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
+        CreateLine(parent, prefix + "Line", new Vector2(0f, 84f), new Vector2(panelWidth - 150f, 2f), new Color32(toneColor.r, toneColor.g, toneColor.b, 130));
+    }
+
+    private string GetUnlockCountText(int unlocked, int total)
+    {
+        if (runtimeUnlockInfoMode)
+            return Mathf.Max(0, unlocked).ToString();
+
+        return unlocked + " / " + Mathf.Max(total, unlocked);
+    }
+
+    private delegate void FocusedNodeRenderer(int index, Vector2 position, Vector2 size);
+
+    private void CreateFocusedNodeGrid(Transform parent, int nodeCount, FocusedNodeRenderer renderer)
+    {
+        int columns = 5;
+        int maxVisible = Mathf.Min(nodeCount, 15);
+        Vector2 cardSize = new Vector2(196f, 82f);
+        float gapX = 24f;
+        float gapY = 16f;
+        float gridWidth = columns * cardSize.x + (columns - 1) * gapX;
+        float startX = -gridWidth * 0.5f + cardSize.x * 0.5f;
+        float startY = 34f;
+
+        for (int i = 0; i < maxVisible; i++)
+        {
+            int column = i % columns;
+            int row = i / columns;
+            Vector2 position = new Vector2(startX + column * (cardSize.x + gapX), startY - row * (cardSize.y + gapY));
+            if (renderer != null)
+                renderer(i, position, cardSize);
+        }
+    }
+
+    private void CreateReadableProgressionNode(Transform parent, string name, string title, string effect, string cost, string state, string artName, MetaHubTone tone, Vector2 position, Vector2 size, UnityEngine.Events.UnityAction onClick)
+    {
+        Color32 toneColor = ToneColor(tone);
+        string stateUpper = string.IsNullOrEmpty(state) ? "" : state.ToUpperInvariant();
+        bool active = stateUpper.Contains("AKTIV");
+        bool owned = active || stateUpper.Contains("FREI") || stateUpper.Contains("ERFORSCHT");
+        Color32 fill = active ? new Color32(8, 35, 18, 235) : owned ? new Color32(7, 26, 22, 235) : new Color32(6, 18, 18, 235);
+        Transform node = CreateCanvasPanel(parent, name, position, size, fill, toneColor);
+        CreateArtIcon(node, "Icon", artName, new Vector2(-size.x * 0.5f + 30f, 18f), new Vector2(34f, 34f));
+        CreateCanvasLabel(node, "Title", Shorten(title, 22), new Vector2(31f, 20f), new Vector2(size.x - 68f, 18f), 8.8f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        TextMeshProUGUI effectLabel = CreateCanvasLabel(node, "Effect", ToTwoLineText(effect, 32, 80), new Vector2(31f, -5f), new Vector2(size.x - 68f, 30f), 6.6f, new Color32(188, 178, 155, 255), TextAlignmentOptions.TopLeft, FontStyles.Normal);
+        effectLabel.textWrappingMode = TextWrappingModes.Normal;
+        effectLabel.enableWordWrapping = true;
+        CreateCanvasLabel(node, "Cost", Shorten(cost, 15), new Vector2(-size.x * 0.25f, -31f), new Vector2(size.x * 0.44f, 14f), 7.1f, new Color32(244, 196, 88, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        CreateCanvasLabel(node, "State", Shorten(state, 12), new Vector2(size.x * 0.25f, -31f), new Vector2(size.x * 0.44f, 14f), 7.1f, toneColor, TextAlignmentOptions.Center, FontStyles.Bold);
+        MakeCanvasClickable(node, onClick, fill, toneColor);
+    }
+
+    private List<ChaosResearchNodeDefinition> GetChaosTreeNodes(ChaosResearchProgressionManager chaos, ChaosResearchCategory category, int maxNodes)
+    {
+        List<ChaosResearchNodeDefinition> nodes = new List<ChaosResearchNodeDefinition>();
+        if (chaos == null)
+            return nodes;
+
+        List<ChaosResearchNodeDefinition> definitions = chaos.GetDefinitions();
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            ChaosResearchNodeDefinition definition = definitions[i];
+            if (definition != null && definition.category == category && (!runtimeUnlockInfoMode || IsChaosNodeVisibleInRuntime(chaos, definition.nodeId)))
+                nodes.Add(definition);
+        }
+
+        return CreateNodeWindow(nodes, maxNodes, delegate(ChaosResearchNodeDefinition definition) { return definition != null ? definition.nodeId : ""; }, delegate(string nodeId) { return chaos.IsNodePurchased(nodeId); });
+    }
+
+    private bool IsChaosNodeVisibleInRuntime(ChaosResearchProgressionManager chaos, string nodeId)
+    {
+        return chaos != null && !string.IsNullOrEmpty(nodeId) && (chaos.IsNodeActive(nodeId) || chaos.IsNodePurchased(nodeId));
+    }
+
+    private List<PathTechniqueNodeDefinition> GetPathTreeNodes(PathTechniqueProgressionManager path, PathTechniqueCategory category, int maxNodes)
+    {
+        List<PathTechniqueNodeDefinition> nodes = new List<PathTechniqueNodeDefinition>();
+        if (path == null)
+            return nodes;
+
+        List<PathTechniqueNodeDefinition> definitions = path.GetDefinitions();
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            PathTechniqueNodeDefinition definition = definitions[i];
+            if (definition != null && definition.category == category && (!runtimeUnlockInfoMode || IsPathNodeVisibleInRuntime(path, definition.nodeId)))
+                nodes.Add(definition);
+        }
+
+        return CreateNodeWindow(nodes, maxNodes, delegate(PathTechniqueNodeDefinition definition) { return definition != null ? definition.nodeId : ""; }, delegate(string nodeId) { return path.IsNodePurchased(nodeId); });
+    }
+
+    private bool IsPathNodeVisibleInRuntime(PathTechniqueProgressionManager path, string nodeId)
+    {
+        return path != null && !string.IsNullOrEmpty(nodeId) && (path.IsNodeActive(nodeId) || path.IsNodePurchased(nodeId));
+    }
+
+    private List<EliteHuntNodeDefinition> GetEliteTreeNodes(EliteHuntProgressionManager elite, EliteHuntCategory category, int maxNodes)
+    {
+        List<EliteHuntNodeDefinition> nodes = new List<EliteHuntNodeDefinition>();
+        if (elite == null)
+            return nodes;
+
+        List<EliteHuntNodeDefinition> definitions = elite.GetDefinitions();
+        for (int i = 0; i < definitions.Count; i++)
+        {
+            EliteHuntNodeDefinition definition = definitions[i];
+            if (definition != null && definition.category == category && (!runtimeUnlockInfoMode || IsEliteNodeVisibleInRuntime(elite, definition.nodeId)))
+                nodes.Add(definition);
+        }
+
+        return CreateNodeWindow(nodes, maxNodes, delegate(EliteHuntNodeDefinition definition) { return definition != null ? definition.nodeId : ""; }, delegate(string nodeId) { return elite.IsNodePurchased(nodeId); });
+    }
+
+    private bool IsEliteNodeVisibleInRuntime(EliteHuntProgressionManager elite, string nodeId)
+    {
+        return elite != null && !string.IsNullOrEmpty(nodeId) && (elite.IsNodeActive(nodeId) || elite.IsNodePurchased(nodeId));
+    }
+
+    private string GetChaosTreeCategoryLabel(ChaosResearchCategory category)
+    {
+        switch (category)
+        {
+            case ChaosResearchCategory.RiskPool: return "RISIKEN";
+            case ChaosResearchCategory.ChaosVariants: return "VARIANTEN";
+            case ChaosResearchCategory.ChaosCounters: return "KONTER";
+            case ChaosResearchCategory.ChaosWaves: return "WAVES";
+            case ChaosResearchCategory.OfferControl: return "ANGEBOTE";
+            case ChaosResearchCategory.Chaos5Endgame: return "ENDGAME";
+            case ChaosResearchCategory.JusticeOrder: return "ORDNUNG";
+            default: return "CHAOS";
+        }
+    }
+
+    private string GetPathTreeCategoryLabel(PathTechniqueCategory category)
+    {
+        switch (category)
+        {
+            case PathTechniqueCategory.EventPool: return "EVENTS";
+            case PathTechniqueCategory.EventQuality: return "QUALITAET";
+            case PathTechniqueCategory.RescuePower: return "RETTUNG";
+            case PathTechniqueCategory.PathTools: return "WERKZEUGE";
+            case PathTechniqueCategory.TileTechnique: return "TILES";
+            case PathTechniqueCategory.RiftArchitecture: return "RISS";
+            default: return "PFAD";
+        }
+    }
+
+    private string GetEliteTreeCategoryLabel(EliteHuntCategory category)
+    {
+        switch (category)
+        {
+            case EliteHuntCategory.Contracts: return "AUFTRAEGE";
+            case EliteHuntCategory.Affixes: return "AFFIXE";
+            case EliteHuntCategory.Rewards: return "BELOHNUNG";
+            case EliteHuntCategory.Frequency: return "JAGDMODUS";
+            case EliteHuntCategory.Counters: return "KONTER";
+            case EliteHuntCategory.RiftElite: return "RISS-ELITE";
+            default: return "JAGD";
+        }
+    }
+
+    private string GetChaosTreeCategoryTitle(ChaosResearchCategory category)
+    {
+        return GetChaosTreeCategoryLabel(category) + "-FORSCHUNG";
+    }
+
+    private string GetPathTreeCategoryTitle(PathTechniqueCategory category)
+    {
+        return GetPathTreeCategoryLabel(category) + "-TECHNIK";
+    }
+
+    private string GetEliteTreeCategoryTitle(EliteHuntCategory category)
+    {
+        return GetEliteTreeCategoryLabel(category);
+    }
+
+    private MetaHubTone GetChaosTreeCategoryTone(ChaosResearchCategory category)
+    {
+        switch (category)
+        {
+            case ChaosResearchCategory.RiskPool:
+            case ChaosResearchCategory.ChaosVariants:
+            case ChaosResearchCategory.ChaosWaves:
+            case ChaosResearchCategory.Chaos5Endgame:
+                return MetaHubTone.Red;
+            case ChaosResearchCategory.ChaosCounters:
+                return MetaHubTone.Cyan;
+            case ChaosResearchCategory.OfferControl:
+            case ChaosResearchCategory.JusticeOrder:
+                return MetaHubTone.Gold;
+            default:
+                return MetaHubTone.Purple;
+        }
+    }
+
+    private MetaHubTone GetPathTreeCategoryTone(PathTechniqueCategory category)
+    {
+        switch (category)
+        {
+            case PathTechniqueCategory.EventQuality:
+            case PathTechniqueCategory.RiftArchitecture:
+                return MetaHubTone.Purple;
+            case PathTechniqueCategory.RescuePower:
+                return MetaHubTone.Gold;
+            case PathTechniqueCategory.TileTechnique:
+                return MetaHubTone.Blue;
+            default:
+                return MetaHubTone.Cyan;
+        }
+    }
+
+    private MetaHubTone GetEliteTreeCategoryTone(EliteHuntCategory category)
+    {
+        switch (category)
+        {
+            case EliteHuntCategory.Affixes:
+                return MetaHubTone.Purple;
+            case EliteHuntCategory.Rewards:
+                return MetaHubTone.Gold;
+            case EliteHuntCategory.Counters:
+                return MetaHubTone.Cyan;
+            default:
+                return MetaHubTone.Red;
+        }
     }
 
     private void CreateGeneralSkillBranch(Transform parent, string name, string title, GeneralMetaCategory[] categories, float y, MetaHubTone tone, int maxNodes, params string[] preferredNodeIds)
@@ -1735,7 +3679,8 @@ public class MetaHubController : MonoBehaviour
             string effect = string.IsNullOrEmpty(definition.effectText) ? definition.requirementText : definition.effectText;
             Vector2 position = new Vector2(nodeAreaOffsetX + GetSkillNodeX(i, nodes.Count, nodeAreaWidth), y - 34f);
             string capturedNodeId = nodeId;
-            CreateSkillTreeNode(parent, name + "_Node_" + i, GeneralNodeTitle(nodeId, definition.displayName), effect, GeneralNodeCost(nodeId) + " KW", GeneralNodeStateLabel(nodeId), artName, nodeTone, position, new Vector2(126f, 72f), delegate { HandleGeneralNodeClick(capturedNodeId); });
+            string costLabel = runtimeUnlockInfoMode ? "" : GeneralNodeCost(nodeId) + " KW";
+            CreateSkillTreeNode(parent, name + "_Node_" + i, GeneralNodeTitle(nodeId, definition.displayName), effect, costLabel, GeneralNodeStateLabel(nodeId), artName, nodeTone, position, new Vector2(126f, 72f), delegate { HandleGeneralNodeClick(capturedNodeId); });
         }
     }
 
@@ -1863,7 +3808,31 @@ public class MetaHubController : MonoBehaviour
                 ordered.Add(definition);
         }
 
+        if (runtimeUnlockInfoMode)
+            ordered = FilterUnlockedGeneralNodes(ordered, general);
+
         return CreateNodeWindow(ordered, maxNodes, delegate(GeneralMetaNodeDefinition definition) { return definition != null ? definition.nodeId : ""; }, delegate(string nodeId) { return general.IsNodePurchased(nodeId); });
+    }
+
+    private List<GeneralMetaNodeDefinition> FilterUnlockedGeneralNodes(List<GeneralMetaNodeDefinition> nodes, GeneralMetaProgressionManager general)
+    {
+        List<GeneralMetaNodeDefinition> result = new List<GeneralMetaNodeDefinition>();
+        if (nodes == null || general == null)
+            return result;
+
+        for (int i = 0; i < nodes.Count; i++)
+        {
+            GeneralMetaNodeDefinition definition = nodes[i];
+            if (definition != null && IsGeneralNodeVisibleInRuntime(general, definition.nodeId))
+                result.Add(definition);
+        }
+
+        return result;
+    }
+
+    private bool IsGeneralNodeVisibleInRuntime(GeneralMetaProgressionManager general, string nodeId)
+    {
+        return general != null && !string.IsNullOrEmpty(nodeId) && (general.IsNodeActive(nodeId) || general.IsNodePurchased(nodeId));
     }
 
     private List<T> CreateNodeWindow<T>(List<T> orderedNodes, int maxNodes, Func<T, string> getNodeId, Func<string, bool> isPurchased)
@@ -2240,6 +4209,24 @@ public class MetaHubController : MonoBehaviour
         MakeCanvasClickable(row, onClick, fill, toneColor);
     }
 
+    private void CreateUnlockCompactRow(Transform parent, string name, string artName, string title, string description, string value, MetaHubTone tone, float y, float width, UnityEngine.Events.UnityAction onClick = null)
+    {
+        Color32 toneColor = ToneColor(tone);
+        Color32 fill = new Color32(7, 18, 20, 220);
+        Transform row = CreateCanvasPanel(parent, name, new Vector2(0f, y), new Vector2(width, 38f), fill, new Color32(toneColor.r, toneColor.g, toneColor.b, 150));
+        CreateArtIcon(row, "Icon", artName, new Vector2(-width * 0.5f + 24f, 0f), new Vector2(26f, 26f));
+        float valueWidth = string.IsNullOrEmpty(value) ? 0f : Mathf.Min(70f, width * 0.28f);
+        float textLeft = 50f;
+        float textRightPadding = string.IsNullOrEmpty(value) ? 12f : valueWidth + 16f;
+        float textWidth = Mathf.Max(54f, width - textLeft - textRightPadding);
+        float textX = -width * 0.5f + textLeft + textWidth * 0.5f;
+        CreateCanvasLabel(row, "Title", Shorten(title, Mathf.RoundToInt(textWidth / 7f)), new Vector2(textX, 6f), new Vector2(textWidth, 16f), 8.4f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(row, "Description", Shorten(description, Mathf.RoundToInt(textWidth / 6f)), new Vector2(textX, -8f), new Vector2(textWidth, 14f), 6.8f, new Color32(188, 178, 155, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        if (!string.IsNullOrEmpty(value))
+            CreateCanvasLabel(row, "Value", Shorten(value, Mathf.RoundToInt(valueWidth / 6f)), new Vector2(width * 0.5f - valueWidth * 0.5f - 10f, 0f), new Vector2(valueWidth, 18f), 8.2f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
+        MakeCanvasClickable(row, onClick, fill, toneColor);
+    }
+
     private void MakeCanvasClickable(Transform target, UnityEngine.Events.UnityAction onClick, Color baseColor, Color highlightColor)
     {
         if (target == null || onClick == null)
@@ -2330,8 +4317,11 @@ public class MetaHubController : MonoBehaviour
 
     private void CreateReferenceMetricCard(Transform parent, MetaHubMetricCardData data, int index)
     {
-        float x = -485f + index * 240f;
-        Transform card = CreateOrnatePanel(parent, "Metric_" + data.id, new Vector2(x, 214f), new Vector2(228f, 150f), new Color32(7, 18, 20, 240), ToneColor(data.tone));
+        const float cardWidth = 228f;
+        float parentWidth = GetPanelWidth(parent, 1216f);
+        float gap = Mathf.Max(12f, (parentWidth - 20f - cardWidth * 5f) / 4f);
+        float x = -parentWidth * 0.5f + 10f + cardWidth * 0.5f + index * (cardWidth + gap);
+        Transform card = CreateOrnatePanel(parent, "Metric_" + data.id, new Vector2(x, 214f), new Vector2(cardWidth, 150f), new Color32(7, 18, 20, 240), ToneColor(data.tone));
         CreateCanvasLabel(card, "Title", data.title, new Vector2(0f, 54f), new Vector2(200f, 22f), 15f, new Color32(246, 236, 211, 255), TextAlignmentOptions.Center, FontStyles.Bold);
         CreateArtIcon(card, "Icon", GetMetricArtName(data.id), new Vector2(-55f, 10f), new Vector2(78f, 78f));
         CreateCanvasLabel(card, "Value", data.valueText, new Vector2(30f, 10f), new Vector2(80f, 34f), 25f, new Color32(245, 195, 92, 255), TextAlignmentOptions.Left, FontStyles.Bold);
@@ -2342,9 +4332,23 @@ public class MetaHubController : MonoBehaviour
             CreateCanvasLabel(card, "ProgressText", data.current + " / " + data.maximum, new Vector2(30f, -35f), new Vector2(100f, 18f), 11f, new Color32(236, 211, 161, 255), TextAlignmentOptions.Center, FontStyles.Normal);
     }
 
+    private float GetPanelWidth(Transform panel, float fallback)
+    {
+        RectTransform rect = panel as RectTransform;
+        if (rect != null && rect.sizeDelta.x > 0.01f)
+            return rect.sizeDelta.x;
+
+        return fallback;
+    }
+
     private void CreateReferenceProgressPanel(Transform parent, MetaHubData data)
     {
-        Transform panel = CreateOrnatePanel(parent, "ProgressPanel", new Vector2(-390f, -10f), new Vector2(382f, 296f), new Color32(6, 18, 20, 238), new Color32(122, 94, 55, 255));
+        CreateReferenceProgressPanel(parent, data, new Vector2(-390f, -10f), new Vector2(382f, 296f));
+    }
+
+    private void CreateReferenceProgressPanel(Transform parent, MetaHubData data, Vector2 position, Vector2 size)
+    {
+        Transform panel = CreateOrnatePanel(parent, "ProgressPanel", position, size, new Color32(6, 18, 20, 238), new Color32(122, 94, 55, 255));
         CreateCanvasLabel(panel, "Title", "FORTSCHRITT", new Vector2(-92f, 118f), new Vector2(170f, 30f), 20f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
         CreateDonutImage(panel, "AccountRing", new Vector2(-85f, 5f), 168f, Percent(data.account.currentXP, data.account.requiredXP), new Color32(55, 209, 235, 255), new Color32(55, 46, 29, 210));
         CreateCanvasLabel(panel, "Level", data.account.level.ToString(), new Vector2(-85f, 5f), new Vector2(96f, 46f), 38f, new Color32(255, 255, 255, 255), TextAlignmentOptions.Center, FontStyles.Bold);
@@ -2461,16 +4465,79 @@ public class MetaHubController : MonoBehaviour
 
     private void CreateReferenceRunPanel(Transform parent, List<MetaHubRunStatData> stats)
     {
-        Transform panel = CreateOrnatePanel(parent, "RunPanel", new Vector2(453f, -270f), new Vector2(300f, 192f), new Color32(7, 19, 23, 238), new Color32(90, 100, 110, 255));
-        CreateCanvasLabel(panel, "Title", "LETZTER RUN", new Vector2(-36f, 64f), new Vector2(210f, 30f), 20f, new Color32(246, 236, 211, 255), TextAlignmentOptions.Left, FontStyles.Bold);
-        CreateLine(panel, "RunDividerTop", new Vector2(25f, 38f), new Vector2(260f, 1f), new Color32(45, 54, 50, 210));
-        for (int i = 0; i < stats.Count && i < 4; i++)
+        CreateReferenceRunPanel(parent, stats, new Vector2(453f, -270f), new Vector2(300f, 192f));
+    }
+
+    private void CreateReferenceRunPanel(Transform parent, List<MetaHubRunStatData> stats, Vector2 position, Vector2 size)
+    {
+        Transform panel = CreateOrnatePanel(parent, "RunPanel", position, size, new Color32(7, 19, 23, 238), new Color32(90, 100, 110, 255));
+        CreateCanvasLabel(panel, "Title", "LETZTER RUN", new Vector2(-size.x * 0.5f + 118f, size.y * 0.5f - 32f), new Vector2(210f, 30f), 20f, new Color32(246, 236, 211, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateLine(panel, "RunDividerTop", new Vector2(0f, size.y * 0.5f - 58f), new Vector2(size.x - 70f, 1f), new Color32(45, 54, 50, 210));
+
+        int statCount = stats != null ? Mathf.Min(stats.Count, 4) : 0;
+        if (size.x > 560f)
         {
-            float y = 15f - i * 26f;
+            float availableWidth = size.x - 120f;
+            float slotWidth = availableWidth / Mathf.Max(1, statCount);
+            float cardWidth = Mathf.Min(250f, slotWidth - 18f);
+            float startX = -availableWidth * 0.5f + slotWidth * 0.5f;
+            for (int i = 0; i < statCount; i++)
+            {
+                float x = startX + i * slotWidth;
+                CreateRunStatCard(panel, "RunStatCard_" + i, stats[i], new Vector2(x, -18f), new Vector2(cardWidth, 74f));
+            }
+            return;
+        }
+
+        for (int i = 0; i < statCount; i++)
+        {
+            float y = 18f - i * 31f;
             CreateCanvasLabel(panel, "RunLabel_" + i, stats[i].label, new Vector2(-48f, y), new Vector2(150f, 20f), 12f, new Color32(190, 198, 190, 255), TextAlignmentOptions.Left, FontStyles.Normal);
             CreateCanvasLabel(panel, "RunValue_" + i, stats[i].valueText, new Vector2(110f, y), new Vector2(60f, 20f), 12f, new Color32(244, 196, 88, 255), TextAlignmentOptions.Right, FontStyles.Bold);
         }
-        CreateCanvasButton(panel, "RunStatsButton", "RUN-STATISTIKEN", new Vector2(0f, -74f), new Vector2(245f, 36f), delegate { Debug.Log("MetaHub: Run statistics requested."); });
+    }
+
+    private void CreateRunStatCard(Transform parent, string name, MetaHubRunStatData stat, Vector2 position, Vector2 size)
+    {
+        if (stat == null)
+            return;
+
+        MetaHubTone tone = GetRunStatTone(stat.id);
+        Color32 toneColor = ToneColor(tone);
+        Transform card = CreateCanvasPanel(parent, name, position, size, new Color32(5, 17, 19, 230), new Color32(toneColor.r, toneColor.g, toneColor.b, 150));
+        CreateArtIcon(card, "Icon", GetRunStatArtName(stat.id), new Vector2(-size.x * 0.5f + 34f, 0f), new Vector2(38f, 38f));
+        float valueWidth = 62f;
+        float textLeft = 66f;
+        float textRight = valueWidth + 28f;
+        float textWidth = Mathf.Max(86f, size.x - textLeft - textRight);
+        float textX = -size.x * 0.5f + textLeft + textWidth * 0.5f;
+        CreateCanvasLabel(card, "Label", stat.label, new Vector2(textX, 12f), new Vector2(textWidth, 20f), 11f, new Color32(220, 211, 195, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(card, "Caption", "Letzter Run", new Vector2(textX, -10f), new Vector2(textWidth, 18f), 8f, new Color32(166, 174, 168, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        CreateCanvasLabel(card, "Value", stat.valueText, new Vector2(size.x * 0.5f - valueWidth * 0.5f - 12f, 0f), new Vector2(valueWidth, 22f), 11f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
+    }
+
+    private string GetRunStatArtName(string id)
+    {
+        switch (id)
+        {
+            case "chaos": return "icon_chaos";
+            case "blueprints": return "icon_blueprint";
+            case "elite": return "icon_skull";
+            case "kernwissen":
+            default: return "icon_gold";
+        }
+    }
+
+    private MetaHubTone GetRunStatTone(string id)
+    {
+        switch (id)
+        {
+            case "chaos": return MetaHubTone.Purple;
+            case "blueprints": return MetaHubTone.Cyan;
+            case "elite": return MetaHubTone.Red;
+            case "kernwissen":
+            default: return MetaHubTone.Gold;
+        }
     }
 
     private Transform CreateOrnatePanel(Transform parent, string name, Vector2 anchoredPosition, Vector2 size, Color32 fill, Color32 border)
@@ -2731,7 +4798,7 @@ public class MetaHubController : MonoBehaviour
             case "gold": return "icon_gold";
             case "xp": return "icon_xp";
             case "chaos": return "icon_chaos";
-            case "special": return mainMenuUnlockMode ? "icon_skull" : "icon_keystone";
+            case "special": return IsUnlockLayoutMode() ? "icon_skull" : "icon_keystone";
             default: return "icon_keystone";
         }
     }

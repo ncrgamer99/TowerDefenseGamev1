@@ -57,6 +57,7 @@ public class GeneralMetaProgressionManager : MonoBehaviour
     private const string PlayerPrefsPrefix = "TD_GeneralMeta_";
     private const string StartTowerSetMigrationKey = PlayerPrefsPrefix + "StartTowerSetV2";
     private const string StartTileSetMigrationKey = PlayerPrefsPrefix + "StartTileSetV2";
+    private const int LoadoutProfileCount = 3;
 
     public static GeneralMetaProgressionManager Instance { get; private set; }
 
@@ -103,6 +104,7 @@ public class GeneralMetaProgressionManager : MonoBehaviour
 
     private readonly Dictionary<string, GeneralMetaNodeDefinition> definitionById = new Dictionary<string, GeneralMetaNodeDefinition>();
     private readonly Dictionary<string, GeneralMetaNodeState> stateById = new Dictionary<string, GeneralMetaNodeState>();
+    private int activeLoadoutIndex = 0;
     private int pendingRunKernwissen = 0;
     private int highestWaveReachedThisRun = 0;
     private int highestChaosLevelReachedThisRun = 0;
@@ -428,6 +430,74 @@ public class GeneralMetaProgressionManager : MonoBehaviour
     public int GetAvailableLoadoutSlots()
     {
         return Mathf.Max(0, GetLoadoutSlotCapacity() - GetUsedLoadoutSlots());
+    }
+
+    public int GetLoadoutProfileCount()
+    {
+        return LoadoutProfileCount;
+    }
+
+    public int GetActiveLoadoutIndex()
+    {
+        return Mathf.Clamp(activeLoadoutIndex, 0, LoadoutProfileCount - 1);
+    }
+
+    public string GetLoadoutDisplayName(int loadoutIndex)
+    {
+        int safeIndex = Mathf.Clamp(loadoutIndex, 0, LoadoutProfileCount - 1);
+        return "Loadout " + (safeIndex + 1);
+    }
+
+    public bool SelectLoadout(int loadoutIndex)
+    {
+        int safeIndex = Mathf.Clamp(loadoutIndex, 0, LoadoutProfileCount - 1);
+        SaveActiveLoadoutState();
+
+        activeLoadoutIndex = safeIndex;
+        PlayerPrefs.SetInt(PlayerPrefsPrefix + "ActiveLoadout", activeLoadoutIndex);
+        LoadActiveLoadoutState();
+        SaveProfile();
+        return true;
+    }
+
+    public bool IsNodeActiveInLoadout(string nodeId, int loadoutIndex)
+    {
+        GeneralMetaNodeDefinition definition = GetDefinition(nodeId);
+        GeneralMetaNodeState state = GetNodeState(nodeId);
+        if (definition == null || state == null || !state.purchased)
+            return false;
+
+        if (!definition.RequiresLoadoutSlot())
+            return true;
+
+        int safeIndex = Mathf.Clamp(loadoutIndex, 0, LoadoutProfileCount - 1);
+        string key = GetLoadoutActiveKey(safeIndex, nodeId);
+        if (PlayerPrefs.HasKey(key))
+            return PlayerPrefs.GetInt(key, 0) == 1;
+
+        return safeIndex == activeLoadoutIndex && state.active;
+    }
+
+    public int GetUsedLoadoutSlots(int loadoutIndex)
+    {
+        EnsureStates();
+        int used = 0;
+
+        foreach (GeneralMetaNodeDefinition definition in definitions)
+        {
+            if (definition == null || !definition.RequiresLoadoutSlot())
+                continue;
+
+            if (IsNodeActiveInLoadout(definition.nodeId, loadoutIndex))
+                used += Mathf.Max(0, definition.slotCost);
+        }
+
+        return used;
+    }
+
+    public int GetAvailableLoadoutSlots(int loadoutIndex)
+    {
+        return Mathf.Max(0, GetLoadoutSlotCapacity() - GetUsedLoadoutSlots(loadoutIndex));
     }
 
     public int GetActiveStartGoldBonus()
@@ -1315,6 +1385,8 @@ public class GeneralMetaProgressionManager : MonoBehaviour
         ApplyStartTowerSetMigration();
         ApplyStartTileSetMigration();
         accountLevel = CalculateAccountLevel(accountXP);
+        activeLoadoutIndex = Mathf.Clamp(PlayerPrefs.GetInt(PlayerPrefsPrefix + "ActiveLoadout", activeLoadoutIndex), 0, LoadoutProfileCount - 1);
+        LoadActiveLoadoutState();
     }
 
     private void ApplyStartTowerSetMigration()
@@ -1378,9 +1450,11 @@ public class GeneralMetaProgressionManager : MonoBehaviour
     private void SaveProfile()
     {
         EnsureStates();
+        SaveActiveLoadoutState();
 
         PlayerPrefs.SetInt(PlayerPrefsPrefix + "AccountXP", accountXP);
         PlayerPrefs.SetInt(PlayerPrefsPrefix + "Kernwissen", kernwissen);
+        PlayerPrefs.SetInt(PlayerPrefsPrefix + "ActiveLoadout", activeLoadoutIndex);
         PlayerPrefs.SetInt(PlayerPrefsPrefix + "HighestWaveEver", highestWaveEver);
         PlayerPrefs.SetInt(PlayerPrefsPrefix + "HighestChaosLevelEver", highestChaosLevelEver);
         PlayerPrefs.SetInt(PlayerPrefsPrefix + "TotalGoldEarnedEver", totalGoldEarnedEver);
@@ -1404,5 +1478,52 @@ public class GeneralMetaProgressionManager : MonoBehaviour
         }
 
         PlayerPrefs.Save();
+    }
+
+    private string GetLoadoutActiveKey(int loadoutIndex, string nodeId)
+    {
+        return PlayerPrefsPrefix + "Loadout." + Mathf.Clamp(loadoutIndex, 0, LoadoutProfileCount - 1) + "." + nodeId + ".Active";
+    }
+
+    private void SaveActiveLoadoutState()
+    {
+        EnsureStates();
+        int safeIndex = Mathf.Clamp(activeLoadoutIndex, 0, LoadoutProfileCount - 1);
+
+        foreach (GeneralMetaNodeDefinition definition in definitions)
+        {
+            if (definition == null || string.IsNullOrEmpty(definition.nodeId) || !definition.RequiresLoadoutSlot())
+                continue;
+
+            GeneralMetaNodeState state = GetNodeState(definition.nodeId);
+            bool active = state != null && state.purchased && state.active;
+            PlayerPrefs.SetInt(GetLoadoutActiveKey(safeIndex, definition.nodeId), active ? 1 : 0);
+        }
+    }
+
+    private void LoadActiveLoadoutState()
+    {
+        EnsureStates();
+        int safeIndex = Mathf.Clamp(activeLoadoutIndex, 0, LoadoutProfileCount - 1);
+
+        foreach (GeneralMetaNodeDefinition definition in definitions)
+        {
+            if (definition == null || string.IsNullOrEmpty(definition.nodeId))
+                continue;
+
+            GeneralMetaNodeState state = GetNodeState(definition.nodeId);
+            if (state == null)
+                continue;
+
+            if (!definition.RequiresLoadoutSlot())
+            {
+                state.active = state.purchased;
+                continue;
+            }
+
+            string key = GetLoadoutActiveKey(safeIndex, definition.nodeId);
+            bool active = PlayerPrefs.HasKey(key) ? PlayerPrefs.GetInt(key, 0) == 1 : state.active;
+            state.active = state.purchased && active;
+        }
     }
 }
