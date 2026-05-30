@@ -679,9 +679,6 @@ public class Enemy : MonoBehaviour
             return false;
 
         Vector3 entryPosition = pathPoints[currentPathIndex - 1];
-        if (Vector3.Distance(transform.position, entryPosition) > 0.03f)
-            return false;
-
         return TryUsePathTeleporter(entryPosition);
     }
 
@@ -697,18 +694,30 @@ public class Enemy : MonoBehaviour
         if (!tileManager.TryGetTeleporterExitWorld(entryPosition, out Vector3 exitPosition))
             return false;
 
-        Vector3 expectedExitPosition = pathPoints[currentPathIndex];
-        if (Vector3.Distance(expectedExitPosition, exitPosition) > 0.05f)
-            return false;
-
+        int exitIndex = FindPathPointIndex(exitPosition, currentPathIndex);
         transform.position = exitPosition;
-        currentPathIndex++;
+        currentPathIndex = exitIndex >= 0 ? Mathf.Min(exitIndex + 1, pathPoints.Count) : pathPoints.Count;
         SpecialPathTileEffect.TryApplyAtWorldPosition(exitPosition, this);
 
         if (currentPathIndex < pathPoints.Count)
             UpdateMovementFacing(pathPoints[currentPathIndex], true);
 
         return true;
+    }
+
+    private int FindPathPointIndex(Vector3 worldPosition, int startIndex)
+    {
+        if (pathPoints == null || pathPoints.Count == 0)
+            return -1;
+
+        int safeStartIndex = Mathf.Clamp(startIndex, 0, pathPoints.Count - 1);
+        for (int i = safeStartIndex; i < pathPoints.Count; i++)
+        {
+            if (Vector3.Distance(pathPoints[i], worldPosition) <= 0.05f)
+                return i;
+        }
+
+        return -1;
     }
 
     private TileManager ResolveTileManager()

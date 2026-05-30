@@ -57,6 +57,7 @@ public class MetaHubController : MonoBehaviour
     private bool showGeneralLoadoutPicker = false;
     private bool showGeneralLoadoutEditor = false;
     private bool showAllGoalsOverlay = false;
+    private bool showAllRisksOverlay = false;
     private float liveRefreshTimer = 0f;
     private readonly Dictionary<string, Sprite> artSprites = new Dictionary<string, Sprite>();
     private readonly Dictionary<string, Sprite> panelSprites = new Dictionary<string, Sprite>();
@@ -75,6 +76,15 @@ public class MetaHubController : MonoBehaviour
         public int nextCost;
         public bool canPurchase;
         public string stateText;
+        public MetaHubTone tone;
+    }
+
+    private struct RuntimeSummaryItem
+    {
+        public string artName;
+        public string label;
+        public string caption;
+        public string value;
         public MetaHubTone tone;
     }
 
@@ -248,6 +258,7 @@ public class MetaHubController : MonoBehaviour
             AllGoalsRequested.Invoke();
 
         showAllGoalsOverlay = true;
+        showAllRisksOverlay = false;
         Debug.Log("MetaHub: All goals button requested.");
 
         if (useLiveDataWhenAvailable)
@@ -259,6 +270,27 @@ public class MetaHubController : MonoBehaviour
     private void CloseAllGoalsOverlay()
     {
         showAllGoalsOverlay = false;
+
+        if (useLiveDataWhenAvailable)
+            RefreshData();
+        else
+            SetData(currentData);
+    }
+
+    private void RequestAllRisks()
+    {
+        showAllRisksOverlay = true;
+        showAllGoalsOverlay = false;
+
+        if (useLiveDataWhenAvailable)
+            RefreshData();
+        else
+            SetData(currentData);
+    }
+
+    private void CloseAllRisksOverlay()
+    {
+        showAllRisksOverlay = false;
 
         if (useLiveDataWhenAvailable)
             RefreshData();
@@ -374,6 +406,7 @@ public class MetaHubController : MonoBehaviour
     {
         selectedNavigationId = string.IsNullOrEmpty(navId) ? "overview" : navId;
         showAllGoalsOverlay = false;
+        showAllRisksOverlay = false;
         showGeneralLoadoutPicker = false;
         showGeneralLoadoutEditor = false;
 
@@ -393,10 +426,11 @@ public class MetaHubController : MonoBehaviour
         if (!IsUnlockLayoutMode() || data == null)
             return;
 
-        data.screenSubtitle = "FREISCHALTUNGEN";
+        data.screenSubtitle = runtimeUnlockInfoMode ? "RUN-HUB" : "FREISCHALTUNGEN";
         if (runtimeUnlockInfoMode)
         {
-            data.footerTip = "Tipp: F1 zeigt deinen aktuellen Run. Permanente Freischaltungen aenderst du im Hauptmenue.";
+            data.footerTip = "Tipp: F1 zeigt deinen aktuellen Run. Meta-Kaeufe bleiben im Hauptmenue.";
+            ApplyRuntimeNavigationLabels(data);
             ApplyRuntimeUnlockRunValues(data);
         }
         else
@@ -418,21 +452,29 @@ public class MetaHubController : MonoBehaviour
 
     private void ApplyRuntimeUnlockRunValues(MetaHubData data)
     {
-        if (data == null || gameManager == null)
+        if (data == null)
             return;
 
-        RunStatistics runStats = gameManager.GetRunStatistics();
-        ChaosJusticeManager chaosJustice = gameManager.GetChaosJusticeManager();
-        int currentWave = Mathf.Max(0, gameManager.waveNumber);
-        int currentGold = Mathf.Max(0, gameManager.gold);
-        int currentLives = Mathf.Max(0, gameManager.lives);
+        RunStatistics runStats = gameManager != null ? gameManager.GetRunStatistics() : null;
+        ChaosJusticeManager chaosJustice = gameManager != null ? gameManager.GetChaosJusticeManager() : null;
+        int currentWave = GetRuntimeWaveNumber();
+        int currentGold = GetRuntimeGold();
+        int currentLives = GetRuntimeLives();
         int chaosLevel = chaosJustice != null ? Mathf.Max(0, chaosJustice.GetChaosLevel()) : 0;
         int eliteKills = runStats != null ? Mathf.Max(0, runStats.eliteKills) : 0;
         int towerXp = runStats != null ? Mathf.Max(0, runStats.totalTowerXPGranted) : 0;
         int towersBuilt = runStats != null ? Mathf.Max(0, runStats.towersBuilt) : 0;
-        int metaPrepared = runStats != null ? Mathf.Max(0, runStats.metaPointsPrepared) : 0;
+        int runtimeRiskCount = GetRuntimeRiskCount();
+        WaveHistory history = gameManager != null ? gameManager.GetWaveHistory() : null;
+        int completedWaves = history != null ? Mathf.Max(0, history.GetCompletedWaveCount()) : 0;
+        int totalKills = history != null ? Mathf.Max(0, history.GetTotalKills()) : 0;
+        int totalLeaks = history != null ? Mathf.Max(0, history.GetTotalLeaks()) : 0;
+        int baseDamage = history != null ? Mathf.Max(0, history.GetTotalBaseDamageTaken()) : 0;
+        bool inWavePhase = gameManager != null && gameManager.currentPhase == GamePhase.Wave;
+        bool inBuildPhase = gameManager != null && gameManager.currentPhase == GamePhase.Build;
+        bool isBaseBlocked = gameManager != null && gameManager.isBaseBlocked;
 
-        data.account.level = Mathf.Max(1, currentWave + 1);
+        data.account.level = Mathf.Max(0, currentWave);
         data.account.currentXP = towerXp;
         data.account.requiredXP = Mathf.Max(1, towerXp + Mathf.Max(25, (currentWave + 1) * 25));
 
@@ -441,32 +483,46 @@ public class MetaHubController : MonoBehaviour
         SetDataResource(data, "chaos", "Chaos", "C", chaosLevel, MetaHubTone.Purple);
         SetDataResource(data, "special", "Elite", "E", eliteKills, MetaHubTone.Red);
 
-        int runtimeRiskCount = GetRuntimeRiskCount();
-        SetDataMetric(data, "tower_mastery", towersBuilt.ToString(), "Tower gebaut", towersBuilt, Mathf.Max(1, towersBuilt), false);
-        SetDataMetric(data, "chaos_wissen", chaosLevel.ToString(), "Chaos-Level", chaosLevel, Mathf.Max(1, chaosLevel), false);
-        SetDataMetric(data, "risikokerne", runtimeRiskCount.ToString(), "Aktive Risiken", runtimeRiskCount, Mathf.Max(1, runtimeRiskCount), false);
-        SetDataMetric(data, "bauplaene", currentWave.ToString(), "Aktuelle Welle", currentWave, Mathf.Max(1, currentWave + 1), false);
-        SetDataMetric(data, "elite_jagd", eliteKills.ToString(), "Elite-Kills", eliteKills, Mathf.Max(1, eliteKills), false);
+        SetDataMetric(data, "tower_mastery", "TOWER", "T", towersBuilt.ToString(), "Gebaut", towersBuilt, Mathf.Max(1, towersBuilt), false);
+        SetDataMetric(data, "chaos_wissen", "PHASE", "P", GetRuntimePhaseShortLabel(), "Aktuell", inWavePhase ? 1 : 0, 1, false);
+        SetDataMetric(data, "risikokerne", "RISIKEN", "R", runtimeRiskCount.ToString(), "Aktiv", runtimeRiskCount, Mathf.Max(1, runtimeRiskCount), false);
+        SetDataMetric(data, "bauplaene", "WELLE", "W", currentWave.ToString(), "Aktuell", currentWave, Mathf.Max(1, currentWave + 1), false);
+        SetDataMetric(data, "elite_jagd", "LEAKS", "L", totalLeaks.ToString(), "Im Run", totalLeaks, Mathf.Max(1, totalLeaks), false);
 
-        SetDataSideStat(data, "free_points", metaPrepared.ToString());
-        SetDataSideStat(data, "chaos_level", chaosLevel.ToString());
-        SetDataSideStat(data, "gold_justice", currentGold.ToString());
-        SetDataSideStat(data, "xp_justice", currentLives.ToString());
+        SetDataSideStat(data, "free_points", "Phase", GetRuntimePhaseShortLabel(), "P", MetaHubTone.Gold);
+        SetDataSideStat(data, "chaos_level", "Chaos", chaosLevel.ToString(), "C", MetaHubTone.Purple);
+        SetDataSideStat(data, "gold_justice", "Risiko", runtimeRiskCount.ToString(), "R", MetaHubTone.Red);
+        SetDataSideStat(data, "xp_justice", "Leaks", totalLeaks.ToString(), "L", MetaHubTone.Cyan);
 
         data.nextGoals.Clear();
-        data.nextGoals.Add(CreateDataGoal("run_wave", "Naechste Welle erreichen", "W", currentWave, currentWave + 1, MetaHubTone.Gold));
-        data.nextGoals.Add(CreateDataGoal("run_gold", "Gold fuer den Run sichern", "G", currentGold, Mathf.Max(currentGold + 1, currentGold + 50), MetaHubTone.Gold));
-        data.nextGoals.Add(CreateDataGoal("run_towers", "Tower im Run ausbauen", "T", towersBuilt, Mathf.Max(1, towersBuilt + 1), MetaHubTone.Purple));
-        data.nextGoals.Add(CreateDataGoal("run_elite", "Elite-Ziele im Run pruefen", "E", eliteKills, Mathf.Max(1, eliteKills + 1), MetaHubTone.Red));
+        data.nextGoals.Add(CreateDataGoal("run_wave", "Naechste Welle starten", "W", currentWave, Mathf.Max(1, currentWave + 1), MetaHubTone.Gold));
+        data.nextGoals.Add(CreateDataGoal("run_phase", "Bauphase sauber abschliessen", "P", inBuildPhase ? 1 : 0, 1, MetaHubTone.Cyan));
+        data.nextGoals.Add(CreateDataGoal("run_block", "Verbau-Status pruefen", "V", isBaseBlocked ? 0 : 1, 1, MetaHubTone.Blue));
+        data.nextGoals.Add(CreateDataGoal("run_boss", "Boss-Zyklus im Blick", "B", Mathf.Clamp(currentWave % 10, 0, 10), 10, MetaHubTone.Red));
+
+        ApplyRuntimeEffectLists(data, chaosJustice);
 
         if (data.lastRunStats == null)
             data.lastRunStats = new List<MetaHubRunStatData>();
 
         data.lastRunStats.Clear();
-        AddDataRunStat(data, "gold", "Gold aktuell", MetaHubMockData.FormatNumber(currentGold));
-        AddDataRunStat(data, "lives", "Leben aktuell", MetaHubMockData.FormatNumber(currentLives));
-        AddDataRunStat(data, "wave", "Aktuelle Welle", MetaHubMockData.FormatNumber(currentWave));
+        AddDataRunStat(data, "wave", "Wellen beendet", MetaHubMockData.FormatNumber(completedWaves));
+        AddDataRunStat(data, "kills", "Kills", MetaHubMockData.FormatNumber(totalKills));
+        AddDataRunStat(data, "leaks", "Leaks/Base", MetaHubMockData.FormatNumber(totalLeaks) + "/" + MetaHubMockData.FormatNumber(baseDamage));
         AddDataRunStat(data, "tower_xp", "Tower-XP im Run", MetaHubMockData.FormatNumber(towerXp));
+    }
+
+    private void ApplyRuntimeNavigationLabels(MetaHubData data)
+    {
+        if (data == null || data.navigation == null)
+            return;
+
+        SetDataNavigation(data, "overview", "RUN-STATUS", "R", MetaHubTone.Gold);
+        SetDataNavigation(data, "general", "RESSOURCEN", "G", MetaHubTone.Gold);
+        SetDataNavigation(data, "tower", "TOWER", "T", MetaHubTone.Purple);
+        SetDataNavigation(data, "chaos", "RISIKEN", "C", MetaHubTone.Purple);
+        SetDataNavigation(data, "path", "VERBAU", "P", MetaHubTone.Cyan);
+        SetDataNavigation(data, "elite", "ELITE", "E", MetaHubTone.Red);
     }
 
     private void SetDataMetric(MetaHubData data, string id, string valueText, string caption, int current, int maximum, bool showProgress)
@@ -480,6 +536,28 @@ public class MetaHubController : MonoBehaviour
             if (card == null || card.id != id)
                 continue;
 
+            card.valueText = valueText;
+            card.caption = caption;
+            card.current = Mathf.Max(0, current);
+            card.maximum = Mathf.Max(0, maximum);
+            card.showProgress = showProgress;
+            return;
+        }
+    }
+
+    private void SetDataMetric(MetaHubData data, string id, string title, string iconText, string valueText, string caption, int current, int maximum, bool showProgress)
+    {
+        if (data == null || data.metricCards == null || string.IsNullOrEmpty(id))
+            return;
+
+        for (int i = 0; i < data.metricCards.Count; i++)
+        {
+            MetaHubMetricCardData card = data.metricCards[i];
+            if (card == null || card.id != id)
+                continue;
+
+            card.title = title;
+            card.iconText = iconText;
             card.valueText = valueText;
             card.caption = caption;
             card.current = Mathf.Max(0, current);
@@ -505,6 +583,43 @@ public class MetaHubController : MonoBehaviour
         }
     }
 
+    private void SetDataSideStat(MetaHubData data, string id, string label, string valueText, string iconText, MetaHubTone tone)
+    {
+        if (data == null || data.progressStats == null || string.IsNullOrEmpty(id))
+            return;
+
+        for (int i = 0; i < data.progressStats.Count; i++)
+        {
+            MetaHubSideStatData stat = data.progressStats[i];
+            if (stat == null || stat.id != id)
+                continue;
+
+            stat.label = label;
+            stat.valueText = valueText;
+            stat.iconText = iconText;
+            stat.tone = tone;
+            return;
+        }
+    }
+
+    private void SetDataNavigation(MetaHubData data, string id, string label, string iconText, MetaHubTone tone)
+    {
+        if (data == null || data.navigation == null || string.IsNullOrEmpty(id))
+            return;
+
+        for (int i = 0; i < data.navigation.Count; i++)
+        {
+            MetaHubNavItemData item = data.navigation[i];
+            if (item == null || item.id != id)
+                continue;
+
+            item.label = label;
+            item.iconText = iconText;
+            item.tone = tone;
+            return;
+        }
+    }
+
     private MetaHubGoalData CreateDataGoal(string id, string title, string iconText, int current, int required, MetaHubTone tone)
     {
         MetaHubGoalData goal = new MetaHubGoalData();
@@ -515,6 +630,62 @@ public class MetaHubController : MonoBehaviour
         goal.required = Mathf.Max(1, required);
         goal.tone = tone;
         return goal;
+    }
+
+    private MetaHubEffectData CreateDataEffect(string id, string title, string description, string durationText, string iconText, MetaHubTone tone)
+    {
+        MetaHubEffectData effect = new MetaHubEffectData();
+        effect.id = id;
+        effect.title = title;
+        effect.description = description;
+        effect.durationText = durationText;
+        effect.iconText = iconText;
+        effect.tone = tone;
+        return effect;
+    }
+
+    private void ApplyRuntimeEffectLists(MetaHubData data, ChaosJusticeManager chaosJustice)
+    {
+        if (data == null)
+            return;
+
+        if (data.activeBuffs == null)
+            data.activeBuffs = new List<MetaHubEffectData>();
+
+        data.activeBuffs.Clear();
+        AddRuntimeRewardBuffs(data, chaosJustice);
+
+        if (data.activeRisks == null)
+            data.activeRisks = new List<MetaHubEffectData>();
+
+        data.activeRisks.Clear();
+        if (chaosJustice != null)
+        {
+            List<string> risks = chaosJustice.GetSelectedRiskModifierDisplayNames();
+            if (risks != null)
+            {
+                for (int i = 0; i < risks.Count; i++)
+                {
+                    string title = string.IsNullOrEmpty(risks[i]) ? "Risiko " + (i + 1) : Shorten(risks[i], 30);
+                    data.activeRisks.Add(CreateDataEffect("runtime_risk_" + i, title, "Run-Modifikator", "", "R", MetaHubTone.Red));
+                }
+            }
+        }
+
+        if (data.activeRisks.Count == 0)
+            data.activeRisks.Add(CreateDataEffect("no_risk", "Keine Risiken", "Keine Modifikatoren", "", "R", MetaHubTone.Neutral));
+    }
+
+    private void AddRuntimeRewardBuffs(MetaHubData data, ChaosJusticeManager chaosJustice)
+    {
+        if (data == null || data.activeBuffs == null)
+            return;
+
+        float goldMultiplier = GetRuntimeGoldRewardMultiplier(chaosJustice);
+        float xpMultiplier = GetRuntimeXPRewardMultiplier(chaosJustice);
+
+        data.activeBuffs.Add(CreateDataEffect("gold_reward_buff", "Gold-Buff", FormatRuntimePercentBonus(goldMultiplier), "", "G", MetaHubTone.Gold));
+        data.activeBuffs.Add(CreateDataEffect("xp_reward_buff", "XP-Buff", FormatRuntimePercentBonus(xpMultiplier), "", "XP", MetaHubTone.Cyan));
     }
 
     private int GetRuntimeWaveNumber()
@@ -540,6 +711,195 @@ public class MetaHubController : MonoBehaviour
 
         List<string> risks = chaosJustice.GetSelectedRiskModifierDisplayNames();
         return risks != null ? risks.Count : 0;
+    }
+
+    private string GetRuntimePhaseShortLabel()
+    {
+        if (gameManager == null)
+            return "?";
+
+        return gameManager.currentPhase == GamePhase.Wave ? "Wave" : "Bau";
+    }
+
+    private string GetRuntimeBuildStateLabel()
+    {
+        if (gameManager == null)
+            return "Unbekannt";
+
+        if (!gameManager.gameStarted)
+            return "Startmenue";
+
+        if (gameManager.isGameOver)
+            return "Game Over";
+
+        if (gameManager.currentPhase == GamePhase.Wave)
+            return "Welle laeuft";
+
+        if (gameManager.isBaseBlocked && gameManager.isTimedBlockedBuildPhase)
+            return "Verbau-Timer aktiv";
+
+        if (gameManager.isBaseBlocked)
+            return "Verbau-Auswahl offen";
+
+        return "Bauphase offen";
+    }
+
+    private string GetRuntimeBuildStateValue()
+    {
+        if (gameManager == null)
+            return "?";
+
+        if (gameManager.currentPhase == GamePhase.Wave)
+            return "Wave";
+
+        if (gameManager.isBaseBlocked && gameManager.isTimedBlockedBuildPhase)
+            return Mathf.CeilToInt(Mathf.Max(0f, gameManager.blockedBuildTimeRemaining)) + "s";
+
+        if (gameManager.isBaseBlocked)
+            return "Block";
+
+        return "Offen";
+    }
+
+    private bool IsRuntimePathChoiceOpen()
+    {
+        return gameManager != null && gameManager.IsPathBuildChoiceOpen();
+    }
+
+    private WaveData GetRuntimeNextWaveData()
+    {
+        return gameManager != null ? gameManager.GetNextWaveData() : null;
+    }
+
+    private string GetRuntimeNextWaveName()
+    {
+        WaveData nextWave = GetRuntimeNextWaveData();
+        if (nextWave != null)
+        {
+            string scenarioName = string.IsNullOrEmpty(nextWave.scenarioName) ? nextWave.scenario.ToString() : nextWave.scenarioName;
+            return "W" + Mathf.Max(1, nextWave.waveNumber) + " " + scenarioName;
+        }
+
+        if (gameManager == null)
+            return "Unbekannt";
+
+        return "W" + Mathf.Max(1, gameManager.waveNumber + 1) + " " + gameManager.GetNextWaveScenarioName();
+    }
+
+    private string GetRuntimeNextWaveEnemyText()
+    {
+        WaveData nextWave = GetRuntimeNextWaveData();
+        if (nextWave == null)
+            return "Keine Preview";
+
+        int total = Mathf.Max(nextWave.totalSpawnCount, nextWave.modifiedEnemyCount);
+        total = Mathf.Max(total, nextWave.requestedEnemyCount);
+        return MetaHubMockData.FormatNumber(total) + " Gegner";
+    }
+
+    private string GetRuntimeNextWaveSpecialText()
+    {
+        WaveData nextWave = GetRuntimeNextWaveData();
+        if (nextWave == null)
+            return "Keine Daten";
+
+        if (nextWave.IsBossWave())
+            return "Boss";
+
+        if (nextWave.IsMiniBossWave())
+            return "MiniBoss";
+
+        if (nextWave.IsEliteWave())
+            return "Elite";
+
+        return "Normal";
+    }
+
+    private string GetRuntimeNextWaveModifierText()
+    {
+        WaveData nextWave = GetRuntimeNextWaveData();
+        if (nextWave == null)
+            return "Keine Daten";
+
+        if (!string.IsNullOrEmpty(nextWave.chaosWaveSummary))
+            return Shorten(nextWave.chaosWaveSummary, 42);
+
+        if (!string.IsNullOrEmpty(nextWave.modifierSummary))
+            return Shorten(nextWave.modifierSummary, 42);
+
+        if (nextWave.previewHidden)
+            return "Preview verborgen";
+
+        return "Keine Zusatzinfo";
+    }
+
+    private string GetRuntimeRunStyleShortLabel(ChaosJusticeManager chaosJustice)
+    {
+        if (chaosJustice == null)
+            return "Keine Daten";
+
+        string label = chaosJustice.GetRunStyleLabel();
+        if (string.IsNullOrEmpty(label))
+            return "Keine Daten";
+
+        if (label.Contains("Unentschied"))
+            return "Auftakt";
+
+        if (label.Contains("Chaosbetonter"))
+            return "Chaos-Mix";
+
+        if (label.Contains("Gerechtigkeitsbetonter"))
+            return "Justice-Mix";
+
+        return Shorten(label, 22);
+    }
+
+    private string GetRuntimeDecisionShortText(ChaosJusticeManager chaosJustice)
+    {
+        if (chaosJustice == null)
+            return "Keine";
+
+        return "G " + chaosJustice.GetJusticeChoiceCount() + " / C " + chaosJustice.GetChaosChoiceCount() + " / Hold " + chaosJustice.GetNoModifierChoiceCount();
+    }
+
+    private string GetRuntimeRiskGroupShortText(ChaosJusticeManager chaosJustice)
+    {
+        if (chaosJustice == null)
+            return "Keine";
+
+        string text = chaosJustice.GetGroupedRiskModifierSummary();
+        if (string.IsNullOrEmpty(text))
+            return "Keine";
+
+        text = text.Replace("\r", " ").Replace("\n", " / ").Replace(".", "");
+        return Shorten(text, 34);
+    }
+
+    private string FormatRuntimeMultiplier(float value)
+    {
+        return "x" + Mathf.Max(0f, value).ToString("0.00").Replace(",", ".");
+    }
+
+    private float GetRuntimeGoldRewardMultiplier(ChaosJusticeManager chaosJustice)
+    {
+        if (gameManager != null)
+            return gameManager.GetTotalGoldRewardMultiplier();
+
+        return chaosJustice != null ? chaosJustice.GetGoldRewardMultiplier() : 1f;
+    }
+
+    private float GetRuntimeXPRewardMultiplier(ChaosJusticeManager chaosJustice)
+    {
+        if (gameManager != null)
+            return gameManager.GetTotalXPRewardMultiplier();
+
+        return chaosJustice != null ? chaosJustice.GetXPRewardMultiplier() : 1f;
+    }
+
+    private string FormatRuntimePercentBonus(float multiplier)
+    {
+        int percent = Mathf.RoundToInt((Mathf.Max(0f, multiplier) - 1f) * 100f);
+        return percent >= 0 ? "+" + percent + "%" : percent + "%";
     }
 
     private void ApplyMainMenuUnlockLiveValues(MetaHubData data)
@@ -679,10 +1039,10 @@ public class MetaHubController : MonoBehaviour
         SetText("SectionTitle", data.selectedSectionTitle);
         SetText("FooterTip", data.footerTip);
 
-        SetText("AccountLevelTop", runtimeUnlockInfoMode ? "Run Wave " + Mathf.Max(0, GetRuntimeWaveNumber()) : "Account Lv. " + data.account.level);
+        SetText("AccountLevelTop", runtimeUnlockInfoMode ? "Run Welle " + Mathf.Max(0, GetRuntimeWaveNumber()) : "Account Lv. " + data.account.level);
         SetText("AccountXpTop", runtimeUnlockInfoMode ? "Gold " + MetaHubMockData.FormatNumber(GetRuntimeGold()) + " / Leben " + MetaHubMockData.FormatNumber(GetRuntimeLives()) : MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP");
-        SetText("AccountLevelCenter", data.account.level.ToString());
-        SetText("AccountXpBottom", MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP");
+        SetText("AccountLevelCenter", runtimeUnlockInfoMode ? Mathf.Max(0, GetRuntimeWaveNumber()).ToString() : data.account.level.ToString());
+        SetText("AccountXpBottom", runtimeUnlockInfoMode ? "Tower-XP " + MetaHubMockData.FormatNumber(data.account.currentXP) : MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP");
         SetFillPercent("AccountXpFill", Percent(data.account.currentXP, data.account.requiredXP));
         SetFillPercent("AccountRingFill", Percent(data.account.currentXP, data.account.requiredXP));
 
@@ -699,7 +1059,11 @@ public class MetaHubController : MonoBehaviour
 
         VisualElement mainMenuButton = Query("MainMenuButton");
         if (mainMenuButton != null)
-            mainMenuButton.style.display = IsUnlockLayoutMode() ? DisplayStyle.None : DisplayStyle.Flex;
+            mainMenuButton.style.display = runtimeUnlockInfoMode || !IsUnlockLayoutMode() ? DisplayStyle.Flex : DisplayStyle.None;
+
+        VisualElement optionsButton = Query("OptionsButton");
+        if (optionsButton != null)
+            optionsButton.style.display = runtimeUnlockInfoMode ? DisplayStyle.None : DisplayStyle.Flex;
     }
 
     private void BindChaosJustice(MetaHubChaosJusticeData chaosJustice)
@@ -1071,11 +1435,11 @@ public class MetaHubController : MonoBehaviour
         TextMeshProUGUI title = CreateCanvasLabel(root, "Title", data.screenTitle, new Vector2(800f, -36f), new Vector2(540f, 48f), 34f, new Color32(244, 198, 98, 255), TextAlignmentOptions.Center, FontStyles.Bold);
         title.characterSpacing = 9f;
         if (unlockLayout)
-            CreateCanvasLabel(root, "TopSubtitle", runtimeUnlockInfoMode ? "FREISCHALTUNGEN - RUN-INFORMATION" : "FREISCHALTUNGEN - META-PROGRESSION", new Vector2(800f, -64f), new Vector2(430f, 18f), 11f, new Color32(225, 164, 54, 255), TextAlignmentOptions.Center, FontStyles.Normal);
+            CreateCanvasLabel(root, "TopSubtitle", runtimeUnlockInfoMode ? "RUN-HUB - INGAME-STATUS" : "FREISCHALTUNGEN - META-PROGRESSION", new Vector2(800f, -64f), new Vector2(430f, 18f), 11f, new Color32(225, 164, 54, 255), TextAlignmentOptions.Center, FontStyles.Normal);
         for (int i = 0; i < data.resources.Count && i < 4; i++)
             CreateReferenceResource(root, data.resources[i], i);
 
-        CreateCanvasLabel(root, "AccountTop", runtimeUnlockInfoMode ? "Run Wave " + Mathf.Max(0, GetRuntimeWaveNumber()) : "Account Lv. " + data.account.level, new Vector2(1188f, -46f), new Vector2(160f, 24f), 16f, new Color32(244, 226, 186, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(root, "AccountTop", runtimeUnlockInfoMode ? "Run Welle " + Mathf.Max(0, GetRuntimeWaveNumber()) : "Account Lv. " + data.account.level, new Vector2(1188f, -46f), new Vector2(160f, 24f), 16f, new Color32(244, 226, 186, 255), TextAlignmentOptions.Left, FontStyles.Bold);
         CreateCanvasBar(root, "AccountXP", new Vector2(1312f, -47f), new Vector2(140f, 7f), Percent(data.account.currentXP, data.account.requiredXP), new Color32(150, 126, 255, 255));
         CreateCanvasLabel(root, "AccountXPText", runtimeUnlockInfoMode ? "G " + MetaHubMockData.FormatNumber(GetRuntimeGold()) + " / L " + MetaHubMockData.FormatNumber(GetRuntimeLives()) : MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP", new Vector2(1443f, -46f), new Vector2(125f, 23f), 14f, new Color32(244, 226, 186, 255), TextAlignmentOptions.Right, FontStyles.Normal);
         CreateCanvasButton(root, "CloseTopButton", "X", new Vector2(1570f, -47f), new Vector2(34f, 42f), RequestClose);
@@ -1085,9 +1449,16 @@ public class MetaHubController : MonoBehaviour
         sidebarTitle.characterSpacing = unlockLayout ? 0.5f : 2f;
         for (int i = 0; i < data.navigation.Count; i++)
             CreateReferenceNavRow(sidebar, data.navigation[i], i);
-        CreateCanvasLabelTop(sidebar, "KeystoneTitle", "AKTIVE KEYSTONES", new Vector2(-5f, -525f), new Vector2(238f, 30f), 17f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
-        for (int i = 0; i < data.activeKeystones.Count && i < 3; i++)
-            CreateReferenceKeystone(sidebar, data.activeKeystones[i], i);
+        if (runtimeUnlockInfoMode)
+        {
+            CreateRuntimeSidebarStatus(sidebar);
+        }
+        else
+        {
+            CreateCanvasLabelTop(sidebar, "KeystoneTitle", "AKTIVE KEYSTONES", new Vector2(-5f, -525f), new Vector2(238f, 30f), 17f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+            for (int i = 0; i < data.activeKeystones.Count && i < 3; i++)
+                CreateReferenceKeystone(sidebar, data.activeKeystones[i], i);
+        }
 
         Vector2 mainPosition = unlockLayout ? new Vector2(938.5f, -473f) : new Vector2(885f, -473f);
         Vector2 mainSize = unlockLayout ? new Vector2(1307f, 774f) : new Vector2(1216f, 774f);
@@ -1107,17 +1478,24 @@ public class MetaHubController : MonoBehaviour
             CreateReferenceChaosPanel(main, data.chaosJustice);
             CreateReferenceGoalPanel(main, data.nextGoals);
             CreateReferenceEffectPanel(main, "BuffPanel", "AKTIVE BUFFS", data.activeBuffs, new Vector2(-390f, -270f), new Vector2(380f, 192f), new Color32(64, 156, 72, 255));
-            CreateReferenceEffectPanel(main, "RiskPanel", "AKTIVE RISIKEN", data.activeRisks, new Vector2(60f, -270f), new Vector2(450f, 192f), new Color32(167, 54, 45, 255));
+            CreateReferenceEffectPanel(main, "RiskPanel", "AKTIVE RISIKEN", data.activeRisks, new Vector2(60f, -270f), new Vector2(450f, 192f), new Color32(167, 54, 45, 255), RequestAllRisks, "ALLE RISIKEN");
             CreateReferenceRunPanel(main, data.lastRunStats);
         }
 
         if (showAllGoalsOverlay)
             CreateAllGoalsOverlay(main, data.nextGoals);
 
+        if (showAllRisksOverlay)
+            CreateAllRisksOverlay(main, data.activeRisks);
+
         CreateCanvasLabel(root, "Tip", "<> " + data.footerTip, new Vector2(375f, -907f), new Vector2(720f, 28f), 14f, new Color32(217, 194, 159, 255), TextAlignmentOptions.Left, FontStyles.Normal);
         if (unlockLayout)
         {
-            CreateCanvasButton(root, "OptionsButton", "OPTIONEN", new Vector2(1300f, -942f), new Vector2(170f, 42f), delegate { Debug.Log("MetaHub: Options button requested."); });
+            if (!runtimeUnlockInfoMode)
+                CreateCanvasButton(root, "OptionsButton", "OPTIONEN", new Vector2(1300f, -942f), new Vector2(170f, 42f), delegate { Debug.Log("MetaHub: Options button requested."); });
+            else
+                CreateCanvasButton(root, "MainMenuButton", "HAUPTMENUE", new Vector2(1325f, -942f), new Vector2(180f, 42f), RequestReturnToMainMenu);
+
             CreateCanvasButton(root, "BackButton", "< ZURÜCK", new Vector2(1510f, -942f), new Vector2(170f, 42f), RequestClose);
         }
         else
@@ -1133,22 +1511,40 @@ public class MetaHubController : MonoBehaviour
         switch (selectedNavigationId)
         {
             case "general":
-                CreateUnlockGeneralContent(main, data);
+                if (runtimeUnlockInfoMode)
+                    CreateRuntimeResourcesContent(main, data);
+                else
+                    CreateUnlockGeneralContent(main, data);
                 break;
             case "tower":
-                CreateUnlockTowerContent(main, data);
+                if (runtimeUnlockInfoMode)
+                    CreateRuntimeTowerContent(main, data);
+                else
+                    CreateUnlockTowerContent(main, data);
                 break;
             case "chaos":
-                CreateUnlockChaosContent(main, data);
+                if (runtimeUnlockInfoMode)
+                    CreateRuntimeRiskContent(main, data);
+                else
+                    CreateUnlockChaosContent(main, data);
                 break;
             case "path":
-                CreateUnlockPathContent(main, data);
+                if (runtimeUnlockInfoMode)
+                    CreateRuntimePathContent(main, data);
+                else
+                    CreateUnlockPathContent(main, data);
                 break;
             case "elite":
-                CreateUnlockEliteContent(main, data);
+                if (runtimeUnlockInfoMode)
+                    CreateRuntimeEliteContent(main, data);
+                else
+                    CreateUnlockEliteContent(main, data);
                 break;
             default:
-                CreateUnlockOverviewContent(main, data);
+                if (runtimeUnlockInfoMode)
+                    CreateRuntimeOverviewContent(main, data);
+                else
+                    CreateUnlockOverviewContent(main, data);
                 break;
         }
     }
@@ -1170,6 +1566,270 @@ public class MetaHubController : MonoBehaviour
         CreateReferenceProgressPanel(main, data, new Vector2(progressCenterX, -10f), new Vector2(progressWidth, 296f));
         CreateReferenceGoalPanel(main, data.nextGoals, new Vector2(goalsLeft + goalsWidth * 0.5f, -10f), new Vector2(goalsWidth, 296f));
         CreateReferenceRunPanel(main, data.lastRunStats, new Vector2((left + right) * 0.5f, -270f), new Vector2(right - left, 192f));
+    }
+
+    private void CreateRuntimeOverviewContent(Transform main, MetaHubData data)
+    {
+        for (int i = 0; i < data.metricCards.Count && i < 5; i++)
+            CreateReferenceMetricCard(main, data.metricCards[i], i);
+
+        float mainWidth = GetPanelWidth(main, 1307f);
+        float left = -mainWidth * 0.5f + 22f;
+        float gap = 18f;
+        float statusWidth = 395f;
+        float waveWidth = 435f;
+        float pathWidth = Mathf.Max(360f, mainWidth - 44f - statusWidth - waveWidth - gap * 2f);
+        float statusCenterX = left + statusWidth * 0.5f;
+        float waveCenterX = left + statusWidth + gap + waveWidth * 0.5f;
+        float pathCenterX = left + statusWidth + gap + waveWidth + gap + pathWidth * 0.5f;
+        float topY = -10f;
+        float topHeight = 296f;
+        float bottomY = -270f;
+        float bottomHeight = 192f;
+
+        RunStatistics runStats = gameManager != null ? gameManager.GetRunStatistics() : null;
+        WaveHistory history = gameManager != null ? gameManager.GetWaveHistory() : null;
+        int currentGold = GetRuntimeGold();
+        int currentLives = GetRuntimeLives();
+        int currentWave = GetRuntimeWaveNumber();
+        int completedWaves = history != null ? Mathf.Max(0, history.GetCompletedWaveCount()) : 0;
+        int totalKills = history != null ? Mathf.Max(0, history.GetTotalKills()) : 0;
+        int totalLeaks = history != null ? Mathf.Max(0, history.GetTotalLeaks()) : 0;
+        int baseDamage = history != null ? Mathf.Max(0, history.GetTotalBaseDamageTaken()) : 0;
+        int towersBuilt = runStats != null ? Mathf.Max(0, runStats.towersBuilt) : 0;
+
+        Transform runPanel = CreateUnlockPanel(main, "RuntimeRunState", "RUN-LAGE", new Vector2(statusCenterX, topY), new Vector2(statusWidth, topHeight), new Color32(126, 98, 51, 255));
+        float statusRowWidth = statusWidth - 70f;
+        CreateUnlockCompactRow(runPanel, "RuntimePhase", "icon_shield", "Phase", GetRuntimeBuildStateLabel(), GetRuntimePhaseShortLabel(), MetaHubTone.Gold, 66f, statusRowWidth);
+        CreateUnlockCompactRow(runPanel, "RuntimeResources", "icon_gold", "Ressourcen", "Gold / Leben", MetaHubMockData.FormatNumber(currentGold) + "/" + MetaHubMockData.FormatNumber(currentLives), MetaHubTone.Gold, 22f, statusRowWidth);
+        CreateUnlockCompactRow(runPanel, "RuntimeProgress", "icon_tower", "Run-Fortschritt", "Welle / gebaut", currentWave + "/" + towersBuilt, MetaHubTone.Purple, -22f, statusRowWidth);
+        CreateUnlockCompactRow(runPanel, "RuntimeDamage", "icon_skull", "Gefahren", "Leaks / Base", totalLeaks + "/" + baseDamage, MetaHubTone.Red, -66f, statusRowWidth);
+
+        Transform wavePanel = CreateUnlockPanel(main, "RuntimeNextWave", "NAECHSTE WELLE", new Vector2(waveCenterX, topY), new Vector2(waveWidth, topHeight), new Color32(128, 83, 176, 255));
+        float waveRowWidth = waveWidth - 70f;
+        CreateUnlockCompactRow(wavePanel, "RuntimeWaveName", "icon_path", Shorten(GetRuntimeNextWaveName(), 28), "Preview aus WaveData", GetRuntimeNextWaveSpecialText(), MetaHubTone.Cyan, 66f, waveRowWidth);
+        CreateUnlockCompactRow(wavePanel, "RuntimeEnemyCount", "icon_runner", "Gegner", "Naechste Welle", GetRuntimeNextWaveEnemyText(), MetaHubTone.Red, 22f, waveRowWidth);
+        CreateUnlockCompactRow(wavePanel, "RuntimeRiskCount", "icon_risk_core", "Aktive Risiken", "Run-Modifikatoren", GetRuntimeRiskCount().ToString(), MetaHubTone.Purple, -22f, waveRowWidth);
+        CreateUnlockRow(wavePanel, "RuntimeWaveModifier", "icon_chaos", "Zusatzinfo", GetRuntimeNextWaveModifierText(), "", MetaHubTone.Purple, -78f, waveRowWidth);
+
+        Transform pathPanel = CreateUnlockPanel(main, "RuntimePathState", "VERBAU / EINGABEN", new Vector2(pathCenterX, topY), new Vector2(pathWidth, topHeight), new Color32(47, 169, 210, 255));
+        float pathRowWidth = pathWidth - 70f;
+        CreateUnlockCompactRow(pathPanel, "RuntimeBuildState", "icon_path", "Bauzustand", GetRuntimeBuildStateLabel(), GetRuntimeBuildStateValue(), MetaHubTone.Cyan, 66f, pathRowWidth);
+        CreateUnlockCompactRow(pathPanel, "RuntimePathChoice", "icon_blueprint", "Wegbau-Auswahl", "Ungueltige starten nicht", IsRuntimePathChoiceOpen() ? "Offen" : "Zu", MetaHubTone.Blue, 22f, pathRowWidth);
+        CreateUnlockCompactRow(pathPanel, "RuntimeModalLock", "icon_shield", "Eingaben", "F1 sperrt andere UI", "Aktiv", MetaHubTone.Gold, -22f, pathRowWidth);
+        CreateUnlockRow(pathPanel, "RuntimeReadOnly", "icon_keystone", "Meta-Shop", "Nur im Hauptmenue.", "Info", MetaHubTone.Neutral, -78f, pathRowWidth);
+
+        CreateReferenceEffectPanel(main, "RuntimeBuffPanel", "AKTIVE BUFFS", data.activeBuffs, new Vector2(statusCenterX, bottomY), new Vector2(statusWidth, bottomHeight), new Color32(64, 156, 72, 255));
+        CreateReferenceEffectPanel(main, "RuntimeRiskPanel", "AKTIVE RISIKEN", data.activeRisks, new Vector2(waveCenterX, bottomY), new Vector2(waveWidth, bottomHeight), new Color32(167, 54, 45, 255), RequestAllRisks, "ALLE RISIKEN");
+        CreateReferenceGoalPanel(main, data.nextGoals, new Vector2(pathCenterX, bottomY), new Vector2(pathWidth, bottomHeight));
+    }
+
+    private void CreateRuntimeResourcesContent(Transform main, MetaHubData data)
+    {
+        RunStatistics runStats = gameManager != null ? gameManager.GetRunStatistics() : null;
+        ChaosJusticeManager chaosJustice = gameManager != null ? gameManager.GetChaosJusticeManager() : null;
+        float mainWidth = GetPanelWidth(main, 1307f);
+        float left = -mainWidth * 0.5f + 22f;
+        float right = mainWidth * 0.5f - 22f;
+        float gap = 18f;
+        float topY = 214f;
+        float topHeight = 172f;
+        float cardWidth = (right - left - gap * 2f) / 3f;
+        int maxLives = gameManager != null ? gameManager.GetCurrentMaxLives() : GetRuntimeLives();
+
+        CreateUnlockStatCard(main, "RuntimeGold", "GOLD", MetaHubMockData.FormatNumber(GetRuntimeGold()), "Aktuell", "icon_gold", MetaHubTone.Gold, new Vector2(left + cardWidth * 0.5f, topY), new Vector2(cardWidth, topHeight));
+        CreateUnlockStatCard(main, "RuntimeLives", "LEBEN", GetRuntimeLives() + " / " + Mathf.Max(1, maxLives), "Base", "icon_xp", MetaHubTone.Cyan, new Vector2(left + cardWidth + gap + cardWidth * 0.5f, topY), new Vector2(cardWidth, topHeight));
+        CreateUnlockStatCard(main, "RuntimeWave", "WELLE", MetaHubMockData.FormatNumber(GetRuntimeWaveNumber()), GetRuntimePhaseShortLabel(), "icon_path", MetaHubTone.Blue, new Vector2(left + (cardWidth + gap) * 2f + cardWidth * 0.5f, topY), new Vector2(cardWidth, topHeight));
+
+        float panelWidth = (right - left - gap) * 0.5f;
+        Transform economy = CreateUnlockPanel(main, "RuntimeEconomy", "WIRTSCHAFT", new Vector2(left + panelWidth * 0.5f, -45f), new Vector2(panelWidth, 330f), new Color32(126, 98, 51, 255));
+        float rowWidth = panelWidth - 70f;
+        CreateUnlockCompactRow(economy, "RuntimeEarned", "icon_gold", "Verdient", "Gold im Run", runStats != null ? MetaHubMockData.FormatNumber(runStats.totalGoldEarned) : "0", MetaHubTone.Gold, 82f, rowWidth);
+        CreateUnlockCompactRow(economy, "RuntimeSpent", "icon_gold", "Ausgegeben", "Gold im Run", runStats != null ? MetaHubMockData.FormatNumber(runStats.totalGoldSpent) : "0", MetaHubTone.Red, 38f, rowWidth);
+        CreateUnlockCompactRow(economy, "RuntimeNet", "icon_gold", "Netto", "Verdient - ausgegeben", runStats != null ? MetaHubMockData.FormatNumber(runStats.GetNetGoldDelta()) : "0", MetaHubTone.Cyan, -6f, rowWidth);
+        CreateUnlockCompactRow(economy, "RuntimeSources", "icon_runner", "Quellen", "Kill / Wave / Verbau", runStats != null ? runStats.goldFromEnemyKills + "/" + runStats.goldFromWaveCompletion + "/" + runStats.goldFromBlockedEvents : "0/0/0", MetaHubTone.Green, -50f, rowWidth);
+        CreateUnlockCompactRow(economy, "RuntimeRewardBonus", "icon_justice", "Bonus", "Reward-Mods", runStats != null ? "+" + MetaHubMockData.FormatNumber(runStats.goldBonusFromRewardModifiers) : "+0", MetaHubTone.Gold, -94f, rowWidth);
+
+        Transform justice = CreateUnlockPanel(main, "RuntimeJustice", "GERECHTIGKEIT", new Vector2(right - panelWidth * 0.5f, -45f), new Vector2(panelWidth, 330f), new Color32(128, 83, 176, 255));
+        int goldJustice = chaosJustice != null && chaosJustice.runData != null ? Mathf.Max(0, chaosJustice.runData.goldJusticeLevel) : 0;
+        int xpJustice = chaosJustice != null && chaosJustice.runData != null ? Mathf.Max(0, chaosJustice.runData.xpJusticeLevel) : 0;
+        float goldRewardMultiplier = GetRuntimeGoldRewardMultiplier(chaosJustice);
+        float xpRewardMultiplier = GetRuntimeXPRewardMultiplier(chaosJustice);
+        CreateUnlockCompactRow(justice, "RuntimeGoldJustice", "icon_justice", "Gold-Justice", "Gold-Multi", goldJustice.ToString(), MetaHubTone.Gold, 82f, rowWidth);
+        CreateUnlockCompactRow(justice, "RuntimeXpJustice", "icon_xp", "XP-Justice", "XP-Multi", xpJustice.ToString(), MetaHubTone.Cyan, 38f, rowWidth);
+        CreateUnlockCompactRow(justice, "RuntimeGoldMultiplier", "icon_gold", "Gold-Multi", "Aktiver Reward-Wert", FormatRuntimeMultiplier(goldRewardMultiplier), MetaHubTone.Gold, -6f, rowWidth);
+        CreateUnlockCompactRow(justice, "RuntimeXpMultiplier", "icon_buff_xp", "XP-Multi", "Aktiver Reward-Wert", FormatRuntimeMultiplier(xpRewardMultiplier), MetaHubTone.Cyan, -50f, rowWidth);
+        CreateUnlockCompactRow(justice, "RuntimeBalance", "icon_chaos", "Balance", GetRuntimeRunStyleShortLabel(chaosJustice), chaosJustice != null ? chaosJustice.GetBalanceSnapshot().chaosPercent + "% C" : "0% C", MetaHubTone.Purple, -94f, rowWidth);
+
+        WaveHistory history = gameManager != null ? gameManager.GetWaveHistory() : null;
+        int nextReward = gameManager != null ? Mathf.Max(0, gameManager.GetWaveCompletionGoldPreview(GetRuntimeWaveNumber() + 1)) : 0;
+        CreateRuntimeSummaryPanel(main, "RuntimeResourceSnapshot", "RUN-SNAPSHOT", new Vector2((left + right) * 0.5f, -306f), new Vector2(right - left, 118f),
+            CreateRuntimeSummaryItem("icon_runner", "Kills", "Im Run", history != null ? MetaHubMockData.FormatNumber(history.GetTotalKills()) : "0", MetaHubTone.Red),
+            CreateRuntimeSummaryItem("icon_shield", "Leaks/Base", "Schaden", history != null ? history.GetTotalLeaks() + "/" + history.GetTotalBaseDamageTaken() : "0/0", MetaHubTone.Cyan),
+            CreateRuntimeSummaryItem("icon_gold", "Belohnung", "Wave-Gold", "+" + MetaHubMockData.FormatNumber(nextReward), MetaHubTone.Gold),
+            CreateRuntimeSummaryItem("icon_path", "Wellen", "Fertig", history != null ? history.GetCompletedWaveCount().ToString() : "0", MetaHubTone.Blue));
+    }
+
+    private void CreateRuntimeTowerContent(Transform main, MetaHubData data)
+    {
+        RunStatistics runStats = gameManager != null ? gameManager.GetRunStatistics() : null;
+        RunStatisticsTracker tracker = gameManager != null ? gameManager.GetRunStatisticsTracker() : null;
+        RunTowerStatsRecord best = tracker != null ? tracker.GetStrongestTowerRecord() : null;
+        float mainWidth = GetPanelWidth(main, 1307f);
+        float left = -mainWidth * 0.5f + 22f;
+        float right = mainWidth * 0.5f - 22f;
+        float gap = 18f;
+        float topY = 214f;
+        float topHeight = 172f;
+        float statWidth = (right - left - gap * 3f) * 0.25f;
+
+        CreateUnlockStatCard(main, "RuntimeTowersBuilt", "GEBAUT", runStats != null ? runStats.towersBuilt.ToString() : "0", "Tower", "icon_tower", MetaHubTone.Purple, new Vector2(left + statWidth * 0.5f, topY), new Vector2(statWidth, topHeight));
+        CreateUnlockStatCard(main, "RuntimeTowerXP", "TOWER-XP", runStats != null ? MetaHubMockData.FormatNumber(runStats.totalTowerXPGranted) : "0", "Im Run", "icon_buff_xp", MetaHubTone.Cyan, new Vector2(left + statWidth + gap + statWidth * 0.5f, topY), new Vector2(statWidth, topHeight));
+        CreateUnlockStatCard(main, "RuntimeTowerLevel", "TOP-LEVEL", runStats != null ? runStats.highestTowerLevel.ToString() : "1", "Hoechster Tower", "icon_keystone_purple", MetaHubTone.Gold, new Vector2(left + (statWidth + gap) * 2f + statWidth * 0.5f, topY), new Vector2(statWidth, topHeight));
+        CreateUnlockStatCard(main, "RuntimeEliteDestroyed", "ZERSTOERT", runStats != null ? runStats.towersDestroyedByElite.ToString() : "0", "Nur Elite", "icon_skull", MetaHubTone.Red, new Vector2(left + (statWidth + gap) * 3f + statWidth * 0.5f, topY), new Vector2(statWidth, topHeight));
+
+        float panelWidth = (right - left - gap) * 0.5f;
+        Transform progress = CreateUnlockPanel(main, "RuntimeTowerProgress", "TOWER-FORTSCHRITT", new Vector2(left + panelWidth * 0.5f, -45f), new Vector2(panelWidth, 330f), new Color32(128, 83, 176, 255));
+        float rowWidth = panelWidth - 70f;
+        CreateUnlockCompactRow(progress, "RuntimeTowerLevelUps", "icon_tower", "Level-Ups", "Tower im Run", runStats != null ? runStats.towerLevelUps.ToString() : "0", MetaHubTone.Purple, 82f, rowWidth);
+        CreateUnlockCompactRow(progress, "RuntimeUpgradePoints", "icon_keystone", "Upgrade-Pkt.", "Verdient / genutzt", runStats != null ? runStats.upgradePointsEarned + "/" + runStats.upgradePointsSpent : "0/0", MetaHubTone.Gold, 38f, rowWidth);
+        CreateUnlockCompactRow(progress, "RuntimeMetaPoints", "icon_keystone_purple", "Meta-Punkte", "Vorbereitet", runStats != null ? runStats.metaPointsPrepared.ToString() : "0", MetaHubTone.Purple, -6f, rowWidth);
+        CreateUnlockCompactRow(progress, "RuntimeGoldUpgrades", "icon_gold", "Gold-Upgrades", "Gekauft", runStats != null ? runStats.goldUpgradesBought.ToString() : "0", MetaHubTone.Gold, -50f, rowWidth);
+        CreateUnlockCompactRow(progress, "RuntimePointUpgrades", "icon_blue_star", "Punkt-Upgrades", "Gekauft", runStats != null ? runStats.pointUpgradesBought.ToString() : "0", MetaHubTone.Blue, -94f, rowWidth);
+
+        Transform bestPanel = CreateUnlockPanel(main, "RuntimeBestTower", "STAERKSTER TOWER", new Vector2(right - panelWidth * 0.5f, -45f), new Vector2(panelWidth, 330f), new Color32(47, 169, 210, 255));
+        string bestName = best != null ? Shorten(best.towerName, 28) : "Noch keiner";
+        string bestRole = best != null ? TowerMasteryManager.GetTowerDisplayName(best.towerRole) : "Keine Daten";
+        CreateUnlockCompactRow(bestPanel, "RuntimeBestName", "icon_tower", bestName, bestRole, best != null ? "Lv " + best.highestLevel : "-", MetaHubTone.Cyan, 82f, rowWidth);
+        CreateUnlockCompactRow(bestPanel, "RuntimeBestKills", "icon_skull", "Kills / Assists", "Kampfleistung", best != null ? best.totalKills + "/" + best.totalAssists : "0/0", MetaHubTone.Red, 38f, rowWidth);
+        CreateUnlockCompactRow(bestPanel, "RuntimeBestDamage", "icon_chaos_sun", "Schaden", "Gerundet", best != null ? MetaHubMockData.FormatNumber(Mathf.RoundToInt(best.totalDamageDealt)) : "0", MetaHubTone.Gold, -6f, rowWidth);
+        CreateUnlockCompactRow(bestPanel, "RuntimeBestScore", "icon_keystone", "Impact", "Score", best != null ? best.GetImpactScore().ToString() : "0", MetaHubTone.Purple, -50f, rowWidth);
+        CreateUnlockCompactRow(bestPanel, "RuntimeLastEliteTower", "icon_shield", "Letzter Verlust", "Elite-exklusiv", runStats != null && !string.IsNullOrEmpty(runStats.lastEliteDestroyedTowerName) ? Shorten(runStats.lastEliteDestroyedTowerName, 14) : "Keiner", MetaHubTone.Red, -94f, rowWidth);
+
+        CreateRuntimeSummaryPanel(main, "RuntimeTowerSnapshot", "RUN-SNAPSHOT", new Vector2((left + right) * 0.5f, -306f), new Vector2(right - left, 118f),
+            CreateRuntimeSummaryItem("icon_tower", "Gebaut", "Tower", runStats != null ? runStats.towersBuilt.ToString() : "0", MetaHubTone.Purple),
+            CreateRuntimeSummaryItem("icon_buff_xp", "Tower-XP", "Im Run", runStats != null ? MetaHubMockData.FormatNumber(runStats.totalTowerXPGranted) : "0", MetaHubTone.Cyan),
+            CreateRuntimeSummaryItem("icon_keystone", "Upgrade-Pkt.", "Verd./gen.", runStats != null ? runStats.upgradePointsEarned + "/" + runStats.upgradePointsSpent : "0/0", MetaHubTone.Gold),
+            CreateRuntimeSummaryItem("icon_skull", "Elite-Verlust", "Tower", runStats != null ? runStats.towersDestroyedByElite.ToString() : "0", MetaHubTone.Red));
+    }
+
+    private void CreateRuntimeRiskContent(Transform main, MetaHubData data)
+    {
+        ChaosJusticeManager chaosJustice = gameManager != null ? gameManager.GetChaosJusticeManager() : null;
+        ChaosJusticeBalanceSnapshot snapshot = chaosJustice != null ? chaosJustice.GetBalanceSnapshot() : new ChaosJusticeBalanceSnapshot();
+        float mainWidth = GetPanelWidth(main, 1307f);
+        float left = -mainWidth * 0.5f + 22f;
+        float right = mainWidth * 0.5f - 22f;
+        float gap = 18f;
+        float topY = 214f;
+        float topHeight = 172f;
+        float statWidth = (right - left - gap * 3f) * 0.25f;
+
+        CreateUnlockStatCard(main, "RuntimeChaosLevel", "CHAOS", chaosJustice != null ? chaosJustice.GetChaosLevel().ToString() : "0", "Level", "icon_chaos", MetaHubTone.Purple, new Vector2(left + statWidth * 0.5f, topY), new Vector2(statWidth, topHeight));
+        CreateUnlockStatCard(main, "RuntimeRiskCount", "RISIKEN", GetRuntimeRiskCount().ToString(), "Aktiv", "icon_risk_core", MetaHubTone.Red, new Vector2(left + statWidth + gap + statWidth * 0.5f, topY), new Vector2(statWidth, topHeight));
+        CreateUnlockStatCard(main, "RuntimeRiskPressure", "DRUCK", chaosJustice != null ? chaosJustice.GetTotalRiskPressureScore().ToString() : "0", "Risk-Score", "icon_spawn", MetaHubTone.Red, new Vector2(left + (statWidth + gap) * 2f + statWidth * 0.5f, topY), new Vector2(statWidth, topHeight));
+        CreateUnlockStatCard(main, "RuntimeChaosPercent", "BALANCE", snapshot.chaosPercent + "%", snapshot.label, "icon_justice", MetaHubTone.Gold, new Vector2(left + (statWidth + gap) * 3f + statWidth * 0.5f, topY), new Vector2(statWidth, topHeight));
+
+        float leftPanelWidth = (right - left - gap) * 0.5f;
+        Transform summary = CreateUnlockPanel(main, "RuntimeRiskSummary", "RISIKO-ZUSAMMENFASSUNG", new Vector2(left + leftPanelWidth * 0.5f, -45f), new Vector2(leftPanelWidth, 330f), new Color32(128, 83, 176, 255));
+        float rowWidth = leftPanelWidth - 70f;
+        int goldJustice = chaosJustice != null && chaosJustice.runData != null ? Mathf.Max(0, chaosJustice.runData.goldJusticeLevel) : 0;
+        int xpJustice = chaosJustice != null && chaosJustice.runData != null ? Mathf.Max(0, chaosJustice.runData.xpJusticeLevel) : 0;
+        CreateUnlockCompactRow(summary, "RuntimeRiskStyle", "icon_chaos", "Run-Stil", GetRuntimeRunStyleShortLabel(chaosJustice), chaosJustice != null ? chaosJustice.GetChaosLevel().ToString() : "0", MetaHubTone.Purple, 82f, rowWidth);
+        CreateUnlockCompactRow(summary, "RuntimeDecisionMix", "icon_justice", "Entscheidungen", GetRuntimeDecisionShortText(chaosJustice), goldJustice + "/" + xpJustice, MetaHubTone.Gold, 38f, rowWidth);
+        CreateUnlockCompactRow(summary, "RuntimeRiskGroups", "icon_risk_core", "Gruppen", GetRuntimeRiskGroupShortText(chaosJustice), GetRuntimeRiskCount().ToString(), MetaHubTone.Red, -6f, rowWidth);
+        CreateUnlockCompactRow(summary, "RuntimeNextRiskWave", "icon_path", "Naechste Welle", GetRuntimeNextWaveModifierText(), GetRuntimeNextWaveSpecialText(), MetaHubTone.Cyan, -50f, rowWidth);
+        CreateUnlockCompactRow(summary, "RuntimeRiskRewards", "icon_gold", "Reward-Multi", "Gold / XP", FormatRuntimeMultiplier(GetRuntimeGoldRewardMultiplier(chaosJustice)) + "/" + FormatRuntimeMultiplier(GetRuntimeXPRewardMultiplier(chaosJustice)), MetaHubTone.Gold, -94f, rowWidth);
+
+        CreateReferenceEffectPanel(main, "RuntimeRiskListPanel", "AKTIVE RISIKEN", data.activeRisks, new Vector2(right - leftPanelWidth * 0.5f, 5f), new Vector2(leftPanelWidth, 230f), new Color32(167, 54, 45, 255), RequestAllRisks, "ALLE RISIKEN");
+        Transform hint = CreateUnlockPanel(main, "RuntimeRiskHint", "REGELN", new Vector2(right - leftPanelWidth * 0.5f, -201f), new Vector2(leftPanelWidth, 132f), new Color32(122, 94, 55, 255));
+        CreateRuntimeRuleRow(hint, "RuntimeRiskRuleVisible", "icon_risk_core", "Offene Risiken", "Keine verdeckten Nachteile", "Sichtbar", MetaHubTone.Red, 16f, rowWidth);
+        CreateRuntimeRuleRow(hint, "RuntimeRiskRuleBoss", "icon_chaos_sun", "Boss/MiniBoss", "Kein Towerverlust", "Sicher", MetaHubTone.Purple, -17f, rowWidth);
+        CreateRuntimeRuleRow(hint, "RuntimeRiskRuleElite", "icon_shield", "Tower-Verlust", "Bleibt Elite-exklusiv", "Elite", MetaHubTone.Cyan, -50f, rowWidth);
+
+        CreateRuntimeSummaryPanel(main, "RuntimeRiskSnapshot", "RISIKO-PRUEFUNG", new Vector2(left + leftPanelWidth * 0.5f, -306f), new Vector2(leftPanelWidth, 118f),
+            CreateRuntimeSummaryItem("icon_risk_core", "Aktiv", "Risiken", GetRuntimeRiskCount().ToString(), MetaHubTone.Red),
+            CreateRuntimeSummaryItem("icon_justice", "Balance", GetRuntimeRunStyleShortLabel(chaosJustice), snapshot.chaosPercent + "% C", MetaHubTone.Gold));
+    }
+
+    private void CreateRuntimePathContent(Transform main, MetaHubData data)
+    {
+        RunStatistics runStats = gameManager != null ? gameManager.GetRunStatistics() : null;
+        float mainWidth = GetPanelWidth(main, 1307f);
+        float left = -mainWidth * 0.5f + 22f;
+        float right = mainWidth * 0.5f - 22f;
+        float gap = 18f;
+        float topY = 214f;
+        float topHeight = 172f;
+        float statWidth = (right - left - gap * 3f) * 0.25f;
+
+        CreateUnlockStatCard(main, "RuntimePathPhase", "PHASE", GetRuntimePhaseShortLabel(), GetRuntimeBuildStateLabel(), "icon_path", MetaHubTone.Cyan, new Vector2(left + statWidth * 0.5f, topY), new Vector2(statWidth, topHeight));
+        CreateUnlockStatCard(main, "RuntimePathChoiceState", "WEGBAU", IsRuntimePathChoiceOpen() ? "Offen" : "Zu", "Auswahl", "icon_blueprint", MetaHubTone.Blue, new Vector2(left + statWidth + gap + statWidth * 0.5f, topY), new Vector2(statWidth, topHeight));
+        CreateUnlockStatCard(main, "RuntimeBlockedEvents", "VERBAU", runStats != null ? runStats.blockedEventsChosen.ToString() : "0", "Events", "icon_shield", MetaHubTone.Gold, new Vector2(left + (statWidth + gap) * 2f + statWidth * 0.5f, topY), new Vector2(statWidth, topHeight));
+        CreateUnlockStatCard(main, "RuntimeBlockedTimer", "TIMER", GetRuntimeBuildStateValue(), "Bauzustand", "icon_spawn", MetaHubTone.Red, new Vector2(left + (statWidth + gap) * 3f + statWidth * 0.5f, topY), new Vector2(statWidth, topHeight));
+
+        float panelWidth = (right - left - gap) * 0.5f;
+        Transform status = CreateUnlockPanel(main, "RuntimePathStatus", "VERBAU-STATUS", new Vector2(left + panelWidth * 0.5f, -45f), new Vector2(panelWidth, 330f), new Color32(47, 169, 210, 255));
+        float rowWidth = panelWidth - 70f;
+        CreateUnlockCompactRow(status, "RuntimePathBuildState", "icon_path", "Bauzustand", GetRuntimeBuildStateLabel(), GetRuntimeBuildStateValue(), MetaHubTone.Cyan, 82f, rowWidth);
+        CreateUnlockCompactRow(status, "RuntimePathInput", "icon_shield", "Modal-Lock", "Andere UI gesperrt", "Aktiv", MetaHubTone.Gold, 38f, rowWidth);
+        CreateUnlockCompactRow(status, "RuntimePathInvalid", "icon_risk_core", "Ungueltige Richtung", "Startet keine Wave", "Sicher", MetaHubTone.Green, -6f, rowWidth);
+        CreateUnlockCompactRow(status, "RuntimePathNext", "icon_runner", "Naechste Welle", GetRuntimeNextWaveName(), GetRuntimeNextWaveEnemyText(), MetaHubTone.Blue, -50f, rowWidth);
+        CreateUnlockCompactRow(status, "RuntimePathPhaseRule", "icon_keystone", "OnPathExtended", "Nur nach gueltigem Wegbau", "1x", MetaHubTone.Cyan, -94f, rowWidth);
+
+        Transform rewards = CreateUnlockPanel(main, "RuntimePathRewards", "VERBAU-REWARDS", new Vector2(right - panelWidth * 0.5f, -45f), new Vector2(panelWidth, 330f), new Color32(126, 98, 51, 255));
+        string lastEvent = runStats != null && !string.IsNullOrEmpty(runStats.lastBlockedEventName) ? Shorten(runStats.lastBlockedEventName, 24) : "Keines";
+        CreateUnlockCompactRow(rewards, "RuntimeBlockedGold", "icon_gold", "Gold aus Verbau", "Run-Statistik", runStats != null ? MetaHubMockData.FormatNumber(runStats.goldFromBlockedEvents) : "0", MetaHubTone.Gold, 82f, rowWidth);
+        CreateUnlockCompactRow(rewards, "RuntimeBlockedLives", "icon_xp", "Leben aus Verbau", "Run-Statistik", runStats != null ? runStats.lifeFromBlockedEvents.ToString() : "0", MetaHubTone.Cyan, 38f, rowWidth);
+        CreateUnlockCompactRow(rewards, "RuntimeBlockedPhases", "icon_path", "Timer-Phasen", "Anzahl", runStats != null ? runStats.timedBlockedBuildPhases.ToString() : "0", MetaHubTone.Blue, -6f, rowWidth);
+        CreateUnlockCompactRow(rewards, "RuntimeBlockedDuration", "icon_spawn", "Timer gesamt", "Sekunden", runStats != null ? Mathf.RoundToInt(runStats.totalBlockedBuildPhaseDuration).ToString() : "0", MetaHubTone.Red, -50f, rowWidth);
+        CreateUnlockCompactRow(rewards, "RuntimeLastBlockedEvent", "icon_keystone", "Letztes Event", runStats != null ? runStats.lastBlockedEventType : "", lastEvent, MetaHubTone.Gold, -94f, rowWidth);
+
+        CreateRuntimeSummaryPanel(main, "RuntimePathSnapshot", "RUN-SNAPSHOT", new Vector2((left + right) * 0.5f, -306f), new Vector2(right - left, 118f),
+            CreateRuntimeSummaryItem("icon_path", "Phase", GetRuntimeBuildStateLabel(), GetRuntimePhaseShortLabel(), MetaHubTone.Cyan),
+            CreateRuntimeSummaryItem("icon_blueprint", "Wegbau", "Auswahl", IsRuntimePathChoiceOpen() ? "Offen" : "Zu", MetaHubTone.Blue),
+            CreateRuntimeSummaryItem("icon_runner", "Welle", GetRuntimeNextWaveName(), GetRuntimeNextWaveEnemyText(), MetaHubTone.Gold),
+            CreateRuntimeSummaryItem("icon_shield", "Events", "Gewaehlt", runStats != null ? runStats.blockedEventsChosen.ToString() : "0", MetaHubTone.Red));
+    }
+
+    private void CreateRuntimeEliteContent(Transform main, MetaHubData data)
+    {
+        RunStatistics runStats = gameManager != null ? gameManager.GetRunStatistics() : null;
+        WaveHistory history = gameManager != null ? gameManager.GetWaveHistory() : null;
+        float mainWidth = GetPanelWidth(main, 1307f);
+        float left = -mainWidth * 0.5f + 22f;
+        float right = mainWidth * 0.5f - 22f;
+        float gap = 18f;
+        float topY = 214f;
+        float topHeight = 172f;
+        float statWidth = (right - left - gap * 3f) * 0.25f;
+
+        CreateUnlockStatCard(main, "RuntimeEliteKills", "ELITE-KILLS", runStats != null ? runStats.eliteKills.ToString() : "0", "Im Run", "icon_skull", MetaHubTone.Red, new Vector2(left + statWidth * 0.5f, topY), new Vector2(statWidth, topHeight));
+        CreateUnlockStatCard(main, "RuntimeEliteLeaks", "ELITE-LEAKS", runStats != null ? runStats.eliteLeaks.ToString() : "0", "Durchbruch", "icon_risk_core", MetaHubTone.Red, new Vector2(left + statWidth + gap + statWidth * 0.5f, topY), new Vector2(statWidth, topHeight));
+        CreateUnlockStatCard(main, "RuntimeEliteRewards", "REWARDS", runStats != null ? runStats.eliteRewardsChosen.ToString() : "0", "Gewaehlt", "icon_gold", MetaHubTone.Gold, new Vector2(left + (statWidth + gap) * 2f + statWidth * 0.5f, topY), new Vector2(statWidth, topHeight));
+        CreateUnlockStatCard(main, "RuntimeBossKills", "BOSS", history != null ? history.GetBossKills().ToString() : "0", "Besiegt", "icon_chaos_sun", MetaHubTone.Purple, new Vector2(left + (statWidth + gap) * 3f + statWidth * 0.5f, topY), new Vector2(statWidth, topHeight));
+
+        float panelWidth = (right - left - gap) * 0.5f;
+        Transform elite = CreateUnlockPanel(main, "RuntimeEliteState", "ELITE-STATUS", new Vector2(left + panelWidth * 0.5f, -45f), new Vector2(panelWidth, 330f), new Color32(167, 54, 45, 255));
+        float rowWidth = panelWidth - 70f;
+        CreateUnlockCompactRow(elite, "RuntimeEliteWaves", "icon_skull", "Elite-Waves", "Abgeschlossen", runStats != null ? runStats.eliteWavesCompleted.ToString() : "0", MetaHubTone.Red, 82f, rowWidth);
+        CreateUnlockCompactRow(elite, "RuntimeEliteDestroy", "icon_shield", "Tower zerstoert", "Elite-exklusiv", runStats != null ? runStats.towersDestroyedByElite.ToString() : "0", MetaHubTone.Red, 38f, rowWidth);
+        CreateUnlockCompactRow(elite, "RuntimeEliteLastTower", "icon_tower", "Letzter Verlust", "Durch Elite", runStats != null && !string.IsNullOrEmpty(runStats.lastEliteDestroyedTowerName) ? Shorten(runStats.lastEliteDestroyedTowerName, 14) : "Keiner", MetaHubTone.Cyan, -6f, rowWidth);
+        CreateUnlockCompactRow(elite, "RuntimeEliteLastReward", "icon_gold", "Letzte Belohnung", "Elite-Reward", runStats != null && !string.IsNullOrEmpty(runStats.lastEliteRewardName) ? Shorten(runStats.lastEliteRewardName, 14) : "Keine", MetaHubTone.Gold, -50f, rowWidth);
+        CreateUnlockCompactRow(elite, "RuntimeEliteNextWave", "icon_path", "Spezialwelle", GetRuntimeNextWaveName(), GetRuntimeNextWaveSpecialText(), MetaHubTone.Purple, -94f, rowWidth);
+
+        Transform bosses = CreateUnlockPanel(main, "RuntimeBossState", "BOSS / MINIBOSS", new Vector2(right - panelWidth * 0.5f, -45f), new Vector2(panelWidth, 330f), new Color32(128, 83, 176, 255));
+        CreateUnlockCompactRow(bosses, "RuntimeBossWaves", "icon_chaos_sun", "Boss-Waves", "Abgeschlossen", history != null ? history.GetBossWavesCompleted().ToString() : "0", MetaHubTone.Purple, 82f, rowWidth);
+        CreateUnlockCompactRow(bosses, "RuntimeMiniBossWaves", "icon_skull", "MiniBoss-Waves", "Abgeschlossen", history != null ? history.GetMiniBossWavesCompleted().ToString() : "0", MetaHubTone.Red, 38f, rowWidth);
+        CreateUnlockCompactRow(bosses, "RuntimeMiniBossKills", "icon_skull", "MiniBoss-Kills", "Besiegt", history != null ? history.GetMiniBossKills().ToString() : "0", MetaHubTone.Red, -6f, rowWidth);
+        CreateUnlockCompactRow(bosses, "RuntimeEliteHistory", "icon_risk_core", "Elite-Historie", "Historie", history != null ? history.GetEliteWavesCompleted() + "/" + history.GetEliteKills() : "0/0", MetaHubTone.Gold, -50f, rowWidth);
+        CreateUnlockCompactRow(bosses, "RuntimeBossRule", "icon_shield", "Regel", "Kein Towerverlust", "Sicher", MetaHubTone.Cyan, -94f, rowWidth);
+
+        CreateRuntimeSummaryPanel(main, "RuntimeEliteSnapshot", "RUN-SNAPSHOT", new Vector2((left + right) * 0.5f, -306f), new Vector2(right - left, 118f),
+            CreateRuntimeSummaryItem("icon_skull", "Elite-Kills", "Im Run", runStats != null ? runStats.eliteKills.ToString() : "0", MetaHubTone.Red),
+            CreateRuntimeSummaryItem("icon_risk_core", "Elite-Leaks", "Durchbruch", runStats != null ? runStats.eliteLeaks.ToString() : "0", MetaHubTone.Red),
+            CreateRuntimeSummaryItem("icon_chaos_sun", "Boss-Kills", "Historie", history != null ? history.GetBossKills().ToString() : "0", MetaHubTone.Purple),
+            CreateRuntimeSummaryItem("icon_path", "Spezialwelle", GetRuntimeNextWaveName(), GetRuntimeNextWaveSpecialText(), MetaHubTone.Cyan));
     }
 
     private void CreateUnlockGeneralContent(Transform main, MetaHubData data)
@@ -4149,8 +4809,13 @@ public class MetaHubController : MonoBehaviour
         Transform card = CreateOrnatePanel(parent, name, position, size, new Color32(7, 18, 20, 240), ToneColor(tone));
         CreateCanvasLabel(card, "Title", title, new Vector2(0f, size.y * 0.5f - 28f), new Vector2(size.x - 38f, 24f), 14f, new Color32(246, 236, 211, 255), TextAlignmentOptions.Center, FontStyles.Bold);
         CreateArtIcon(card, "Icon", artName, new Vector2(-size.x * 0.25f, 0f), new Vector2(68f, 68f));
-        CreateCanvasLabel(card, "Value", value, new Vector2(34f, 12f), new Vector2(90f, 34f), 28f, new Color32(245, 195, 92, 255), TextAlignmentOptions.Left, FontStyles.Bold);
-        CreateCanvasLabel(card, "Caption", caption, new Vector2(42f, -22f), new Vector2(130f, 22f), 11f, new Color32(225, 209, 184, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        float valueWidth = Mathf.Clamp(size.x * 0.42f, 112f, 180f);
+        float valueFontSize = !string.IsNullOrEmpty(value) && value.Length > 7 ? 23f : !string.IsNullOrEmpty(value) && value.Length > 4 ? 25f : 28f;
+        TextMeshProUGUI valueLabel = CreateCanvasLabel(card, "Value", value, new Vector2(34f, 12f), new Vector2(valueWidth, 34f), valueFontSize, new Color32(245, 195, 92, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        valueLabel.enableAutoSizing = true;
+        valueLabel.fontSizeMin = 18f;
+        valueLabel.fontSizeMax = valueFontSize;
+        CreateCanvasLabel(card, "Caption", caption, new Vector2(42f, -22f), new Vector2(valueWidth + 10f, 22f), 11f, new Color32(225, 209, 184, 255), TextAlignmentOptions.Left, FontStyles.Normal);
     }
 
     private void CreateTowerListRow(Transform parent, string name, string title, string caption, bool selected, float y, MetaHubTone tone, UnityEngine.Events.UnityAction onClick)
@@ -4315,6 +4980,92 @@ public class MetaHubController : MonoBehaviour
         CreateLine(parent, "KeystoneBar_" + data.id, new Vector2(x, -692f), new Vector2(50f, 3f), new Color32(193, 137, 50, 230), true);
     }
 
+    private void CreateRuntimeSidebarStatus(Transform parent)
+    {
+        CreateCanvasLabelTop(parent, "RuntimeSidebarTitle", "RUN-INFOS", new Vector2(-5f, -525f), new Vector2(238f, 30f), 17f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateRuntimeSidebarRow(parent, "RuntimeSideWave", "icon_path", "Welle", GetRuntimeWaveNumber().ToString(), MetaHubTone.Cyan, -575f);
+        CreateRuntimeSidebarRow(parent, "RuntimeSideRes", "icon_gold", "Gold / Leben", GetRuntimeGold() + " / " + GetRuntimeLives(), MetaHubTone.Gold, -629f);
+        CreateRuntimeSidebarRow(parent, "RuntimeSideRisk", "icon_risk_core", "Risiken", GetRuntimeRiskCount().ToString(), MetaHubTone.Red, -683f);
+    }
+
+    private void CreateRuntimeSidebarRow(Transform parent, string name, string artName, string label, string value, MetaHubTone tone, float y)
+    {
+        Color32 toneColor = ToneColor(tone);
+        Transform row = CreateCanvasPanelTop(parent, name, new Vector2(0f, y), new Vector2(228f, 44f), new Color32(7, 18, 20, 220), new Color32(toneColor.r, toneColor.g, toneColor.b, 150));
+        CreateArtIcon(row, "Icon", artName, new Vector2(-82f, 0f), new Vector2(32f, 32f));
+        CreateCanvasLabel(row, "Label", label, new Vector2(-10f, 8f), new Vector2(118f, 18f), 10f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(row, "Value", value, new Vector2(-10f, -10f), new Vector2(118f, 18f), 9f, toneColor, TextAlignmentOptions.Left, FontStyles.Bold);
+    }
+
+    private RuntimeSummaryItem CreateRuntimeSummaryItem(string artName, string label, string caption, string value, MetaHubTone tone)
+    {
+        RuntimeSummaryItem item = new RuntimeSummaryItem();
+        item.artName = artName;
+        item.label = label;
+        item.caption = caption;
+        item.value = value;
+        item.tone = tone;
+        return item;
+    }
+
+    private void CreateRuntimeRuleRow(Transform parent, string name, string artName, string title, string description, string value, MetaHubTone tone, float y, float width)
+    {
+        Color32 toneColor = ToneColor(tone);
+        Transform row = CreateCanvasPanel(parent, name, new Vector2(0f, y), new Vector2(width, 29f), new Color32(7, 18, 20, 220), new Color32(toneColor.r, toneColor.g, toneColor.b, 150));
+        CreateArtIcon(row, "Icon", artName, new Vector2(-width * 0.5f + 21f, 0f), new Vector2(24f, 24f));
+
+        float valueWidth = 72f;
+        float textLeft = 46f;
+        float textRight = valueWidth + 12f;
+        float textWidth = Mathf.Max(120f, width - textLeft - textRight);
+        float textX = -width * 0.5f + textLeft + textWidth * 0.5f;
+        CreateCanvasLabel(row, "Title", Shorten(title, Mathf.RoundToInt(textWidth / 7f)), new Vector2(textX, 5f), new Vector2(textWidth, 15f), 8.8f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(row, "Description", Shorten(description, Mathf.RoundToInt(textWidth / 6f)), new Vector2(textX, -8f), new Vector2(textWidth, 13f), 6.6f, new Color32(188, 178, 155, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        CreateCanvasLabel(row, "Value", Shorten(value, 10), new Vector2(width * 0.5f - valueWidth * 0.5f - 10f, 0f), new Vector2(valueWidth, 18f), 8.2f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
+    }
+
+    private void CreateRuntimeSummaryPanel(Transform parent, string name, string title, Vector2 position, Vector2 size, params RuntimeSummaryItem[] items)
+    {
+        Transform panel = CreateUnlockPanel(parent, name, title, position, size, new Color32(122, 94, 55, 255));
+        if (items == null || items.Length == 0)
+            return;
+
+        int visibleCount = Mathf.Min(items.Length, 4);
+        float innerWidth = size.x - 74f;
+        float gap = 14f;
+        float tileWidth = (innerWidth - gap * (visibleCount - 1)) / visibleCount;
+        float startX = -innerWidth * 0.5f + tileWidth * 0.5f;
+
+        for (int i = 0; i < visibleCount; i++)
+        {
+            RuntimeSummaryItem item = items[i];
+            Color32 toneColor = ToneColor(item.tone);
+            float x = startX + i * (tileWidth + gap);
+            Transform tile = CreateCanvasPanel(panel, "RuntimeSummary_" + i, new Vector2(x, -18f), new Vector2(tileWidth, 54f), new Color32(7, 18, 20, 220), new Color32(toneColor.r, toneColor.g, toneColor.b, 150));
+            CreateArtIcon(tile, "Icon", item.artName, new Vector2(-tileWidth * 0.5f + 28f, 0f), new Vector2(32f, 32f));
+
+            float valueWidth = Mathf.Clamp(tileWidth * 0.26f, 48f, 82f);
+            float textLeft = 56f;
+            float textRight = valueWidth + 14f;
+            float textWidth = Mathf.Max(64f, tileWidth - textLeft - textRight);
+            float textX = -tileWidth * 0.5f + textLeft + textWidth * 0.5f;
+            TextMeshProUGUI label = CreateCanvasLabel(tile, "Label", Shorten(item.label, Mathf.RoundToInt(textWidth / 7f)), new Vector2(textX, 9f), new Vector2(textWidth, 18f), 9f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+            label.enableAutoSizing = true;
+            label.fontSizeMin = 7f;
+            label.fontSizeMax = 9f;
+
+            TextMeshProUGUI caption = CreateCanvasLabel(tile, "Caption", Shorten(item.caption, Mathf.RoundToInt(textWidth / 6f)), new Vector2(textX, -9f), new Vector2(textWidth, 16f), 7.2f, new Color32(188, 178, 155, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+            caption.enableAutoSizing = true;
+            caption.fontSizeMin = 5.8f;
+            caption.fontSizeMax = 7.2f;
+
+            TextMeshProUGUI value = CreateCanvasLabel(tile, "Value", Shorten(item.value, Mathf.RoundToInt(valueWidth / 6f)), new Vector2(tileWidth * 0.5f - valueWidth * 0.5f - 10f, 0f), new Vector2(valueWidth, 22f), 9.2f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
+            value.enableAutoSizing = true;
+            value.fontSizeMin = 6.8f;
+            value.fontSizeMax = 9.2f;
+        }
+    }
+
     private void CreateReferenceMetricCard(Transform parent, MetaHubMetricCardData data, int index)
     {
         const float cardWidth = 228f;
@@ -4352,8 +5103,8 @@ public class MetaHubController : MonoBehaviour
         CreateCanvasLabel(panel, "Title", "FORTSCHRITT", new Vector2(-92f, 118f), new Vector2(170f, 30f), 20f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
         CreateDonutImage(panel, "AccountRing", new Vector2(-85f, 5f), 168f, Percent(data.account.currentXP, data.account.requiredXP), new Color32(55, 209, 235, 255), new Color32(55, 46, 29, 210));
         CreateCanvasLabel(panel, "Level", data.account.level.ToString(), new Vector2(-85f, 5f), new Vector2(96f, 46f), 38f, new Color32(255, 255, 255, 255), TextAlignmentOptions.Center, FontStyles.Bold);
-        CreateCanvasLabel(panel, "LevelCaption", "ACCOUNT LEVEL", new Vector2(-85f, -34f), new Vector2(130f, 20f), 12f, new Color32(242, 191, 75, 255), TextAlignmentOptions.Center, FontStyles.Bold);
-        CreateCanvasLabel(panel, "XPBottom", MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP", new Vector2(-85f, -98f), new Vector2(180f, 22f), 14f, new Color32(238, 222, 194, 255), TextAlignmentOptions.Center, FontStyles.Normal);
+        CreateCanvasLabel(panel, "LevelCaption", runtimeUnlockInfoMode ? "RUN WELLE" : "ACCOUNT LEVEL", new Vector2(-85f, -34f), new Vector2(130f, 20f), 12f, new Color32(242, 191, 75, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        CreateCanvasLabel(panel, "XPBottom", runtimeUnlockInfoMode ? "Tower-XP " + MetaHubMockData.FormatNumber(data.account.currentXP) : MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP", new Vector2(-85f, -98f), new Vector2(180f, 22f), 14f, new Color32(238, 222, 194, 255), TextAlignmentOptions.Center, FontStyles.Normal);
         for (int i = 0; i < data.progressStats.Count; i++)
             CreateReferenceSideStat(panel, data.progressStats[i], i);
     }
@@ -4395,7 +5146,7 @@ public class MetaHubController : MonoBehaviour
     {
         Transform panel = CreateOrnatePanel(parent, "GoalPanel", position, size, new Color32(6, 18, 20, 238), new Color32(122, 94, 55, 255));
         float titleFontSize = size.x < 280f ? 16f : 20f;
-        CreateCanvasLabel(panel, "Title", "NÄCHSTE ZIELE", new Vector2(0f, size.y * 0.5f - 30f), new Vector2(size.x - 44f, 30f), titleFontSize, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(panel, "Title", runtimeUnlockInfoMode ? "RUN-ZIELE" : "NÄCHSTE ZIELE", new Vector2(0f, size.y * 0.5f - 30f), new Vector2(size.x - 44f, 30f), titleFontSize, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
         float iconX = -size.x * 0.5f + 45f;
         float valueWidth = 64f;
         float valueX = size.x * 0.5f - valueWidth * 0.5f - 18f;
@@ -4418,14 +5169,14 @@ public class MetaHubController : MonoBehaviour
                 CreateLine(panel, "GoalDivider_" + i, new Vector2(0f, y - rowSpacing * 0.55f), new Vector2(size.x - 62f, 1f), new Color32(45, 54, 50, 210));
         }
         float buttonHeight = size.y < 180f ? 34f : 38f;
-        CreateCanvasButton(panel, "AllGoals", "ALLE ZIELE ANZEIGEN", new Vector2(0f, -size.y * 0.5f + 24f), new Vector2(Mathf.Min(245f, size.x - 52f), buttonHeight), RequestAllGoals);
+        CreateCanvasButton(panel, "AllGoals", runtimeUnlockInfoMode ? "ALLE RUN-ZIELE" : "ALLE ZIELE ANZEIGEN", new Vector2(0f, -size.y * 0.5f + 24f), new Vector2(Mathf.Min(245f, size.x - 52f), buttonHeight), RequestAllGoals);
     }
 
     private void CreateAllGoalsOverlay(Transform parent, List<MetaHubGoalData> goals)
     {
         CreateCanvasPanel(parent, "AllGoalsShade", Vector2.zero, new Vector2(1180f, 720f), new Color32(0, 0, 0, 150), new Color32(0, 0, 0, 0));
         Transform panel = CreateOrnatePanel(parent, "AllGoalsOverlay", new Vector2(0f, -18f), new Vector2(640f, 430f), new Color32(5, 17, 18, 248), new Color32(184, 124, 38, 255));
-        CreateCanvasLabel(panel, "Title", "ALLE ZIELE", new Vector2(-218f, 174f), new Vector2(180f, 30f), 22f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(panel, "Title", runtimeUnlockInfoMode ? "RUN-ZIELE" : "ALLE ZIELE", new Vector2(-218f, 174f), new Vector2(180f, 30f), 22f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
 
         int goalCount = goals != null ? goals.Count : 0;
         int visibleRows = Mathf.Min(goalCount, 6);
@@ -4445,11 +5196,49 @@ public class MetaHubController : MonoBehaviour
         CreateCanvasButton(panel, "CloseAllGoals", "SCHLIESSEN", new Vector2(0f, -176f), new Vector2(210f, 36f), CloseAllGoalsOverlay);
     }
 
-    private void CreateReferenceEffectPanel(Transform parent, string name, string title, List<MetaHubEffectData> effects, Vector2 position, Vector2 size, Color32 border)
+    private void CreateAllRisksOverlay(Transform parent, List<MetaHubEffectData> risks)
+    {
+        CreateCanvasPanel(parent, "AllRisksShade", Vector2.zero, new Vector2(1180f, 720f), new Color32(0, 0, 0, 150), new Color32(0, 0, 0, 0));
+        Transform panel = CreateOrnatePanel(parent, "AllRisksOverlay", new Vector2(0f, -18f), new Vector2(760f, 520f), new Color32(5, 17, 18, 248), new Color32(185, 67, 57, 255));
+        CreateCanvasLabel(panel, "Title", "AKTIVE RISIKEN", new Vector2(-258f, 218f), new Vector2(260f, 30f), 22f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+
+        int riskCount = risks != null ? risks.Count : 0;
+        int visibleRows = Mathf.Min(riskCount, 16);
+        bool twoColumns = visibleRows > 8;
+        int rowsPerColumn = twoColumns ? Mathf.CeilToInt(visibleRows * 0.5f) : visibleRows;
+        float rowWidth = twoColumns ? 320f : 680f;
+        Transform leftColumn = twoColumns ? CreateCanvasPanel(panel, "AllRisksLeftColumn", new Vector2(-178f, 0f), new Vector2(340f, 380f), new Color32(0, 0, 0, 0), new Color32(0, 0, 0, 0)) : panel;
+        Transform rightColumn = twoColumns ? CreateCanvasPanel(panel, "AllRisksRightColumn", new Vector2(178f, 0f), new Vector2(340f, 380f), new Color32(0, 0, 0, 0), new Color32(0, 0, 0, 0)) : panel;
+
+        for (int i = 0; i < visibleRows; i++)
+        {
+            MetaHubEffectData risk = risks[i];
+            int columnIndex = twoColumns && i >= rowsPerColumn ? 1 : 0;
+            int rowIndex = twoColumns ? i % rowsPerColumn : i;
+            Transform rowParent = columnIndex == 1 ? rightColumn : leftColumn;
+            string title = risk != null ? risk.title : "";
+            string description = risk != null ? risk.description : "";
+            string value = risk != null ? risk.durationText : "";
+            string artName = risk != null ? GetEffectArtName(risk) : "icon_risk_core";
+            MetaHubTone tone = risk != null ? risk.tone : MetaHubTone.Red;
+            CreateUnlockCompactRow(rowParent, "AllRiskRow_" + i, artName, title, description, value, tone, 164f - rowIndex * 45f, rowWidth);
+        }
+
+        if (riskCount > visibleRows)
+            CreateCanvasLabel(panel, "Overflow", "+" + (riskCount - visibleRows) + " weitere Risiken", new Vector2(0f, -202f), new Vector2(430f, 24f), 13f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+
+        if (visibleRows == 0)
+            CreateCanvasLabel(panel, "Empty", "Aktuell sind keine Risiken aktiv.", new Vector2(0f, 30f), new Vector2(430f, 34f), 15f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+
+        CreateCanvasButton(panel, "CloseAllRisks", "SCHLIESSEN", new Vector2(0f, -224f), new Vector2(210f, 36f), CloseAllRisksOverlay);
+    }
+
+    private void CreateReferenceEffectPanel(Transform parent, string name, string title, List<MetaHubEffectData> effects, Vector2 position, Vector2 size, Color32 border, UnityEngine.Events.UnityAction footerAction = null, string footerLabel = "")
     {
         Transform panel = CreateOrnatePanel(parent, name, position, size, new Color32(5, 21, 18, 238), border);
         CreateCanvasLabel(panel, "Title", title, new Vector2(-size.x * 0.5f + 126f, size.y * 0.5f - 30f), new Vector2(240f, 30f), 19f, border, TextAlignmentOptions.Left, FontStyles.Bold);
-        for (int i = 0; i < effects.Count && i < 2; i++)
+        int effectCount = effects != null ? effects.Count : 0;
+        for (int i = 0; i < effectCount && i < 2; i++)
         {
             MetaHubEffectData effect = effects[i];
             float y = 38f - i * 66f;
@@ -4461,6 +5250,12 @@ public class MetaHubController : MonoBehaviour
             if (i == 0)
                 CreateLine(panel, "EffectDivider", new Vector2(20f, 5f), new Vector2(size.x - 48f, 1f), new Color32(border.r, border.g, border.b, 120));
         }
+
+        if (footerAction != null)
+        {
+            string safeLabel = string.IsNullOrEmpty(footerLabel) ? "ALLE ANZEIGEN" : footerLabel;
+            CreateCanvasButton(panel, name + "AllButton", safeLabel, new Vector2(0f, -size.y * 0.5f + 24f), new Vector2(Mathf.Min(210f, size.x - 52f), 34f), footerAction);
+        }
     }
 
     private void CreateReferenceRunPanel(Transform parent, List<MetaHubRunStatData> stats)
@@ -4471,7 +5266,7 @@ public class MetaHubController : MonoBehaviour
     private void CreateReferenceRunPanel(Transform parent, List<MetaHubRunStatData> stats, Vector2 position, Vector2 size)
     {
         Transform panel = CreateOrnatePanel(parent, "RunPanel", position, size, new Color32(7, 19, 23, 238), new Color32(90, 100, 110, 255));
-        CreateCanvasLabel(panel, "Title", "LETZTER RUN", new Vector2(-size.x * 0.5f + 118f, size.y * 0.5f - 32f), new Vector2(210f, 30f), 20f, new Color32(246, 236, 211, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(panel, "Title", runtimeUnlockInfoMode ? "RUN-STATUS" : "LETZTER RUN", new Vector2(-size.x * 0.5f + 118f, size.y * 0.5f - 32f), new Vector2(210f, 30f), 20f, new Color32(246, 236, 211, 255), TextAlignmentOptions.Left, FontStyles.Bold);
         CreateLine(panel, "RunDividerTop", new Vector2(0f, size.y * 0.5f - 58f), new Vector2(size.x - 70f, 1f), new Color32(45, 54, 50, 210));
 
         int statCount = stats != null ? Mathf.Min(stats.Count, 4) : 0;
@@ -4512,7 +5307,7 @@ public class MetaHubController : MonoBehaviour
         float textWidth = Mathf.Max(86f, size.x - textLeft - textRight);
         float textX = -size.x * 0.5f + textLeft + textWidth * 0.5f;
         CreateCanvasLabel(card, "Label", stat.label, new Vector2(textX, 12f), new Vector2(textWidth, 20f), 11f, new Color32(220, 211, 195, 255), TextAlignmentOptions.Left, FontStyles.Bold);
-        CreateCanvasLabel(card, "Caption", "Letzter Run", new Vector2(textX, -10f), new Vector2(textWidth, 18f), 8f, new Color32(166, 174, 168, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        CreateCanvasLabel(card, "Caption", runtimeUnlockInfoMode ? "Aktueller Run" : "Letzter Run", new Vector2(textX, -10f), new Vector2(textWidth, 18f), 8f, new Color32(166, 174, 168, 255), TextAlignmentOptions.Left, FontStyles.Normal);
         CreateCanvasLabel(card, "Value", stat.valueText, new Vector2(size.x * 0.5f - valueWidth * 0.5f - 12f, 0f), new Vector2(valueWidth, 22f), 11f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
     }
 
@@ -4523,6 +5318,11 @@ public class MetaHubController : MonoBehaviour
             case "chaos": return "icon_chaos";
             case "blueprints": return "icon_blueprint";
             case "elite": return "icon_skull";
+            case "wave": return "icon_path";
+            case "kills": return "icon_skull";
+            case "leaks": return "icon_shield";
+            case "tower_xp": return "icon_tower";
+            case "lives": return "icon_xp";
             case "kernwissen":
             default: return "icon_gold";
         }
@@ -4535,6 +5335,11 @@ public class MetaHubController : MonoBehaviour
             case "chaos": return MetaHubTone.Purple;
             case "blueprints": return MetaHubTone.Cyan;
             case "elite": return MetaHubTone.Red;
+            case "wave": return MetaHubTone.Cyan;
+            case "kills": return MetaHubTone.Red;
+            case "leaks": return MetaHubTone.Red;
+            case "tower_xp": return MetaHubTone.Purple;
+            case "lives": return MetaHubTone.Cyan;
             case "kernwissen":
             default: return MetaHubTone.Gold;
         }
@@ -4835,10 +5640,10 @@ public class MetaHubController : MonoBehaviour
         switch (id)
         {
             case "tower_mastery": return "icon_tower";
-            case "chaos_wissen": return "icon_chaos";
+            case "chaos_wissen": return runtimeUnlockInfoMode ? "icon_shield" : "icon_chaos";
             case "risikokerne": return "icon_risk_core";
-            case "bauplaene": return "icon_blueprint";
-            case "elite_jagd": return "icon_skull";
+            case "bauplaene": return runtimeUnlockInfoMode ? "icon_path" : "icon_blueprint";
+            case "elite_jagd": return runtimeUnlockInfoMode ? "icon_shield" : "icon_skull";
             default: return "icon_keystone";
         }
     }

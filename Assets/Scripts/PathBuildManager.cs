@@ -97,6 +97,7 @@ public class PathBuildManager : MonoBehaviour
         }
 
         SetupButtonEvents();
+        AutopathManager.EnsureExists(this);
     }
 
     private void NormalizeGeneratedGhostVisual(GameObject ghostObject)

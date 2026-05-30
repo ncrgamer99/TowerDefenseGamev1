@@ -585,7 +585,7 @@ public class BlockedEventManager : MonoBehaviour
         return new BlockedEventOption
         {
             displayName = "Weg-Kompensation",
-            description = "Ab jetzt geben Gold und XP dauerhaft +1%. Danach " + GetTimedBuildPhaseText() + ".",
+            description = "Nach jeder bestandenen Wave steigen Gold und XP dauerhaft um +1%. Danach " + GetTimedBuildPhaseText() + ".",
             eventType = BlockedEventType.PersistentRewardBonus
         };
     }
@@ -829,8 +829,8 @@ public class BlockedEventManager : MonoBehaviour
                 break;
 
             case BlockedEventType.PersistentRewardBonus:
-                gameManager.AddBlockedEventRewardBonusStack();
-                Debug.Log("Blocked Event gewählt: dauerhafter Gold/XP-Bonus +1%.");
+                gameManager.ActivateBlockedEventRewardBonusGrowth();
+                Debug.Log("Blocked Event gewählt: Weg-Kompensation, +1% Gold/XP pro bestandener Wave.");
                 break;
 
             case BlockedEventType.EvolutionPoint:

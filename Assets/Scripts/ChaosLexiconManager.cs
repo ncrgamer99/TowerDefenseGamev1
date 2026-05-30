@@ -23,11 +23,11 @@ public class ChaosLexiconManager : MonoBehaviour
     public bool showGameplayOpenButton = false;
     public Button openButton;
     public TextMeshProUGUI openButtonText;
-    public string openButtonLabel = "Lexikon (F2)";
+    public string openButtonLabel = "Lexikon";
 
     [Header("Open / Close")]
     public bool enableLexicon = true;
-    public KeyCode toggleKey = KeyCode.F2;
+    public KeyCode toggleKey = KeyCode.None;
     public bool closeWithEscape = true;
     public bool allowOpeningDuringWave = true;
     public bool closeGameplayPanelsWhenOpening = true;
@@ -55,6 +55,7 @@ public class ChaosLexiconManager : MonoBehaviour
 
     private void Awake()
     {
+        RemoveLegacyF2Hotkey();
         EnsureLists();
 
         if (createDefaultEntriesOnStart)
@@ -63,6 +64,7 @@ public class ChaosLexiconManager : MonoBehaviour
 
     private void Start()
     {
+        RemoveLegacyF2Hotkey();
         ResolveReferences();
         SetupOpenButton();
 
@@ -79,7 +81,7 @@ public class ChaosLexiconManager : MonoBehaviour
         if (!enableLexicon)
             return;
 
-        if (Input.GetKeyDown(toggleKey))
+        if (toggleKey != KeyCode.None && Input.GetKeyDown(toggleKey))
         {
             ToggleLexicon();
             return;
@@ -95,6 +97,15 @@ public class ChaosLexiconManager : MonoBehaviour
             CloseLexicon();
         else
             OpenLexicon();
+    }
+
+    private void RemoveLegacyF2Hotkey()
+    {
+        if (toggleKey == KeyCode.F2)
+            toggleKey = KeyCode.None;
+
+        if (!string.IsNullOrEmpty(openButtonLabel) && openButtonLabel.Contains("F2"))
+            openButtonLabel = "Lexikon";
     }
 
     public void OpenLexicon()

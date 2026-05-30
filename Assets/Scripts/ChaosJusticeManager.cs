@@ -2186,6 +2186,68 @@ public class ChaosJusticeManager : MonoBehaviour
             gameManager.ResumeBuildPhaseAfterChaosJusticeChoice();
     }
 
+    public bool TryAutoChooseChaosForAutopath(out string actionText)
+    {
+        actionText = "Bosswahl offen";
+
+        if (!selectionOpen)
+            return false;
+
+        if (blockChoiceWhileGameOver && gameManager != null && gameManager.isGameOver)
+        {
+            CloseSelectionWithoutResume();
+            actionText = "Game Over";
+            return true;
+        }
+
+        switch (currentChoiceStep)
+        {
+            case ChaosJusticeChoiceStep.MainChoice:
+                actionText = "Bosswahl: Chaos";
+                return TryChooseOptionByType(ChaosJusticeChoiceType.OpenChaosSubChoice);
+
+            case ChaosJusticeChoiceStep.ChaosRiskSubChoice:
+                if (ShouldAutopathChooseRiskModifier())
+                {
+                    actionText = "Bosswahl: Risiko";
+
+                    if (TryChooseOptionByType(ChaosJusticeChoiceType.ChaosRiskModifier))
+                        return true;
+                }
+
+                actionText = "Bosswahl: kein Risiko";
+                return TryChooseOptionByType(ChaosJusticeChoiceType.NoRiskModifier);
+
+            case ChaosJusticeChoiceStep.JusticeSubChoice:
+                actionText = "Bosswahl: zurueck";
+                return TryChooseOptionByType(ChaosJusticeChoiceType.BackToMainChoice);
+
+            default:
+                return false;
+        }
+    }
+
+    private bool ShouldAutopathChooseRiskModifier()
+    {
+        return runData != null && runData.chaosLevel >= runData.maxChaosLevel;
+    }
+
+    private bool TryChooseOptionByType(ChaosJusticeChoiceType choiceType)
+    {
+        for (int i = 0; i < currentOptions.Count; i++)
+        {
+            ChaosJusticeChoiceOption option = currentOptions[i];
+
+            if (option == null || !option.isEnabled || option.choiceType != choiceType)
+                continue;
+
+            ChooseOption(i);
+            return true;
+        }
+
+        return false;
+    }
+
     private void ApplyChoice(ChaosJusticeChoiceOption option)
     {
         if (option == null)

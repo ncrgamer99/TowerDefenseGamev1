@@ -150,7 +150,11 @@ public class GameManager : MonoBehaviour
     [Header("Blocked Event Rewards V1")]
     public float blockedEventRewardBonusPerStack = 0.01f;
     public int blockedEventRewardBonusStacks = 0;
+    public int blockedEventRewardBonusGrowthStacks = 0;
     public int pendingEvolutionTowerBoosts = 0;
+
+    private float goldRewardModifierRemainder = 0f;
+    private float xpRewardModifierRemainder = 0f;
 
     private int lastWaveRewarded = 0;
     private int lastWaveCompletionGoldReward = 0;
@@ -301,6 +305,7 @@ public class GameManager : MonoBehaviour
         RegisterEliteWaveCompletionIfNeeded();
         GiveWaveCompletionReward();
         RecordLastWaveStatistics(true);
+        ApplyBlockedEventRewardBonusGrowthAfterCompletedWave();
         currentPhase = GamePhase.Build;
         RefreshWaveScenarioDebug();
         RefreshWaveDataDebug();
@@ -442,6 +447,11 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 1f;
         postBossChoicePending = false;
         postEliteRewardChoicePending = false;
+        blockedEventRewardBonusStacks = 0;
+        blockedEventRewardBonusGrowthStacks = 0;
+        goldRewardModifierRemainder = 0f;
+        xpRewardModifierRemainder = 0f;
+        pendingEvolutionTowerBoosts = 0;
         ApplyStartModeResources(mode);
 
         TowerMasteryManager towerMasteryManager = GetTowerMasteryManager();
@@ -1346,6 +1356,9 @@ public class GameManager : MonoBehaviour
         if (manager != null)
             manager.ApplySnapshotToWaveResult(currentWaveResult);
 
+        currentWaveResult.goldRewardMultiplierAtWaveStart = GetTotalGoldRewardMultiplier();
+        currentWaveResult.xpRewardMultiplierAtWaveStart = GetTotalXPRewardMultiplier();
+
         RunStatisticsTracker stats = GetRunStatisticsTracker();
         if (stats != null)
             stats.BeginWaveTracking(currentWaveResult);
@@ -1755,37 +1768,69 @@ public class GameManager : MonoBehaviour
     public int ApplyGoldRewardModifiers(int baseAmount)
     {
         int safeAmount = Mathf.Max(0, baseAmount);
-
-        ChaosJusticeManager manager = GetChaosJusticeManager();
-
-        if (manager == null)
-            return ApplyBlockedEventRewardBonus(safeAmount);
-
-        int modifiedAmount = manager.ApplyGoldRewardModifiers(safeAmount);
-        return ApplyBlockedEventRewardBonus(modifiedAmount);
+        return ApplyRewardMultiplierWithRemainder(safeAmount, GetTotalGoldRewardMultiplier(), ref goldRewardModifierRemainder);
     }
 
     public int ApplyXPRewardModifiers(int baseAmount)
     {
         int safeAmount = Mathf.Max(0, baseAmount);
-
-        ChaosJusticeManager manager = GetChaosJusticeManager();
-
-        if (manager != null)
-            safeAmount = manager.ApplyXPRewardModifiers(safeAmount);
-
-        return ApplyBlockedEventRewardBonus(safeAmount);
+        return ApplyRewardMultiplierWithRemainder(safeAmount, GetTotalXPRewardMultiplier(), ref xpRewardModifierRemainder);
     }
 
-    private int ApplyBlockedEventRewardBonus(int amount)
+    private int ApplyRewardMultiplierWithRemainder(int baseAmount, float multiplier, ref float remainder)
     {
-        int safeAmount = Mathf.Max(0, amount);
+        int safeAmount = Mathf.Max(0, baseAmount);
 
-        if (safeAmount <= 0 || blockedEventRewardBonusStacks <= 0)
+        if (safeAmount <= 0)
             return safeAmount;
 
-        float multiplier = 1f + blockedEventRewardBonusStacks * Mathf.Max(0f, blockedEventRewardBonusPerStack);
-        return Mathf.Max(0, Mathf.RoundToInt(safeAmount * multiplier));
+        float safeMultiplier = Mathf.Max(0f, multiplier);
+        if (safeMultiplier < 1f)
+        {
+            remainder = 0f;
+            return Mathf.Max(0, Mathf.RoundToInt(safeAmount * safeMultiplier));
+        }
+
+        float rawAmount = safeAmount * safeMultiplier + Mathf.Max(0f, remainder);
+        int finalAmount = Mathf.FloorToInt(rawAmount + 0.0001f);
+        remainder = Mathf.Clamp(rawAmount - finalAmount, 0f, 0.9999f);
+        return Mathf.Max(0, finalAmount);
+    }
+
+    public float GetBlockedEventRewardMultiplier()
+    {
+        return 1f + Mathf.Max(0, blockedEventRewardBonusStacks) * Mathf.Max(0f, blockedEventRewardBonusPerStack);
+    }
+
+    public float GetTotalGoldRewardMultiplier()
+    {
+        ChaosJusticeManager manager = GetChaosJusticeManager();
+        float multiplier = manager != null ? manager.GetGoldRewardMultiplier() : 1f;
+        return Mathf.Max(0f, multiplier * GetBlockedEventRewardMultiplier());
+    }
+
+    public float GetTotalXPRewardMultiplier()
+    {
+        ChaosJusticeManager manager = GetChaosJusticeManager();
+        float multiplier = manager != null ? manager.GetXPRewardMultiplier() : 1f;
+        return Mathf.Max(0f, multiplier * GetBlockedEventRewardMultiplier());
+    }
+
+    private void ApplyBlockedEventRewardBonusGrowthAfterCompletedWave()
+    {
+        int growthStacks = Mathf.Max(0, blockedEventRewardBonusGrowthStacks);
+
+        if (growthStacks <= 0)
+            return;
+
+        blockedEventRewardBonusStacks = Mathf.Max(0, blockedEventRewardBonusStacks + growthStacks);
+        Debug.Log("Weg-Kompensation: bestandene Wave +" + (growthStacks * blockedEventRewardBonusPerStack * 100f).ToString("0") + "% Gold/XP. Gesamt: +" + (blockedEventRewardBonusStacks * blockedEventRewardBonusPerStack * 100f).ToString("0") + "%.");
+    }
+
+    public void ActivateBlockedEventRewardBonusGrowth()
+    {
+        blockedEventRewardBonusGrowthStacks = Mathf.Max(0, blockedEventRewardBonusGrowthStacks + 1);
+        Debug.Log("Weg-Kompensation aktiv: +" + (blockedEventRewardBonusPerStack * 100f).ToString("0") + "% Gold/XP pro bestandener Wave.");
     }
 
     public void AddBlockedEventRewardBonusStack()

@@ -113,6 +113,7 @@ public class TileManager : MonoBehaviour
     private void Start()
     {
         ScaleWorldVisualIfNeeded();
+        AbyssGroundRenderer.EnsureExists(this);
 
         if (createPathOnStart)
             InitializeRunPath();
@@ -1878,15 +1879,45 @@ public class TileManager : MonoBehaviour
 
         foreach (Vector2Int gridPos in pathPositions)
         {
-            worldPath.Add(GridToWorld(gridPos));
+            int teleporterIndex = GetTeleporterIndexForExit(gridPos);
+            if (teleporterIndex >= 0 && teleporterIndex < teleporterEntryPositions.Count)
+                AddWorldPathPoint(worldPath, teleporterEntryPositions[teleporterIndex]);
+
+            AddWorldPathPoint(worldPath, gridPos);
         }
 
-        int teleporterIndex = teleporterExitPositions.LastIndexOf(basePosition);
-        if (teleporterIndex >= 0 && teleporterIndex < teleporterEntryPositions.Count)
-            worldPath.Add(GridToWorld(teleporterEntryPositions[teleporterIndex]));
+        int baseTeleporterIndex = GetTeleporterIndexForExit(basePosition);
+        if (baseTeleporterIndex >= 0 && baseTeleporterIndex < teleporterEntryPositions.Count)
+            AddWorldPathPoint(worldPath, teleporterEntryPositions[baseTeleporterIndex]);
 
-        worldPath.Add(GridToWorld(basePosition));
+        AddWorldPathPoint(worldPath, basePosition);
 
         return worldPath;
+    }
+
+    private int GetTeleporterIndexForExit(Vector2Int exitPosition)
+    {
+        if (teleporterExitPositions == null)
+            return -1;
+
+        for (int i = teleporterExitPositions.Count - 1; i >= 0; i--)
+        {
+            if (teleporterExitPositions[i] == exitPosition)
+                return i;
+        }
+
+        return -1;
+    }
+
+    private void AddWorldPathPoint(List<Vector3> worldPath, Vector2Int gridPosition)
+    {
+        if (worldPath == null)
+            return;
+
+        Vector3 worldPosition = GridToWorld(gridPosition);
+        if (worldPath.Count > 0 && Vector3.Distance(worldPath[worldPath.Count - 1], worldPosition) <= 0.01f)
+            return;
+
+        worldPath.Add(worldPosition);
     }
 }
