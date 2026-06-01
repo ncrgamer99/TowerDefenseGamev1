@@ -140,6 +140,10 @@ public class GameManager : MonoBehaviour
     [Header("Gold")]
     public int gold = 120;
 
+    [Header("Tower Build Cost Scaling")]
+    public bool scaleTowerBuildCostByTypePurchases = true;
+    public float towerTypePurchaseCostIncrease = 0.5f;
+
     [Header("Wave Completion Rewards")]
     public bool giveWaveCompletionGold = true;
     public int baseWaveCompletionGold = 6;
@@ -148,13 +152,18 @@ public class GameManager : MonoBehaviour
     public int bossWaveCompletionGoldBonus = 24;
 
     [Header("Blocked Event Rewards V1")]
-    public float blockedEventRewardBonusPerStack = 0.01f;
+    public float blockedEventRewardBonusPerStack = 0.03f;
     public int blockedEventRewardBonusStacks = 0;
     public int blockedEventRewardBonusGrowthStacks = 0;
     public int pendingEvolutionTowerBoosts = 0;
 
+    [Header("Gold Tile Rewards")]
+    public float goldTileRewardBonusPerTile = 0.05f;
+    public int goldTileRewardBonusStacks = 0;
+
     private float goldRewardModifierRemainder = 0f;
     private float xpRewardModifierRemainder = 0f;
+    private readonly Dictionary<TowerRole, int> towerBuildCountByRole = new Dictionary<TowerRole, int>();
 
     private int lastWaveRewarded = 0;
     private int lastWaveCompletionGoldReward = 0;
@@ -449,8 +458,10 @@ public class GameManager : MonoBehaviour
         postEliteRewardChoicePending = false;
         blockedEventRewardBonusStacks = 0;
         blockedEventRewardBonusGrowthStacks = 0;
+        goldTileRewardBonusStacks = 0;
         goldRewardModifierRemainder = 0f;
         xpRewardModifierRemainder = 0f;
+        towerBuildCountByRole.Clear();
         pendingEvolutionTowerBoosts = 0;
         ApplyStartModeResources(mode);
 
@@ -1802,11 +1813,16 @@ public class GameManager : MonoBehaviour
         return 1f + Mathf.Max(0, blockedEventRewardBonusStacks) * Mathf.Max(0f, blockedEventRewardBonusPerStack);
     }
 
+    public float GetGoldTileRewardMultiplier()
+    {
+        return 1f + Mathf.Max(0, goldTileRewardBonusStacks) * Mathf.Max(0f, goldTileRewardBonusPerTile);
+    }
+
     public float GetTotalGoldRewardMultiplier()
     {
         ChaosJusticeManager manager = GetChaosJusticeManager();
         float multiplier = manager != null ? manager.GetGoldRewardMultiplier() : 1f;
-        return Mathf.Max(0f, multiplier * GetBlockedEventRewardMultiplier());
+        return Mathf.Max(0f, multiplier * GetBlockedEventRewardMultiplier() * GetGoldTileRewardMultiplier());
     }
 
     public float GetTotalXPRewardMultiplier()
@@ -1814,6 +1830,12 @@ public class GameManager : MonoBehaviour
         ChaosJusticeManager manager = GetChaosJusticeManager();
         float multiplier = manager != null ? manager.GetXPRewardMultiplier() : 1f;
         return Mathf.Max(0f, multiplier * GetBlockedEventRewardMultiplier());
+    }
+
+    public void RegisterGoldTileBuilt()
+    {
+        goldTileRewardBonusStacks = Mathf.Max(0, goldTileRewardBonusStacks + 1);
+        Debug.Log("Gold Tile gebaut: Gold-Rewards jetzt +" + (goldTileRewardBonusStacks * goldTileRewardBonusPerTile * 100f).ToString("0") + "%.");
     }
 
     private void ApplyBlockedEventRewardBonusGrowthAfterCompletedWave()
@@ -2128,6 +2150,94 @@ public class GameManager : MonoBehaviour
 
         lives += amount;
         Debug.Log("Lives: " + lives);
+    }
+
+    public int GetTowerBuildCostWithTypeScaling(int currentCost, GameObject towerPrefab, string displayName)
+    {
+        int safeCost = Mathf.Max(0, currentCost);
+
+        if (!scaleTowerBuildCostByTypePurchases || safeCost <= 0)
+            return safeCost;
+
+        if (!TryResolveTowerRole(null, towerPrefab, displayName, out TowerRole role))
+            return safeCost;
+
+        return CalculateTowerTypePurchaseScaledCost(safeCost, GetTowerTypePurchaseCount(role));
+    }
+
+    public int GetTowerTypePurchaseCount(GameObject towerPrefab, string displayName)
+    {
+        if (!TryResolveTowerRole(null, towerPrefab, displayName, out TowerRole role))
+            return 0;
+
+        return GetTowerTypePurchaseCount(role);
+    }
+
+    private int GetTowerTypePurchaseCount(TowerRole role)
+    {
+        return towerBuildCountByRole.TryGetValue(role, out int count) ? Mathf.Max(0, count) : 0;
+    }
+
+    private int CalculateTowerTypePurchaseScaledCost(int currentCost, int purchaseCount)
+    {
+        int safeCost = Mathf.Max(0, currentCost);
+        int safePurchaseCount = Mathf.Max(0, purchaseCount);
+
+        if (!scaleTowerBuildCostByTypePurchases || safeCost <= 0 || safePurchaseCount <= 0)
+            return safeCost;
+
+        float safeIncrease = Mathf.Max(0f, towerTypePurchaseCostIncrease);
+
+        if (safeIncrease <= 0f)
+            return safeCost;
+
+        float rawCost = safeCost * Mathf.Pow(1f + safeIncrease, safePurchaseCount);
+
+        if (rawCost >= int.MaxValue)
+            return int.MaxValue;
+
+        return Mathf.Max(safeCost, Mathf.CeilToInt(rawCost - 0.0001f));
+    }
+
+    private void RegisterTowerTypePurchase(Tower tower, GameObject towerPrefab, string displayName)
+    {
+        if (!TryResolveTowerRole(tower, towerPrefab, displayName, out TowerRole role))
+            return;
+
+        towerBuildCountByRole[role] = GetTowerTypePurchaseCount(role) + 1;
+    }
+
+    private bool TryResolveTowerRole(Tower tower, GameObject towerPrefab, string displayName, out TowerRole role)
+    {
+        if (tower != null)
+        {
+            role = tower.towerRole;
+            return true;
+        }
+
+        Tower prefabTower = towerPrefab != null ? towerPrefab.GetComponent<Tower>() : null;
+        if (prefabTower != null)
+        {
+            role = prefabTower.towerRole;
+            return true;
+        }
+
+        string lowerName = string.IsNullOrEmpty(displayName) ? "" : displayName.ToLowerInvariant();
+
+        if (lowerName.Contains("basic")) { role = TowerRole.Basic; return true; }
+        if (lowerName.Contains("rapid")) { role = TowerRole.Rapid; return true; }
+        if (lowerName.Contains("heavy")) { role = TowerRole.Heavy; return true; }
+        if (lowerName.Contains("fire")) { role = TowerRole.Fire; return true; }
+        if (lowerName.Contains("slow")) { role = TowerRole.Slow; return true; }
+        if (lowerName.Contains("poison")) { role = TowerRole.Poison; return true; }
+        if (lowerName.Contains("sniper")) { role = TowerRole.Sniper; return true; }
+        if (lowerName.Contains("alchemist")) { role = TowerRole.Alchemist; return true; }
+        if (lowerName.Contains("lightning")) { role = TowerRole.Lightning; return true; }
+        if (lowerName.Contains("mortar")) { role = TowerRole.Mortar; return true; }
+        if (lowerName.Contains("spike")) { role = TowerRole.Spike; return true; }
+
+        role = TowerRole.Basic;
+        return false;
     }
 
     public bool SpendGold(int amount)
@@ -2499,6 +2609,13 @@ public class GameManager : MonoBehaviour
 
     public void RegisterTowerBuilt(Tower tower, int cost, Vector2Int gridPosition, Vector3 worldPosition)
     {
+        RegisterTowerBuilt(tower, cost, gridPosition, worldPosition, null, "");
+    }
+
+    public void RegisterTowerBuilt(Tower tower, int cost, Vector2Int gridPosition, Vector3 worldPosition, GameObject towerPrefab, string displayName)
+    {
+        RegisterTowerTypePurchase(tower, towerPrefab, displayName);
+
         RunStatisticsTracker stats = GetRunStatisticsTracker();
 
         if (stats != null)

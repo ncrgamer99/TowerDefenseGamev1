@@ -258,7 +258,7 @@ public class EliteHuntProgressionManager : MonoBehaviour
                 spawner.eliteMinimumWavesBetween = 7;
                 spawner.eliteMinimumTowerCount = 3;
                 spawner.eliteKillsSinceLastThreshold = 120;
-                spawner.eliteConditionSpawnChance = 0.006f;
+                spawner.eliteConditionSpawnChance = 0.016f;
                 spawner.eliteRareChanceWithoutThreshold = 0.001f;
                 break;
             case EliteHuntMode.Hard:
@@ -267,7 +267,7 @@ public class EliteHuntProgressionManager : MonoBehaviour
                 spawner.eliteMinimumWavesBetween = 4;
                 spawner.eliteMinimumTowerCount = 3;
                 spawner.eliteKillsSinceLastThreshold = 80;
-                spawner.eliteConditionSpawnChance = 0.01f;
+                spawner.eliteConditionSpawnChance = 0.02f;
                 spawner.eliteRareChanceWithoutThreshold = 0.002f;
                 break;
             case EliteHuntMode.RiftElite:
@@ -276,7 +276,7 @@ public class EliteHuntProgressionManager : MonoBehaviour
                 spawner.eliteMinimumWavesBetween = 3;
                 spawner.eliteMinimumTowerCount = 3;
                 spawner.eliteKillsSinceLastThreshold = 60;
-                spawner.eliteConditionSpawnChance = 0.01f;
+                spawner.eliteConditionSpawnChance = 0.02f;
                 spawner.eliteRareChanceWithoutThreshold = 0.002f;
                 break;
             default:
@@ -285,7 +285,7 @@ public class EliteHuntProgressionManager : MonoBehaviour
                 spawner.eliteMinimumWavesBetween = 5;
                 spawner.eliteMinimumTowerCount = 3;
                 spawner.eliteKillsSinceLastThreshold = 100;
-                spawner.eliteConditionSpawnChance = 0.01f;
+                spawner.eliteConditionSpawnChance = 0.02f;
                 spawner.eliteRareChanceWithoutThreshold = 0.002f;
                 break;
         }

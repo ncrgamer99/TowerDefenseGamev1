@@ -11,6 +11,7 @@ public class TowerSupportTileBonus : MonoBehaviour
     public float damageMultiplierBonus = 0.20f;
     public float fireRateMultiplierBonus = 0.20f;
     public float xpMultiplierBonus = 0.25f;
+    public float goldKillMultiplierBonus = 0.10f;
     public int pointUpgradePowerBonus = 1;
 
     [Header("Caps")]
@@ -18,6 +19,7 @@ public class TowerSupportTileBonus : MonoBehaviour
     public float maxDamageMultiplierBonus = 0.75f;
     public float maxFireRateMultiplierBonus = 0.75f;
     public float maxXPMultiplierBonus = 1.0f;
+    public float maxGoldKillMultiplierBonus = 0.50f;
     public int maxPointUpgradePowerBonus = 2;
 
     public void ConfigureFromTile(TowerSupportTileEffect tile)
@@ -32,12 +34,14 @@ public class TowerSupportTileBonus : MonoBehaviour
         damageMultiplierBonus = tile.damageMultiplierBonus;
         fireRateMultiplierBonus = tile.fireRateMultiplierBonus;
         xpMultiplierBonus = tile.xpMultiplierBonus;
+        goldKillMultiplierBonus = tile.goldKillMultiplierBonus;
         pointUpgradePowerBonus = tile.pointUpgradePowerBonus;
 
         maxRangeBonus = tile.maxRangeBonus;
         maxDamageMultiplierBonus = tile.maxDamageMultiplierBonus;
         maxFireRateMultiplierBonus = tile.maxFireRateMultiplierBonus;
         maxXPMultiplierBonus = tile.maxXPMultiplierBonus;
+        maxGoldKillMultiplierBonus = tile.maxGoldKillMultiplierBonus;
         maxPointUpgradePowerBonus = tile.maxPointUpgradePowerBonus;
     }
 

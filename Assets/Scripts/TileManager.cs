@@ -341,6 +341,11 @@ public class TileManager : MonoBehaviour
 
         ScaleWorldVisualIfNeeded();
         CreateStartPath(extraStartPathTiles);
+
+        AbyssGroundRenderer renderer = AbyssGroundRenderer.EnsureExists(this);
+        if (renderer != null)
+            renderer.ForceRefresh();
+
         return pathInitialized;
     }
 
@@ -533,6 +538,9 @@ public class TileManager : MonoBehaviour
 
     public bool TryBuildGoldTileAt(Vector2Int goldTilePosition)
     {
+        if (TryBuildGoldTileAsSupportTile(goldTilePosition, out bool success))
+            return success;
+
         if (!CanExtendTo(goldTilePosition))
         {
             Debug.Log("Ungültige GoldTile-Position!");
@@ -554,6 +562,22 @@ public class TileManager : MonoBehaviour
 
         if (gameManager != null)
             gameManager.OnPathExtended();
+
+        return true;
+    }
+
+    private bool TryBuildGoldTileAsSupportTile(Vector2Int goldTilePosition, out bool success)
+    {
+        if (!IsTowerSupportTileType(PathBuildOptionType.GoldTile))
+        {
+            success = false;
+            return false;
+        }
+
+        success = TryBuildSupportTileAt(goldTilePosition, PathBuildOptionType.GoldTile);
+
+        if (success && gameManager != null)
+            gameManager.RegisterGoldTileBuilt();
 
         return true;
     }
@@ -598,7 +622,8 @@ public class TileManager : MonoBehaviour
                tileType == PathBuildOptionType.DamageTile ||
                tileType == PathBuildOptionType.RateTile ||
                tileType == PathBuildOptionType.XPTile ||
-               tileType == PathBuildOptionType.UpgradeTile;
+               tileType == PathBuildOptionType.UpgradeTile ||
+               tileType == PathBuildOptionType.GoldTile;
     }
 
     private bool TryExtendPathTo(Vector2Int newBasePosition, PathBuildOptionType pathTileType)
@@ -1268,7 +1293,7 @@ public class TileManager : MonoBehaviour
         if (generatedSupportPrefab != null)
         {
             GameObject generatedSupportTile = Instantiate(generatedSupportPrefab, worldPosition, Quaternion.identity);
-            generatedSupportTile.name = supportTileType.ToString();
+            generatedSupportTile.name = supportTileType == PathBuildOptionType.GoldTile ? "Gold Tile" : supportTileType.ToString();
             NormalizeGeneratedTileVisual(generatedSupportTile);
             HideGeneratedTileRailsAndCorners(generatedSupportTile);
 
@@ -1277,13 +1302,23 @@ public class TileManager : MonoBehaviour
                 generatedEffect = generatedSupportTile.AddComponent<TowerSupportTileEffect>();
 
             generatedEffect.Configure(supportTileType, gridPosition, tileSize);
+
+            if (supportTileType == PathBuildOptionType.GoldTile)
+            {
+                GoldTileGenerator generator = generatedSupportTile.GetComponent<GoldTileGenerator>();
+                if (generator == null)
+                    generator = generatedSupportTile.AddComponent<GoldTileGenerator>();
+
+                generator.gameManager = gameManager;
+            }
+
             specialTileObjects.Add(generatedSupportTile);
             return;
         }
 
         Color tileColor = GetSupportTileColor(supportTileType);
         GameObject tileObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        tileObject.name = supportTileType.ToString();
+        tileObject.name = supportTileType == PathBuildOptionType.GoldTile ? "Gold Tile" : supportTileType.ToString();
         tileObject.transform.position = worldPosition;
         tileObject.transform.localScale = new Vector3(tileSize, 0.1f, tileSize);
         ColorTile(tileObject, tileColor);
@@ -1297,6 +1332,12 @@ public class TileManager : MonoBehaviour
 
         TowerSupportTileEffect effect = tileObject.AddComponent<TowerSupportTileEffect>();
         effect.Configure(supportTileType, gridPosition, tileSize);
+
+        if (supportTileType == PathBuildOptionType.GoldTile)
+        {
+            GoldTileGenerator generator = tileObject.AddComponent<GoldTileGenerator>();
+            generator.gameManager = gameManager;
+        }
 
         specialTileObjects.Add(tileObject);
     }
@@ -1315,6 +1356,8 @@ public class TileManager : MonoBehaviour
                 return xpTileColor;
             case PathBuildOptionType.UpgradeTile:
                 return upgradeTileColor;
+            case PathBuildOptionType.GoldTile:
+                return goldTileColor;
             default:
                 return Color.white;
         }

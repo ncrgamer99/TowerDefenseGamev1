@@ -715,7 +715,7 @@ public class BasicTowerMasteryManager : MonoBehaviour
 
     public float GetBasicSellRefundBonus()
     {
-        return GetNodeRank(SafeRefund) * 0.02f;
+        return 0f;
     }
 
     public float GetBasicXPMultiplier()
@@ -1311,7 +1311,7 @@ public class BasicTowerMasteryManager : MonoBehaviour
         AddDefinition(ControlledSalvo, "Keystone: Kontrollierte Salve", BasicTowerMasteryPath.Salvo, BasicTowerMasteryMilestone.BasicV, 1, "Jeder 10. Schuss feuert ein Zusatzprojektil auf ein zweites Ziel in Range, 60% Damage.", new int[] { 20 }, BasicTowerKeystone.ControlledSalvo);
 
         AddDefinition(SimpleBlueprint, "Einfacher Bauplan", BasicTowerMasteryPath.Stability, BasicTowerMasteryMilestone.BasicI, 5, "Basic Tower kostet -1 Gold pro Rang.", 1, 2, 3, 4, 5);
-        AddDefinition(SafeRefund, "Sichere Rueckgabe", BasicTowerMasteryPath.Stability, BasicTowerMasteryMilestone.BasicI, 5, "Basic Sell Refund +2% pro Rang.", 1, 2, 3, 4, 5);
+        AddDefinition(SafeRefund, "Sichere Rueckgabe", BasicTowerMasteryPath.Stability, BasicTowerMasteryMilestone.BasicI, 5, "Verkauf bleibt fix bei 50% des damaligen Kaufpreises.", 1, 2, 3, 4, 5);
         AddDefinition(TrainingRoutine, "Trainingsroutine", BasicTowerMasteryPath.Stability, BasicTowerMasteryMilestone.BasicII, 5, "Basic Tower bekommen +4% XP pro Rang.", 1, 2, 3, 4, 5);
         AddDefinition(FirstAnchor, "Erster Anker", BasicTowerMasteryPath.Stability, BasicTowerMasteryMilestone.BasicII, 1, "Der erste Basic Tower pro Run startet mit +15 XP.", 5);
         AddDefinition(FirstAnchorTwo, "Erster Anker II", BasicTowerMasteryPath.Stability, BasicTowerMasteryMilestone.BasicIII, 1, "Der erste Basic Tower pro Run startet zusaetzlich auf Level 2.", new int[] { 8 }, BasicTowerKeystone.None, FirstAnchor);

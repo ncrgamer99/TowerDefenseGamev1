@@ -563,6 +563,14 @@ public class BuildSelectionUI : MonoBehaviour
         return GeneralMetaProgressionManager.GetOrCreate();
     }
 
+    private GameManager GetGameManager()
+    {
+        if (buildManager != null && buildManager.gameManager != null)
+            return buildManager.gameManager;
+
+        return FindObjectOfType<GameManager>();
+    }
+
     private void SetupSlot(TowerSelectionSlot slot)
     {
         if (slot == null)
@@ -809,7 +817,9 @@ public class BuildSelectionUI : MonoBehaviour
 
         int masteryAdjustedCost = BasicTowerMasteryManager.GetModifiedBuildCost(option.cost, option.prefab, option.displayName);
         GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
-        return generalMeta != null ? generalMeta.GetBuildCostAfterStartOptions(masteryAdjustedCost) : masteryAdjustedCost;
+        int discountedCost = generalMeta != null ? generalMeta.GetBuildCostAfterStartOptions(masteryAdjustedCost) : masteryAdjustedCost;
+        GameManager gameManager = GetGameManager();
+        return gameManager != null ? gameManager.GetTowerBuildCostWithTypeScaling(discountedCost, option.prefab, option.displayName) : discountedCost;
     }
 
     private string GetShortTowerName(BuildOption option)
@@ -1327,6 +1337,14 @@ public class BuildSelectionUI : MonoBehaviour
         GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
         if (generalMeta != null && generalMeta.GetAvailableFirstTowerDiscount() > 0)
             costText += "\nMeta-Rabatt: erster Tower -" + generalMeta.GetAvailableFirstTowerDiscount() + " Gold";
+
+        GameManager gameManager = GetGameManager();
+        int typePurchases = gameManager != null ? gameManager.GetTowerTypePurchaseCount(option.prefab, option.displayName) : 0;
+        if (typePurchases > 0)
+        {
+            int increasePercent = gameManager != null ? Mathf.RoundToInt(Mathf.Max(0f, gameManager.towerTypePurchaseCostIncrease) * 100f) : 50;
+            costText += "\nTyp-Aufschlag: " + typePurchases + "x +" + increasePercent + "%";
+        }
 
         return description + costText;
     }

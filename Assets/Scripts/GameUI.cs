@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class GameUI : MonoBehaviour
@@ -34,6 +35,18 @@ public class GameUI : MonoBehaviour
     public bool autoCreateNextWavePreviewPanel = true;
     public Color hudPanelColor = new Color32(20, 24, 31, 225);
     public Color previewPanelColor = new Color32(22, 39, 60, 230);
+
+    [Header("Quick Menu Buttons - Top Right")]
+    public bool autoCreateQuickMenuButtons = true;
+    public GameObject quickMenuButtonRoot;
+    public Button overviewButton;
+    public Button autopathButton;
+    public Vector2 quickMenuRootPosition = new Vector2(-18f, -18f);
+    public Vector2 quickMenuButtonSize = new Vector2(156f, 34f);
+    public float quickMenuButtonSpacing = 8f;
+    public Color quickMenuButtonColor = new Color32(31, 55, 82, 235);
+    public Color quickMenuButtonHoverColor = new Color32(45, 83, 120, 245);
+    public Color quickMenuButtonTextColor = new Color32(240, 244, 250, 255);
 
     [Header("Chaos/Gerechtigkeit HUD - Optional Separate Section")]
     public GameObject chaosJusticeHudPanel;
@@ -109,6 +122,7 @@ public class GameUI : MonoBehaviour
             ApplyStatsTextDefaults();
 
         EnsureAutoHudPanelsIfNeeded();
+        EnsureQuickMenuButtonsIfNeeded();
         ApplyOptionalHudTextDefaults();
 
         if (gameOverText != null && !showLegacyGameOverText)
@@ -131,6 +145,7 @@ public class GameUI : MonoBehaviour
         UpdateStatsText();
         UpdateChaosJusticeHud();
         UpdateNextWavePreviewHud();
+        UpdateQuickMenuButtons();
         UpdateBigAlertUI();
         UpdateGameOverText();
     }
@@ -193,6 +208,149 @@ public class GameUI : MonoBehaviour
             nextWavePreviewPanel = panel;
             nextWavePreviewText = text;
         }
+    }
+
+    private void EnsureQuickMenuButtonsIfNeeded()
+    {
+        if (!autoCreateQuickMenuButtons || quickMenuButtonRoot != null || statsText == null)
+            return;
+
+        Transform parent = statsText.transform.parent;
+
+        if (parent == null)
+            return;
+
+        EnsureEventSystemForHud();
+
+        quickMenuButtonRoot = new GameObject("QuickMenuButtons", typeof(RectTransform));
+        quickMenuButtonRoot.transform.SetParent(parent, false);
+
+        RectTransform rootRect = quickMenuButtonRoot.GetComponent<RectTransform>();
+        rootRect.anchorMin = new Vector2(1f, 1f);
+        rootRect.anchorMax = new Vector2(1f, 1f);
+        rootRect.pivot = new Vector2(1f, 1f);
+        rootRect.anchoredPosition = quickMenuRootPosition;
+        rootRect.sizeDelta = new Vector2(quickMenuButtonSize.x, quickMenuButtonSize.y * 2f + quickMenuButtonSpacing);
+
+        overviewButton = CreateQuickMenuButton(quickMenuButtonRoot.transform, "OverviewButton", "F1 Übersicht", Vector2.zero);
+        overviewButton.onClick.AddListener(OpenOverviewMenu);
+
+        autopathButton = CreateQuickMenuButton(quickMenuButtonRoot.transform, "AutopathButton", "F2 Autopath", new Vector2(0f, -(quickMenuButtonSize.y + quickMenuButtonSpacing)));
+        autopathButton.onClick.AddListener(OpenAutopathMenu);
+    }
+
+    private Button CreateQuickMenuButton(Transform parent, string objectName, string label, Vector2 anchoredPosition)
+    {
+        GameObject buttonObject = new GameObject(objectName, typeof(RectTransform), typeof(Image), typeof(Button));
+        buttonObject.transform.SetParent(parent, false);
+
+        RectTransform rect = buttonObject.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(1f, 1f);
+        rect.anchoredPosition = anchoredPosition;
+        rect.sizeDelta = quickMenuButtonSize;
+
+        Image image = buttonObject.GetComponent<Image>();
+        image.color = quickMenuButtonColor;
+        image.raycastTarget = true;
+
+        Button button = buttonObject.GetComponent<Button>();
+        button.targetGraphic = image;
+
+        ColorBlock colors = button.colors;
+        colors.normalColor = quickMenuButtonColor;
+        colors.highlightedColor = quickMenuButtonHoverColor;
+        colors.pressedColor = new Color32(25, 42, 64, 255);
+        colors.selectedColor = quickMenuButtonHoverColor;
+        colors.disabledColor = new Color32(28, 33, 42, 150);
+        button.colors = colors;
+
+        GameObject textObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(buttonObject.transform, false);
+
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = new Vector2(10f, 4f);
+        textRect.offsetMax = new Vector2(-10f, -4f);
+
+        TextMeshProUGUI text = textObject.GetComponent<TextMeshProUGUI>();
+        text.text = label;
+        text.fontSize = 14f;
+        text.fontStyle = FontStyles.Bold;
+        text.enableWordWrapping = false;
+        text.overflowMode = TextOverflowModes.Ellipsis;
+        text.alignment = TextAlignmentOptions.Center;
+        text.color = quickMenuButtonTextColor;
+        text.raycastTarget = false;
+
+        return button;
+    }
+
+    private void EnsureEventSystemForHud()
+    {
+        if (EventSystem.current != null)
+            return;
+
+        new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+    }
+
+    private void UpdateQuickMenuButtons()
+    {
+        EnsureQuickMenuButtonsIfNeeded();
+
+        if (quickMenuButtonRoot == null)
+            return;
+
+        bool visible = gameManager != null && gameManager.gameStarted && !gameManager.startMenuOpen && !gameManager.isGameOver && !gameManager.IsGameplayInputLockedByModalUI();
+        quickMenuButtonRoot.SetActive(visible);
+
+        if (!visible)
+            return;
+
+        quickMenuButtonRoot.transform.SetAsLastSibling();
+
+        if (overviewButton != null)
+            overviewButton.interactable = gameManager.GetChaosUnlockManager() != null;
+
+        if (autopathButton != null)
+            autopathButton.interactable = ResolvePathBuildManagerForAutopath() != null;
+    }
+
+    private void OpenOverviewMenu()
+    {
+        if (gameManager == null)
+            ResolveReferences();
+
+        ChaosUnlockManager unlockManager = gameManager != null ? gameManager.GetChaosUnlockManager() : FindObjectOfType<ChaosUnlockManager>();
+
+        if (unlockManager != null)
+            unlockManager.OpenUnlocks();
+    }
+
+    private void OpenAutopathMenu()
+    {
+        PathBuildManager manager = ResolvePathBuildManagerForAutopath();
+
+        if (manager == null)
+            return;
+
+        AutopathManager autopathManager = AutopathManager.EnsureExists(manager);
+
+        if (autopathManager != null)
+            autopathManager.OpenPanel();
+    }
+
+    private PathBuildManager ResolvePathBuildManagerForAutopath()
+    {
+        if (gameManager == null)
+            ResolveReferences();
+
+        if (gameManager != null && gameManager.pathBuildManager != null)
+            return gameManager.pathBuildManager;
+
+        return FindObjectOfType<PathBuildManager>();
     }
 
     private GameObject CreateHudPanel(Transform parent, string objectName, Vector2 anchoredPosition, Vector2 size, Color color)

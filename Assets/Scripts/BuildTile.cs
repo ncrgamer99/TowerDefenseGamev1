@@ -67,7 +67,8 @@ public class BuildTile : MonoBehaviour
 
         int masteryAdjustedCost = BasicTowerMasteryManager.GetModifiedBuildCost(cost, towerPrefab, towerPrefab.name);
         GeneralMetaProgressionManager generalMeta = gameManager.GetGeneralMetaProgressionManager();
-        int finalCost = generalMeta != null ? generalMeta.GetBuildCostAfterStartOptions(masteryAdjustedCost) : masteryAdjustedCost;
+        int discountedCost = generalMeta != null ? generalMeta.GetBuildCostAfterStartOptions(masteryAdjustedCost) : masteryAdjustedCost;
+        int finalCost = gameManager.GetTowerBuildCostWithTypeScaling(discountedCost, towerPrefab, towerPrefab.name);
 
         if (!gameManager.SpendGold(finalCost, RunGoldSpendSource.TowerBuild))
             return false;
@@ -83,7 +84,7 @@ public class BuildTile : MonoBehaviour
         if (builtTower != null)
             builtTower.InitializeBuildData(finalCost, gridPosition);
 
-        gameManager.RegisterTowerBuilt(builtTower, finalCost, gridPosition, towerPosition);
+        gameManager.RegisterTowerBuilt(builtTower, finalCost, gridPosition, towerPosition, towerPrefab, towerPrefab.name);
 
         tileManager.RegisterTowerPosition(transform.position);
 

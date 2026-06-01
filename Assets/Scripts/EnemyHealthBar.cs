@@ -21,6 +21,18 @@ public class EnemyHealthBar : MonoBehaviour
     public float horizontalMargin = 6f;
     public float fillHeight = 16f;
 
+    [Header("Status Icons")]
+    public bool showStatusIcons = true;
+    public Vector2 statusIconSize = new Vector2(18f, 18f);
+    public float statusIconSpacing = 3f;
+    public float statusIconYOffset = 8f;
+    public Color burnIconColor = new Color32(255, 94, 55, 235);
+    public Color slowIconColor = new Color32(90, 190, 255, 235);
+    public Color poisonIconColor = new Color32(165, 82, 235, 235);
+    public Color bleedIconColor = new Color32(210, 60, 60, 235);
+    public Color darknessIconColor = new Color32(18, 18, 24, 245);
+    public Color statusIconTextColor = Color.white;
+
     [Header("Text")]
     public bool showHealthText = true;
     public int fontSize = 16;
@@ -44,6 +56,17 @@ public class EnemyHealthBar : MonoBehaviour
 
     private RectTransform canvasRect;
     private RectTransform fillRect;
+    private RectTransform statusIconRoot;
+    private Image burnIconImage;
+    private Image slowIconImage;
+    private Image poisonIconImage;
+    private Image bleedIconImage;
+    private Image darknessIconImage;
+    private TextMeshProUGUI burnIconText;
+    private TextMeshProUGUI slowIconText;
+    private TextMeshProUGUI poisonIconText;
+    private TextMeshProUGUI bleedIconText;
+    private TextMeshProUGUI darknessIconText;
     private bool isInitialized = false;
 
     private void Awake()
@@ -129,6 +152,8 @@ public class EnemyHealthBar : MonoBehaviour
                 healthText.text = current + "/" + max;
             }
         }
+
+        RefreshStatusIcons();
     }
 
     private void CreateVisualsIfNeeded()
@@ -168,6 +193,7 @@ public class EnemyHealthBar : MonoBehaviour
         EnsureBackground();
         EnsureFill();
         EnsureText();
+        EnsureStatusIcons();
     }
 
     private void EnsureBackground()
@@ -235,6 +261,153 @@ public class EnemyHealthBar : MonoBehaviour
         rect.anchorMax = Vector2.one;
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
+    }
+
+    private void EnsureStatusIcons()
+    {
+        Transform existingRoot = canvas.transform.Find("StatusIcons");
+        GameObject rootObject = existingRoot != null ? existingRoot.gameObject : new GameObject("StatusIcons");
+        rootObject.transform.SetParent(canvas.transform, false);
+
+        statusIconRoot = rootObject.GetComponent<RectTransform>();
+        if (statusIconRoot == null)
+            statusIconRoot = rootObject.AddComponent<RectTransform>();
+
+        statusIconRoot.anchorMin = new Vector2(0.5f, 1f);
+        statusIconRoot.anchorMax = new Vector2(0.5f, 1f);
+        statusIconRoot.pivot = new Vector2(0.5f, 0f);
+        statusIconRoot.anchoredPosition = new Vector2(0f, statusIconYOffset);
+        statusIconRoot.sizeDelta = new Vector2(5f * statusIconSize.x + 4f * statusIconSpacing, statusIconSize.y);
+
+        burnIconImage = EnsureStatusIcon(statusIconRoot, "BurnIcon", burnIconColor, out burnIconText);
+        slowIconImage = EnsureStatusIcon(statusIconRoot, "SlowIcon", slowIconColor, out slowIconText);
+        poisonIconImage = EnsureStatusIcon(statusIconRoot, "PoisonIcon", poisonIconColor, out poisonIconText);
+        bleedIconImage = EnsureStatusIcon(statusIconRoot, "BleedIcon", bleedIconColor, out bleedIconText);
+        darknessIconImage = EnsureStatusIcon(statusIconRoot, "DarknessIcon", darknessIconColor, out darknessIconText);
+    }
+
+    private Image EnsureStatusIcon(RectTransform parent, string objectName, Color color, out TextMeshProUGUI label)
+    {
+        Transform existing = parent.Find(objectName);
+        GameObject iconObject = existing != null ? existing.gameObject : new GameObject(objectName);
+        iconObject.transform.SetParent(parent, false);
+
+        RectTransform rect = iconObject.GetComponent<RectTransform>();
+        if (rect == null)
+            rect = iconObject.AddComponent<RectTransform>();
+
+        rect.sizeDelta = statusIconSize;
+        rect.anchorMin = new Vector2(0f, 0.5f);
+        rect.anchorMax = new Vector2(0f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+
+        Image image = iconObject.GetComponent<Image>();
+        if (image == null)
+            image = iconObject.AddComponent<Image>();
+
+        image.color = color;
+        image.raycastTarget = false;
+
+        Transform existingLabel = iconObject.transform.Find("Label");
+        GameObject labelObject = existingLabel != null ? existingLabel.gameObject : new GameObject("Label");
+        labelObject.transform.SetParent(iconObject.transform, false);
+
+        RectTransform labelRect = labelObject.GetComponent<RectTransform>();
+        if (labelRect == null)
+            labelRect = labelObject.AddComponent<RectTransform>();
+
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = Vector2.zero;
+        labelRect.offsetMax = Vector2.zero;
+
+        label = labelObject.GetComponent<TextMeshProUGUI>();
+        if (label == null)
+            label = labelObject.AddComponent<TextMeshProUGUI>();
+
+        label.raycastTarget = false;
+        label.alignment = TextAlignmentOptions.Center;
+        label.fontSize = 12f;
+        label.fontStyle = FontStyles.Bold;
+        label.enableWordWrapping = false;
+        label.color = statusIconTextColor;
+
+        return image;
+    }
+
+    private void RefreshStatusIcons()
+    {
+        if (statusIconRoot == null)
+            EnsureStatusIcons();
+
+        if (statusIconRoot == null || enemy == null)
+            return;
+
+        bool hasAnyIcon = false;
+        int visibleCount = 0;
+
+        if (enemy.HasBurn())
+            visibleCount++;
+
+        if (enemy.HasSlow())
+            visibleCount++;
+
+        if (enemy.HasPoison())
+            visibleCount++;
+
+        if (enemy.HasBleed())
+            visibleCount++;
+
+        if (enemy.HasDarkness())
+            visibleCount++;
+
+        int visibleIndex = 0;
+
+        SetStatusIcon(burnIconImage, burnIconText, enemy.HasBurn(), "F" + Mathf.Max(1, enemy.ActiveBurnStacks), visibleIndex, visibleCount, ref hasAnyIcon);
+        if (enemy.HasBurn())
+            visibleIndex++;
+
+        SetStatusIcon(slowIconImage, slowIconText, enemy.HasSlow(), "S", visibleIndex, visibleCount, ref hasAnyIcon);
+        if (enemy.HasSlow())
+            visibleIndex++;
+
+        SetStatusIcon(poisonIconImage, poisonIconText, enemy.HasPoison(), "P", visibleIndex, visibleCount, ref hasAnyIcon);
+        if (enemy.HasPoison())
+            visibleIndex++;
+
+        SetStatusIcon(bleedIconImage, bleedIconText, enemy.HasBleed(), "B", visibleIndex, visibleCount, ref hasAnyIcon);
+        if (enemy.HasBleed())
+            visibleIndex++;
+
+        SetStatusIcon(darknessIconImage, darknessIconText, enemy.HasDarkness(), "D", visibleIndex, visibleCount, ref hasAnyIcon);
+
+        statusIconRoot.gameObject.SetActive(showStatusIcons && hasAnyIcon);
+    }
+
+    private void SetStatusIcon(Image image, TextMeshProUGUI label, bool visible, string text, int visibleIndex, int visibleCount, ref bool hasAnyIcon)
+    {
+        if (image == null)
+            return;
+
+        bool active = showStatusIcons && visible;
+        image.gameObject.SetActive(active);
+
+        if (!active)
+            return;
+
+        hasAnyIcon = true;
+
+        RectTransform rect = image.GetComponent<RectTransform>();
+        if (rect != null)
+        {
+            float step = statusIconSize.x + statusIconSpacing;
+            float startX = -Mathf.Max(0, visibleCount - 1) * step * 0.5f;
+            float x = startX + visibleIndex * step;
+            rect.anchoredPosition = new Vector2(x, 0f);
+        }
+
+        if (label != null)
+            label.text = text;
     }
 
     private Color GetCurrentHealthColor()

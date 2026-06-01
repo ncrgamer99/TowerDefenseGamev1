@@ -755,12 +755,12 @@ public class MainMenuLexiconManager : MonoBehaviour
         AddChaosJusticeEntryIfMissing("justice_gold", MainMenuLexiconChaosJusticeEntryType.Justice, "Gold-Gerechtigkeit", 0,
             "Sichere Wahl nach Boss-Waves.",
             "Kein Zusatzrisiko.",
-            "Gold-Rewards +3% pro Stufe.");
+            "Gold-Rewards +8% pro Stufe.");
 
         AddChaosJusticeEntryIfMissing("justice_xp", MainMenuLexiconChaosJusticeEntryType.Justice, "XP-Gerechtigkeit", 10,
             "Sichere Wahl nach Boss-Waves.",
             "Kein Zusatzrisiko.",
-            "XP-Rewards +3% pro Stufe.");
+            "XP-Rewards +8% pro Stufe.");
 
         AddChaosJusticeEntryIfMissing("safe_no_modifier", MainMenuLexiconChaosJusticeEntryType.SafeOption, "Kein Modifikator", 20,
             "Sichere Chaos-Option.",
@@ -770,22 +770,22 @@ public class MainMenuLexiconManager : MonoBehaviour
         AddChaosJusticeEntryIfMissing("risk_extra_enemies", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Mehr Gegner", 100,
             "Startwert bei erster Stufe.",
             "Zukünftige Waves: Gegneranzahl x1.12 und +1 Zusatzgegner.",
-            "Gold +5% | XP +4%.");
+            "Gold +13% | XP +10%.");
 
         AddChaosJusticeEntryIfMissing("risk_runner_pressure", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Runner-Druck", 110,
             "Startwert bei erster Stufe.",
             "Zukünftige Waves: +2 Runner.",
-            "Gold +4%.");
+            "Gold +10%.");
 
         AddChaosJusticeEntryIfMissing("risk_tank_pressure", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Tank-Druck", 120,
             "Startwert bei erster Stufe.",
             "Zukünftige Waves: +1 Tank.",
-            "Gold +5% | XP +4%.");
+            "Gold +13% | XP +10%.");
 
         AddChaosJusticeEntryIfMissing("risk_knight_pressure", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Knight-Druck", 130,
             "Startwert bei erster Stufe.",
             "Zukünftige Waves: +1 Knight.",
-            "Gold +5% | XP +3%.");
+            "Gold +13% | XP +7%.");
 
         AddChaosJusticeEntryIfMissing("risk_mage_pressure", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Mage-Druck", 140,
             "Startwert bei erster Stufe.",
@@ -800,7 +800,7 @@ public class MainMenuLexiconManager : MonoBehaviour
         AddChaosJusticeEntryIfMissing("risk_faster_spawns", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Schnellere Spawns", 160,
             "Startwert bei erster Stufe.",
             "Zukünftige Waves: SpawnDelay x0.90.",
-            "Gold +6%.");
+            "Gold +16%.");
 
         AddChaosJusticeEntryIfMissing("risk_mixed_role_pressure", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Gemischter Rollendruck", 170,
             "Erscheint erst bei höherem Chaos.",
@@ -825,62 +825,62 @@ public class MainMenuLexiconManager : MonoBehaviour
         AddChaosJusticeEntryIfMissing("risk_chaos_variants", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Violette Verformung", 210,
             "Erscheint erst bei höherem Chaos.",
             "Chaos-Varianten häufiger: Chance +12%, bis zu +1 zusätzliche Variante.",
-            "XP +6%.");
+            "XP +16%.");
 
         AddChaosJusticeEntryIfMissing("risk_wave_density", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Stärkere Verdichtung", 220,
             "Erscheint erst bei höherem Chaos.",
             "Chaos-Waves: Verdichtung häufiger, Stärke +1, Chance +8%.",
-            "Gold +5%.");
+            "Gold +13%.");
 
         AddChaosJusticeEntryIfMissing("risk_wave_toughness", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Zähe Wellen", 230,
             "Erscheint erst bei höherem Chaos.",
             "Chaos-Waves: Zähigkeit häufiger, Stärke +1, Chance +7%.",
-            "XP +5%.");
+            "XP +13%.");
 
         AddChaosJusticeEntryIfMissing("risk_wave_rearguard", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Stärkere Nachhut", 240,
             "Erscheint erst bei höherem Chaos.",
             "Chaos-Waves: Nachhut häufiger, Stärke +1, Chance +7%.",
-            "Gold +5% | XP +4%.");
+            "Gold +14% | XP +10%.");
 
         AddChaosJusticeEntryIfMissing("risk_wave_chaos_variant_group", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Violette Wellen", 250,
             "Erscheint erst bei höherem Chaos.",
             "Chaos-Waves: violette Gruppen häufiger, Stärke +1, Chance +6%.",
-            "XP +6%.");
+            "XP +17%.");
 
         AddChaosJusticeEntryIfMissing("risk_wave_armor", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Chaos-Panzerung", 260,
             "Erscheint erst bei höherem Chaos.",
             "Chaos-Waves: Armor-Gruppen häufiger, Stärke +1, Chance +5%.",
-            "Gold +7%.");
+            "Gold +19%.");
 
         AddChaosJusticeEntryIfMissing("risk_greedy_swarm", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Gieriger Ansturm", 270,
             "Startwert bei erster Stufe.",
             "Zukünftige Waves: Gegneranzahl x1.10 und +1 Zusatzgegner.",
-            "Gold +20% | XP +12%.");
+            "Gold +45% | XP +33%.");
 
         AddChaosJusticeEntryIfMissing("risk_gold_rush", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Goldrausch-Risiko", 280,
             "Startwert bei erster Stufe.",
             "Zukünftige Waves: Gegneranzahl x1.07 und +1 Zusatzgegner.",
-            "Gold +22%.");
+            "Gold +45%.");
 
         AddChaosJusticeEntryIfMissing("risk_xp_trial", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "XP-Prüfung", 290,
             "Startwert bei erster Stufe.",
             "Zukünftige Waves: +1 Learner und +1 Mage.",
-            "XP +22%.");
+            "XP +45%.");
 
         AddChaosJusticeEntryIfMissing("risk_haste_for_gold", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Eile gegen Gold", 300,
             "Startwert bei erster Stufe.",
             "Zukünftige Waves: SpawnDelay x0.92.",
-            "Gold +17%.");
+            "Gold +45%.");
 
         AddChaosJusticeEntryIfMissing("risk_bounty_hunters", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "Kopfgeld-Jagd", 310,
             "Startwert bei erster Stufe.",
             "Zukünftige Waves: +1 Runner, optional +1 Tank.",
-            "Gold +16% | XP +13%.");
+            "Gold +41% | XP +35%.");
 
         AddChaosJusticeEntryIfMissing("risk_allrounder_bounty", MainMenuLexiconChaosJusticeEntryType.RiskModifier, "AllRounder-Kopfgeld", 320,
             "Startwert bei erster Stufe.",
             "Zukünftige Waves: +1 AllRounder.",
-            "Gold +18% | XP +15%.");
+            "Gold +45% | XP +40%.");
     }
 
     private void CreateDefaultPathTileEntriesIfNeeded()

@@ -143,8 +143,8 @@ public class ChaosJusticeManager : MonoBehaviour
     [Header("V1 Settings")]
     public bool openChoiceAfterBossWaves = true;
     public int maxChaosLevel = 5;
-    public float goldJusticeBonusPerLevel = 0.03f;
-    public float xpJusticeBonusPerLevel = 0.03f;
+    public float goldJusticeBonusPerLevel = 0.08f;
+    public float xpJusticeBonusPerLevel = 0.08f;
 
     [Header("Risk Modifier Pool")]
     public bool useInspectorRiskModifierPool = false;
@@ -167,6 +167,7 @@ public class ChaosJusticeManager : MonoBehaviour
     public float rewardRiskDiminishingFactor = 0.80f;
     public float maxChaosRewardBonus = 1.50f;
     public float maxSingleRiskRewardBonus = 0.45f;
+    public float riskModifierRewardBonusMultiplier = 2.66f;
 
     [Header("Risk Budget V1")]
     public bool enforceTotalRiskPressureBudget = true;
@@ -1689,10 +1690,61 @@ public class ChaosJusticeManager : MonoBehaviour
 
     private List<WaveModifier> GetRiskModifierPool()
     {
-        if (useInspectorRiskModifierPool && riskModifierPool != null && riskModifierPool.Count > 0)
-            return FilterRiskPoolByAvailablePrefabs(riskModifierPool);
+        List<WaveModifier> pool = useInspectorRiskModifierPool && riskModifierPool != null && riskModifierPool.Count > 0
+            ? FilterRiskPoolByAvailablePrefabs(riskModifierPool)
+            : FilterRiskPoolByAvailablePrefabs(CreateDefaultRiskModifierPool());
 
-        return CreateDefaultRiskModifierPool();
+        return CreateRiskRewardBoostedCopies(pool);
+    }
+
+    private List<WaveModifier> CreateRiskRewardBoostedCopies(List<WaveModifier> sourcePool)
+    {
+        List<WaveModifier> result = new List<WaveModifier>();
+
+        if (sourcePool == null)
+            return result;
+
+        foreach (WaveModifier modifier in sourcePool)
+        {
+            if (modifier == null)
+                continue;
+
+            WaveModifier copy = modifier.CreateCopy();
+            ApplyRiskRewardBonusMultiplier(copy);
+            result.Add(copy);
+        }
+
+        return result;
+    }
+
+    private void ApplyRiskRewardBonusMultiplier(WaveModifier modifier)
+    {
+        if (modifier == null)
+            return;
+
+        float multiplier = Mathf.Max(0f, riskModifierRewardBonusMultiplier);
+
+        if (modifier.goldRewardMultiplierBonus > 0f)
+            modifier.goldRewardMultiplierBonus *= multiplier;
+
+        if (modifier.xpRewardMultiplierBonus > 0f)
+            modifier.xpRewardMultiplierBonus *= multiplier;
+
+        ApplyRiskRewardBonusCaps(modifier);
+    }
+
+    private void ApplyRiskRewardBonusCaps(WaveModifier modifier)
+    {
+        if (modifier == null)
+            return;
+
+        float safeCap = Mathf.Max(0f, maxSingleRiskRewardBonus);
+
+        if (modifier.goldRewardMultiplierBonus > 0f)
+            modifier.goldRewardMultiplierBonus = Mathf.Min(modifier.goldRewardMultiplierBonus, safeCap);
+
+        if (modifier.xpRewardMultiplierBonus > 0f)
+            modifier.xpRewardMultiplierBonus = Mathf.Min(modifier.xpRewardMultiplierBonus, safeCap);
     }
 
     private List<WaveModifier> CreateDefaultRiskModifierPool()
@@ -2087,7 +2139,7 @@ public class ChaosJusticeManager : MonoBehaviour
                 });
             }
 
-        return FilterRiskPoolByAvailablePrefabs(pool);
+        return pool;
     }
 
     private List<WaveModifier> FilterRiskPoolByAvailablePrefabs(List<WaveModifier> sourcePool)

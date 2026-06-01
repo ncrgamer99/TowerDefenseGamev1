@@ -120,6 +120,8 @@ public class ChaosUnlockRuntimeUI : MonoBehaviour
 
     public void OpenUnlocks()
     {
+        selectedSection = RuntimeSection.Overview;
+
         if (ShouldRedirectGameplayToMetaHub())
         {
             OpenMetaHubInstead();

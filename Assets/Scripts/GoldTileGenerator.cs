@@ -6,10 +6,12 @@ using TMPro;
 public class GoldTileGenerator : MonoBehaviour
 {
     public GameManager gameManager;
-    public int goldPerSecond = 5;
+    public int goldPerSecond = 0;
     public int totalGoldProduced = 0;
     public int baseGoldGenerated = 0;
     public int generationTicks = 0;
+    public float runGoldRewardBonus = 0.05f;
+    public float towerKillGoldBonus = 0.10f;
 
     private const float PopupWidth = 320f;
     private const float PopupHeight = 124f;
@@ -18,7 +20,6 @@ public class GoldTileGenerator : MonoBehaviour
     private static RectTransform popupPanel;
     private static TextMeshProUGUI popupText;
     private static GoldTileGenerator activePopupTarget;
-    private float goldTimer = 0f;
 
     private void Awake()
     {
@@ -38,19 +39,6 @@ public class GoldTileGenerator : MonoBehaviour
                 HidePopup();
         }
 
-        if (gameManager == null || gameManager.isGameOver || gameManager.currentPhase != GamePhase.Wave)
-        {
-            goldTimer = 0f;
-            return;
-        }
-
-        goldTimer += Time.deltaTime;
-
-        while (goldTimer >= 1f)
-        {
-            goldTimer -= 1f;
-            GenerateGoldTick();
-        }
     }
 
     private void OnMouseDown()
@@ -65,21 +53,6 @@ public class GoldTileGenerator : MonoBehaviour
     {
         if (activePopupTarget == this)
             HidePopup();
-    }
-
-    private void GenerateGoldTick()
-    {
-        int safeBaseGold = Mathf.Max(0, goldPerSecond);
-        int goldBefore = gameManager != null ? gameManager.gold : 0;
-
-        gameManager.AddGold(safeBaseGold, true, RunGoldSource.Other);
-
-        int goldAfter = gameManager != null ? gameManager.gold : goldBefore;
-        int actualGold = Mathf.Max(0, goldAfter - goldBefore);
-
-        baseGoldGenerated += safeBaseGold;
-        totalGoldProduced += actualGold;
-        generationTicks++;
     }
 
     private void EnsureClickCollider()
@@ -186,11 +159,15 @@ public class GoldTileGenerator : MonoBehaviour
         if (popupText == null)
             return;
 
+        float shownRunBonus = gameManager != null ? gameManager.goldTileRewardBonusPerTile : runGoldRewardBonus;
+        TowerSupportTileEffect supportTile = GetComponent<TowerSupportTileEffect>();
+        float shownKillBonus = supportTile != null ? supportTile.goldKillMultiplierBonus : towerKillGoldBonus;
+
         popupText.text =
             "<color=#D6A441><b>Gold Tile</b></color>\n" +
-            "Produziert: <b>" + totalGoldProduced + " Gold</b>\n" +
-            "Basis erzeugt: " + baseGoldGenerated + " Gold\n" +
-            "Rate: +" + Mathf.Max(0, goldPerSecond) + " Gold/s waehrend Wave\n" +
+            "Run-Bonus: <b>+" + Mathf.RoundToInt(Mathf.Max(0f, shownRunBonus) * 100f) + "% Gold-Rewards</b>\n" +
+            "Tower auf Tile: +" + Mathf.RoundToInt(Mathf.Max(0f, shownKillBonus) * 100f) + "% Gold pro Kill\n" +
+            "Passive Produktion: aus\n" +
             "<size=80%><color=#B9C2D0>Rechtsklick oder Esc schliesst.</color></size>";
     }
 }

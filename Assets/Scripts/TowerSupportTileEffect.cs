@@ -16,6 +16,7 @@ public class TowerSupportTileEffect : MonoBehaviour
     public float damageMultiplierBonus = 0.20f;
     public float fireRateMultiplierBonus = 0.20f;
     public float xpMultiplierBonus = 0.25f;
+    public float goldKillMultiplierBonus = 0.10f;
     public int pointUpgradePowerBonus = 1;
 
     [Header("Bonus Caps")]
@@ -23,6 +24,7 @@ public class TowerSupportTileEffect : MonoBehaviour
     public float maxDamageMultiplierBonus = 0.75f;
     public float maxFireRateMultiplierBonus = 0.75f;
     public float maxXPMultiplierBonus = 1.0f;
+    public float maxGoldKillMultiplierBonus = 0.50f;
     public int maxPointUpgradePowerBonus = 2;
 
     public void Configure(PathBuildOptionType newTileType, Vector2Int newGridPosition, float newTileSize)
@@ -85,7 +87,8 @@ public class TowerSupportTileEffect : MonoBehaviour
 
         int masteryAdjustedCost = BasicTowerMasteryManager.GetModifiedBuildCost(option.cost, option.prefab, option.displayName);
         GeneralMetaProgressionManager generalMeta = gameManager.GetGeneralMetaProgressionManager();
-        int finalCost = generalMeta != null ? generalMeta.GetBuildCostAfterStartOptions(masteryAdjustedCost) : masteryAdjustedCost;
+        int discountedCost = generalMeta != null ? generalMeta.GetBuildCostAfterStartOptions(masteryAdjustedCost) : masteryAdjustedCost;
+        int finalCost = gameManager.GetTowerBuildCostWithTypeScaling(discountedCost, option.prefab, option.displayName);
 
         if (!gameManager.SpendGold(finalCost, RunGoldSpendSource.TowerBuild))
             return false;
@@ -109,7 +112,7 @@ public class TowerSupportTileEffect : MonoBehaviour
         occupyingTower = builtTower;
         isOccupied = builtTower != null;
 
-        gameManager.RegisterTowerBuilt(builtTower, finalCost, gridPosition, towerPosition);
+        gameManager.RegisterTowerBuilt(builtTower, finalCost, gridPosition, towerPosition, option.prefab, option.displayName);
         tileManager.RegisterTowerPosition(transform.position);
 
         Debug.Log("Tower auf " + GetDisplayName(tileType) + " gebaut.");
@@ -161,6 +164,12 @@ public class TowerSupportTileEffect : MonoBehaviour
         return 1f + GetClampedMultiplierBonus(bonus != null ? bonus.xpMultiplierBonus : 0f, bonus != null ? bonus.maxXPMultiplierBonus : 0f);
     }
 
+    public static float GetGoldKillMultiplier(Tower tower)
+    {
+        TowerSupportTileBonus bonus = GetDirectBonus(tower, PathBuildOptionType.GoldTile);
+        return 1f + GetClampedMultiplierBonus(bonus != null ? bonus.goldKillMultiplierBonus : 0f, bonus != null ? bonus.maxGoldKillMultiplierBonus : 0f);
+    }
+
     public static int GetPointUpgradePowerBonus(Tower tower)
     {
         TowerSupportTileBonus bonus = GetDirectBonus(tower, PathBuildOptionType.UpgradeTile);
@@ -173,6 +182,17 @@ public class TowerSupportTileEffect : MonoBehaviour
             return 0;
 
         float multiplier = GetXPMultiplier(tower);
+        float scaledAmount = amount * multiplier;
+        int roundedAmount = multiplier > 1f ? Mathf.CeilToInt(scaledAmount) : Mathf.RoundToInt(scaledAmount);
+        return Mathf.Max(1, roundedAmount);
+    }
+
+    public static int ApplyGoldKillMultiplier(Tower tower, int amount)
+    {
+        if (amount <= 0)
+            return 0;
+
+        float multiplier = GetGoldKillMultiplier(tower);
         float scaledAmount = amount * multiplier;
         int roundedAmount = multiplier > 1f ? Mathf.CeilToInt(scaledAmount) : Mathf.RoundToInt(scaledAmount);
         return Mathf.Max(1, roundedAmount);
@@ -192,6 +212,8 @@ public class TowerSupportTileEffect : MonoBehaviour
                 return "XP Tile";
             case PathBuildOptionType.UpgradeTile:
                 return "Upgrade Tile";
+            case PathBuildOptionType.GoldTile:
+                return "Gold Tile";
             default:
                 return type.ToString();
         }
@@ -211,6 +233,8 @@ public class TowerSupportTileEffect : MonoBehaviour
                 return "Der Tower auf diesem Tile erhaelt +25% XP.";
             case PathBuildOptionType.UpgradeTile:
                 return "Point-Upgrades des Towers auf diesem Tile sind +1 staerker.";
+            case PathBuildOptionType.GoldTile:
+                return "Gibt beim Bau +5% Gold-Rewards. Tower auf diesem Tile erhalten +10% Gold pro Kill.";
             default:
                 return "Dieses Tile hat keinen Tower-Bonus.";
         }
@@ -222,7 +246,8 @@ public class TowerSupportTileEffect : MonoBehaviour
                type == PathBuildOptionType.DamageTile ||
                type == PathBuildOptionType.RateTile ||
                type == PathBuildOptionType.XPTile ||
-               type == PathBuildOptionType.UpgradeTile;
+               type == PathBuildOptionType.UpgradeTile ||
+               type == PathBuildOptionType.GoldTile;
     }
 
     private static TowerSupportTileBonus GetDirectBonus(Tower tower, PathBuildOptionType type)

@@ -140,8 +140,28 @@ public class AutopathManager : MonoBehaviour
         if (!Input.GetKeyDown(panelToggleKey))
             return;
 
+        TogglePanel();
+    }
+
+    public void TogglePanel()
+    {
+        SetPanelOpen(!panelOpen);
+    }
+
+    public void OpenPanel()
+    {
+        SetPanelOpen(true);
+    }
+
+    public void ClosePanel()
+    {
+        SetPanelOpen(false);
+    }
+
+    private void SetPanelOpen(bool open)
+    {
         EnsureAutopathUI();
-        panelOpen = !panelOpen;
+        panelOpen = open;
 
         if (panelRoot != null)
         {
@@ -601,13 +621,7 @@ public class AutopathManager : MonoBehaviour
         closeButton.GetComponent<RectTransform>().anchorMin = new Vector2(1f, 0f);
         closeButton.GetComponent<RectTransform>().anchorMax = new Vector2(1f, 0f);
         closeButton.GetComponent<RectTransform>().pivot = new Vector2(1f, 0f);
-        closeButton.onClick.AddListener(() =>
-        {
-            panelOpen = false;
-
-            if (panelRoot != null)
-                panelRoot.SetActive(false);
-        });
+        closeButton.onClick.AddListener(ClosePanel);
 
         panelRoot.SetActive(panelOpen);
     }

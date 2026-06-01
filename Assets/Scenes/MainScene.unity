@@ -7720,7 +7720,7 @@ MonoBehaviour:
   waveCompletionGoldPerWave: 1
   miniBossWaveCompletionGoldBonus: 10
   bossWaveCompletionGoldBonus: 24
-  blockedEventRewardBonusPerStack: 0.01
+  blockedEventRewardBonusPerStack: 0.03
   blockedEventRewardBonusStacks: 0
   pendingEvolutionTowerBoosts: 0
   lives: 999999
@@ -9482,7 +9482,7 @@ MonoBehaviour:
   eliteMinimumTowerCount: 3
   eliteTowerXPSinceLastThreshold: 220
   eliteKillsSinceLastThreshold: 90
-  eliteConditionSpawnChance: 0.01
+  eliteConditionSpawnChance: 0.02
   eliteRareChanceStartWave: 18
   eliteRareChanceWithoutThreshold: 0.002
   eliteRandomSeedSalt: 53021
@@ -18809,8 +18809,8 @@ MonoBehaviour:
   towerUI: {fileID: 900815697}
   openChoiceAfterBossWaves: 1
   maxChaosLevel: 5
-  goldJusticeBonusPerLevel: 0.03
-  xpJusticeBonusPerLevel: 0.03
+  goldJusticeBonusPerLevel: 0.08
+  xpJusticeBonusPerLevel: 0.08
   useInspectorRiskModifierPool: 0
   riskModifierPool: []
   useUnlockGateForRiskModifierPool: 1

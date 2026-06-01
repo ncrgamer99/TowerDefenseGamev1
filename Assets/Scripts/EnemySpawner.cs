@@ -6,7 +6,7 @@ using UnityEngine;
 public class EnemySpawner : MonoBehaviour
 {
     private const int EliteMinimumStartWaveV1 = 18;
-    private const float EliteConditionSpawnChanceV1 = 0.01f;
+    private const float EliteConditionSpawnChanceV1 = 0.02f;
     private const float EliteRareSpawnChanceV1 = 0.002f;
 
     [Header("Enemy Prefabs")]
@@ -99,7 +99,7 @@ public class EnemySpawner : MonoBehaviour
     public int eliteTowerXPSinceLastThreshold = 0;
     public int eliteKillsSinceLastThreshold = 100;
     [Range(0f, 1f)]
-    public float eliteConditionSpawnChance = 0.01f;
+    public float eliteConditionSpawnChance = 0.02f;
     public int eliteRareChanceStartWave = 18;
     [Range(0f, 1f)]
     public float eliteRareChanceWithoutThreshold = 0.002f;
@@ -1759,7 +1759,7 @@ public class EnemySpawner : MonoBehaviour
 
         if (logEliteWaveSelection)
         {
-            string reason = conditionRollMet ? "Kills + 1%-Roll" : "seltene Chance";
+            string reason = conditionRollMet ? "Kills + " + Mathf.RoundToInt(GetEffectiveEliteConditionSpawnChance() * 100f) + "%-Roll" : "seltene Chance";
             Debug.Log("EnemySpawner: Elite-Wave V1 geplant für Wave " + safeWave + " durch " + reason + ".");
         }
 

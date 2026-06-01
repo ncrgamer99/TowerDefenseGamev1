@@ -1080,7 +1080,7 @@ public class PathBuildManager : MonoBehaviour
             new PathBuildOption
             {
                 displayName = "Gold Tile",
-                description = "Gold-Tile: kein Weg. Gibt sofort Bonusgold und startet danach die naechste Welle.",
+                description = "Gold-Tile: kein Weg. +5% Gold-Rewards beim Bau. Tower darauf: +10% Gold pro Kill.",
                 optionType = PathBuildOptionType.GoldTile
             },
             new PathBuildOption

@@ -43,7 +43,7 @@ public class Tower : MonoBehaviour
 
     [Header("Build / Sell")]
     public int originalBuildCost = 0;
-    public float sellRefundPercent = 0.8f;
+    public float sellRefundPercent = 0.5f;
     public Vector2Int builtGridPosition;
     public bool hasBuildGridPosition = false;
 
@@ -84,6 +84,12 @@ public class Tower : MonoBehaviour
     public bool autoCreateRangeIndicator = true;
     public bool autoCreateTowerVisualFeedback = true;
     public bool autoCreateVisualTierController = true;
+
+    [Header("Click Hitbox")]
+    public bool autoTightenClickCollider = true;
+    public float clickColliderRadius = 0.36f;
+    public float clickColliderHeight = 1.05f;
+    public float clickColliderCenterY = 0.25f;
 
     [Header("Visual Tier Stat Bonus")]
     public bool applyVisualTierStatBonus = true;
@@ -176,6 +182,7 @@ public class Tower : MonoBehaviour
         if (autoApplyTowerRoleStats)
             ApplyTowerRoleStats(ResolveTowerRoleForPreset());
 
+        ConfigureClickCollider();
         CaptureVisualTierBaseStatsIfNeeded();
         EnsureQoLVisualComponents();
         ApplyVisualTierStatBonusIfNeeded(true);
@@ -242,6 +249,10 @@ public class Tower : MonoBehaviour
         upgradePointCostPerUpgrade = Mathf.Max(1, upgradePointCostPerUpgrade);
         pointUpgradePowerMultiplier = Mathf.Max(1, pointUpgradePowerMultiplier);
 
+        clickColliderRadius = Mathf.Clamp(clickColliderRadius, 0.05f, 1.0f);
+        clickColliderHeight = Mathf.Clamp(clickColliderHeight, clickColliderRadius * 2f, 2.5f);
+        clickColliderCenterY = Mathf.Clamp(clickColliderCenterY, -0.5f, 1.5f);
+
         damageGoldUpgradeLevel = Mathf.Max(0, damageGoldUpgradeLevel);
         rangeGoldUpgradeLevel = Mathf.Max(0, rangeGoldUpgradeLevel);
         fireRateGoldUpgradeLevel = Mathf.Max(0, fireRateGoldUpgradeLevel);
@@ -266,6 +277,25 @@ public class Tower : MonoBehaviour
         slowDuration = Mathf.Max(0f, slowDuration);
 
         RefreshProgressionValues();
+    }
+
+    private void ConfigureClickCollider()
+    {
+        if (!autoTightenClickCollider)
+            return;
+
+        CapsuleCollider capsuleCollider = GetComponent<CapsuleCollider>();
+
+        if (capsuleCollider == null)
+            return;
+
+        float radius = Mathf.Clamp(clickColliderRadius, 0.05f, 1.0f);
+        float height = Mathf.Clamp(clickColliderHeight, radius * 2f, 2.5f);
+
+        capsuleCollider.direction = 1;
+        capsuleCollider.radius = radius;
+        capsuleCollider.height = height;
+        capsuleCollider.center = new Vector3(0f, clickColliderCenterY, 0f);
     }
 
     private void Update()
@@ -644,12 +674,7 @@ public class Tower : MonoBehaviour
 
     public int GetSellRefundAmount()
     {
-        float refundPercent = sellRefundPercent;
-
-        if (towerRole == TowerRole.Basic && BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager masteryManager))
-            refundPercent += masteryManager.GetBasicSellRefundBonus();
-
-        return Mathf.FloorToInt(Mathf.Max(0, originalBuildCost) * Mathf.Clamp01(refundPercent));
+        return Mathf.FloorToInt(Mathf.Max(0, originalBuildCost) * 0.5f);
     }
 
     private void HandleWaveStarted(WaveData waveData)

@@ -1414,7 +1414,7 @@ public class Enemy : MonoBehaviour
             masteryManager.RecordEnemyDefeated(this, killingTower, contributingTowers.Keys);
 
         NotifyGameManagerEnemyKilled();
-        GiveGoldReward();
+        GiveGoldReward(killingTower);
         GiveXPRewards(killingTower);
         GiveGlobalXPReward();
         EnemyWaveDebugWindow.MarkEnemyFinished(this, "Getötet");
@@ -1431,13 +1431,13 @@ public class Enemy : MonoBehaviour
             gameManager.RegisterEnemyKilled(this);
     }
 
-    private void GiveGoldReward()
+    private void GiveGoldReward(Tower killingTower)
     {
         if (gameManager == null)
             gameManager = FindObjectOfType<GameManager>();
 
         if (gameManager != null)
-            gameManager.AddGold(goldReward, true, RunGoldSource.EnemyKill);
+            gameManager.AddGold(TowerSupportTileEffect.ApplyGoldKillMultiplier(killingTower, goldReward), true, RunGoldSource.EnemyKill);
     }
 
     private void GiveXPRewards(Tower killingTower)
