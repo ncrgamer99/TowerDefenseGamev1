@@ -162,9 +162,9 @@ MonoBehaviour:
   towerName: Mortar Tower
   towerRole: 9
   autoApplyTowerRoleStats: 1
-  damage: 12
+  damage: 10
   range: 4.0
-  fireRate: 0.40
+  fireRate: 0.30
   targetMode: 3
   level: 1
   currentXP: 0
@@ -186,7 +186,7 @@ MonoBehaviour:
   effectUpgradeCost: 999
   goldUpgradeCostIncrease: 30
   goldUpgradeCostMultiplier: 1.35
-  damageIncreasePerGoldUpgrade: 3
+  damageIncreasePerGoldUpgrade: 2
   rangeIncreasePerGoldUpgrade: 0.25
   fireRateIncreasePerGoldUpgrade: 0.06
   burnDamageIncreasePerGoldUpgrade: 1

@@ -69,7 +69,7 @@ public class GeneralMetaProgressionManager : MonoBehaviour
     public int accountXP = 0;
     public int kernwissen = 0;
     public int baseLoadoutSlots = 3;
-    public int maxLoadoutSlots = 10;
+    public int maxLoadoutSlots = 12;
 
     [Header("Run-End Rewards")]
     public int kernwissenPerCompletedWave = 4;
@@ -296,8 +296,7 @@ public class GeneralMetaProgressionManager : MonoBehaviour
         if (definition == null || state == null || !state.purchased || state.active || !definition.RequiresLoadoutSlot())
             return false;
 
-        int usedSlotsAfterReplacingGroup = GetUsedLoadoutSlots() - GetActiveSlotsInExclusiveGroup(definition);
-        return usedSlotsAfterReplacingGroup + definition.slotCost <= GetLoadoutSlotCapacity();
+        return GetUsedLoadoutSlots() + definition.slotCost <= GetLoadoutSlotCapacity();
     }
 
     public bool TryActivateNode(string nodeId)
@@ -310,7 +309,6 @@ public class GeneralMetaProgressionManager : MonoBehaviour
         if (definition == null || state == null)
             return false;
 
-        DeactivateExclusiveLoadoutGroup(definition);
         state.active = true;
         SaveProfile();
         return true;
@@ -405,6 +403,8 @@ public class GeneralMetaProgressionManager : MonoBehaviour
         if (IsNodePurchased("general.loadout.slot_8")) slots++;
         if (IsNodePurchased("general.loadout.slot_9")) slots++;
         if (IsNodePurchased("general.loadout.slot_10")) slots++;
+        if (IsNodePurchased("general.loadout.slot_11")) slots++;
+        if (IsNodePurchased("general.loadout.slot_12")) slots++;
 
         return Mathf.Clamp(slots, 0, Mathf.Max(baseLoadoutSlots, maxLoadoutSlots));
     }
@@ -502,21 +502,24 @@ public class GeneralMetaProgressionManager : MonoBehaviour
 
     public int GetActiveStartGoldBonus()
     {
-        if (IsNodeActive("general.start.gold_5")) return 50;
-        if (IsNodeActive("general.start.gold_4")) return 40;
-        if (IsNodeActive("general.start.gold_3")) return 30;
-        if (IsNodeActive("general.start.gold_2")) return 20;
-        if (IsNodeActive("general.start.gold_1")) return 10;
-        return 0;
+        int bonus = 0;
+        if (IsNodeActive("general.start.gold_1")) bonus += 10;
+        if (IsNodeActive("general.start.gold_2")) bonus += 20;
+        if (IsNodeActive("general.start.gold_3")) bonus += 30;
+        if (IsNodeActive("general.start.gold_4")) bonus += 40;
+        if (IsNodeActive("general.start.gold_5")) bonus += 50;
+        return bonus;
     }
 
     public int GetActiveStartLifeBonus()
     {
-        if (IsNodeActive("general.start.life_4")) return 4;
-        if (IsNodeActive("general.start.life_3")) return 3;
-        if (IsNodeActive("general.start.life_2")) return 2;
-        if (IsNodeActive("general.start.life_1")) return 1;
-        return 0;
+        int bonus = 0;
+        if (IsNodeActive("general.start.life_1")) bonus += 1;
+        if (IsNodeActive("general.start.life_2")) bonus += 2;
+        if (IsNodeActive("general.start.life_3")) bonus += 3;
+        if (IsNodeActive("general.start.life_4")) bonus += 4;
+        if (IsNodeActive("general.start.life_5")) bonus += 5;
+        return bonus;
     }
 
     public int GetActiveStartPathBonus()
@@ -1172,6 +1175,41 @@ public class GeneralMetaProgressionManager : MonoBehaviour
         EnsureDefinition("general.tile.xp", "XP Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 260, 12, "Legendary: XP Tile kann im Pfadangebot erscheinen.", 0, false, "20 Tower-Level-Ups.");
         EnsureDefinition("general.tile.upgrade", "Upgrade Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 450, 19, "Legendary: Upgrade Tile kann im Pfadangebot erscheinen.", 0, false, "30 Upgrade Points verdient.");
         EnsureDefinition("general.tile.combo", "Combo Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 700, 24, "Legendary: Combo Tile kann im Pfadangebot erscheinen.", 0, false, "Fire + Poison + Spike/Alchemist freigeschaltet.");
+
+        EnsureDefinition("general.loadout.slot_4", "Loadout Slot IV", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 150, 5, "+1 Loadout-Slot.", 0, false, "");
+        EnsureDefinition("general.loadout.slot_5", "Loadout Slot V", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 300, 10, "+1 Loadout-Slot.", 0, false, "");
+        EnsureDefinition("general.loadout.slot_6", "Loadout Slot VI", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 600, 15, "+1 Loadout-Slot.", 0, false, "");
+        EnsureDefinition("general.loadout.slot_7", "Loadout Slot VII", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 1100, 25, "+1 Loadout-Slot.", 0, false, "");
+        EnsureDefinition("general.loadout.slot_8", "Loadout Slot VIII", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 1800, 40, "+1 Loadout-Slot.", 0, false, "");
+        EnsureDefinition("general.loadout.slot_9", "Loadout Slot IX", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 2800, 60, "+1 Loadout-Slot.", 0, false, "");
+        EnsureDefinition("general.loadout.slot_10", "Loadout Slot X", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 4200, 80, "+1 Loadout-Slot.", 0, false, "");
+        EnsureDefinition("general.loadout.slot_11", "Loadout Slot XI", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 6000, 100, "+1 Loadout-Slot.", 0, false, "");
+        EnsureDefinition("general.loadout.slot_12", "Loadout Slot XII", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 8200, 120, "+1 Loadout-Slot.", 0, false, "");
+
+        EnsureDefinition("general.qol.speed_fast", "GameSpeed 2x", GeneralMetaCategory.QoL, GeneralMetaNodeKind.QoL, 50, 2, "Fast Speed verfuegbar.", 0, false, "");
+        EnsureDefinition("general.qol.speed_faster", "GameSpeed 6x", GeneralMetaCategory.QoL, GeneralMetaNodeKind.QoL, 250, 12, "Faster Speed verfuegbar.", 0, false, "");
+        EnsureDefinition("general.qol.preview_roles_1", "Rollen-Preview I", GeneralMetaCategory.QoL, GeneralMetaNodeKind.QoL, 100, 4, "Bessere Rollenanzeige.", 0, false, "");
+        EnsureDefinition("general.qol.preview_roles_2", "Rollen-Preview II", GeneralMetaCategory.QoL, GeneralMetaNodeKind.QoL, 160, 8, "Genauere Rollenanzeige.", 0, false, "");
+        EnsureDefinition("general.qol.preview_boss", "Boss-Preview", GeneralMetaCategory.QoL, GeneralMetaNodeKind.QoL, 180, 9, "Bossdaten klarer.", 0, false, "");
+        EnsureDefinition("general.qol.preview_chaos_1", "Chaos-Preview I", GeneralMetaCategory.QoL, GeneralMetaNodeKind.QoL, 250, 12, "Chaos-Varianten sichtbarer.", 0, false, "");
+        EnsureDefinition("general.qol.preview_chaos_wave", "Chaos-Wave-Preview", GeneralMetaCategory.QoL, GeneralMetaNodeKind.QoL, 350, 16, "Chaos-Bausteine besser erklaert.", 0, false, "");
+        EnsureDefinition("general.qol.goal_pin_1", "Ziel anpinnen I", GeneralMetaCategory.QoL, GeneralMetaNodeKind.QoL, 180, 7, "1 Ziel im HUD.", 0, false, "");
+        EnsureDefinition("general.qol.goal_pin_2", "Ziel anpinnen II", GeneralMetaCategory.QoL, GeneralMetaNodeKind.QoL, 300, 14, "2 Ziele im HUD.", 0, false, "");
+
+        EnsureDefinition("general.start.gold_1", "Startgold I", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 120, 4, "+10 Startgold.", 1, false, "");
+        EnsureDefinition("general.start.gold_2", "Startgold II", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 220, 8, "+20 Startgold.", 1, false, "");
+        EnsureDefinition("general.start.gold_3", "Startgold III", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 380, 14, "+30 Startgold.", 2, false, "");
+        EnsureDefinition("general.start.gold_4", "Startgold IV", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 600, 22, "+40 Startgold.", 2, false, "");
+        EnsureDefinition("general.start.gold_5", "Startgold V", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 900, 32, "+50 Startgold.", 3, false, "");
+        EnsureDefinition("general.start.life_1", "Startleben I", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 150, 5, "+1 Startleben.", 1, false, "");
+        EnsureDefinition("general.start.life_2", "Startleben II", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 300, 12, "+2 Startleben.", 2, false, "");
+        EnsureDefinition("general.start.life_3", "Startleben III", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 550, 22, "+3 Startleben.", 2, false, "");
+        EnsureDefinition("general.start.life_4", "Startleben IV", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 850, 35, "+4 Startleben.", 3, false, "");
+        EnsureDefinition("general.start.life_5", "Startleben V", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 1250, 48, "+5 Startleben.", 3, false, "");
+        EnsureDefinition("general.start.path_1", "Startweg I", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 400, 12, "Startweg +1 Tile.", 2, false, "");
+        EnsureDefinition("general.start.path_2", "Startweg II", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 950, 28, "Startweg +2 Tiles.", 3, false, "");
+        EnsureDefinition("general.start.discount_1", "Erster Tower Rabatt", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 600, 18, "Erster Tower kostet -10 Gold.", 2, false, "");
+        EnsureDefinition("general.start.scout_1", "Start-Scout", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 700, 22, "Erste 3 Waves werden genauer angezeigt.", 2, false, "");
     }
 
     private void EnsureDefinition(string nodeId, string displayName, GeneralMetaCategory category, GeneralMetaNodeKind kind, int cost, int level, string effectText, int slotCost, bool unlockedByDefault, string requirementText)
@@ -1273,6 +1311,8 @@ public class GeneralMetaProgressionManager : MonoBehaviour
         AddDefinition("general.loadout.slot_8", "Loadout Slot VIII", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 1800, 40, "+1 Loadout-Slot.");
         AddDefinition("general.loadout.slot_9", "Loadout Slot IX", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 2800, 60, "+1 Loadout-Slot.");
         AddDefinition("general.loadout.slot_10", "Loadout Slot X", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 4200, 80, "+1 Loadout-Slot.");
+        AddDefinition("general.loadout.slot_11", "Loadout Slot XI", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 6000, 100, "+1 Loadout-Slot.");
+        AddDefinition("general.loadout.slot_12", "Loadout Slot XII", GeneralMetaCategory.MetaLoadout, GeneralMetaNodeKind.LoadoutSlot, 8200, 120, "+1 Loadout-Slot.");
 
         AddDefinition("general.tile.gold", "Gold Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 0, 1, "Common: Gold Tile ist von Anfang an im Pfadangebot.", true);
         AddDefinition("general.tile.slow", "Slow Tile", GeneralMetaCategory.TileUnlock, GeneralMetaNodeKind.TileUnlock, 0, 1, "Common: Slow Tile ist von Anfang an im Pfadangebot.", true);
@@ -1296,16 +1336,17 @@ public class GeneralMetaProgressionManager : MonoBehaviour
         AddDefinition("general.qol.goal_pin_2", "Ziel anpinnen II", GeneralMetaCategory.QoL, GeneralMetaNodeKind.QoL, 300, 14, "2 Ziele im HUD.");
 
         AddDefinition("general.start.gold_1", "Startgold I", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 120, 4, "+10 Startgold.", 1);
-        AddDefinition("general.start.gold_2", "Startgold II", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 220, 8, "+20 Startgold gesamt.", 1);
-        AddDefinition("general.start.gold_3", "Startgold III", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 380, 14, "+30 Startgold gesamt.", 2);
-        AddDefinition("general.start.gold_4", "Startgold IV", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 600, 22, "+40 Startgold gesamt.", 2);
-        AddDefinition("general.start.gold_5", "Startgold V", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 900, 32, "+50 Startgold gesamt.", 3);
+        AddDefinition("general.start.gold_2", "Startgold II", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 220, 8, "+20 Startgold.", 1);
+        AddDefinition("general.start.gold_3", "Startgold III", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 380, 14, "+30 Startgold.", 2);
+        AddDefinition("general.start.gold_4", "Startgold IV", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 600, 22, "+40 Startgold.", 2);
+        AddDefinition("general.start.gold_5", "Startgold V", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 900, 32, "+50 Startgold.", 3);
         AddDefinition("general.start.life_1", "Startleben I", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 150, 5, "+1 Startleben.", 1);
-        AddDefinition("general.start.life_2", "Startleben II", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 300, 12, "+2 Startleben gesamt.", 2);
-        AddDefinition("general.start.life_3", "Startleben III", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 550, 22, "+3 Startleben gesamt.", 2);
-        AddDefinition("general.start.life_4", "Startleben IV", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 850, 35, "+4 Startleben gesamt.", 3);
+        AddDefinition("general.start.life_2", "Startleben II", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 300, 12, "+2 Startleben.", 2);
+        AddDefinition("general.start.life_3", "Startleben III", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 550, 22, "+3 Startleben.", 2);
+        AddDefinition("general.start.life_4", "Startleben IV", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 850, 35, "+4 Startleben.", 3);
+        AddDefinition("general.start.life_5", "Startleben V", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 1250, 48, "+5 Startleben.", 3);
         AddDefinition("general.start.path_1", "Startweg I", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 400, 12, "Startweg +1 Tile.", 2);
-        AddDefinition("general.start.path_2", "Startweg II", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 950, 28, "Startweg +2 Tiles gesamt.", 3);
+        AddDefinition("general.start.path_2", "Startweg II", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 950, 28, "Startweg +2 Tiles.", 3);
         AddDefinition("general.start.discount_1", "Erster Tower Rabatt", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 600, 18, "Erster Tower kostet -10 Gold.", 2);
         AddDefinition("general.start.scout_1", "Start-Scout", GeneralMetaCategory.StartOption, GeneralMetaNodeKind.StartPower, 700, 22, "Erste 3 Waves werden genauer angezeigt.", 2);
 

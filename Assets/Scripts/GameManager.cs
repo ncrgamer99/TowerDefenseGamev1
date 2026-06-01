@@ -1086,7 +1086,7 @@ public class GameManager : MonoBehaviour
         if (currentStartMode == GameStartMode.Balancing)
             return GetBalancingBaseEnemyCountForWave(safeWave);
 
-        int baseCount = Mathf.Max(8, baseEnemyCount);
+        int baseCount = Mathf.Max(10, baseEnemyCount);
 
         switch (safeWave)
         {
@@ -1095,20 +1095,21 @@ public class GameManager : MonoBehaviour
             case 3: return 12;
             case 4: return 14;
             case 5: return 15;
-            case 6: return 17;
-            case 7: return 19;
-            case 8: return 21;
-            case 9: return 24;
-            case 10: return 16;
+            case 6: return 18;
+            case 7: return 21;
+            case 8: return 24;
+            case 9: return 27;
+            case 10: return 18;
         }
 
         if (safeWave == 11)
-            return 22;
+            return 25;
 
         WaveScenario scenario = GetWaveScenarioForWave(safeWave);
         int wavesAfterTen = safeWave - 10;
         int tenWaveBlock = wavesAfterTen / 10;
-        int blockBase = baseCount + 12 + tenWaveBlock * 8;
+        int waveRamp = Mathf.FloorToInt(wavesAfterTen * 0.45f);
+        int blockBase = baseCount + 14 + tenWaveBlock * 11 + waveRamp;
         int calculatedCount;
 
         switch (scenario)
@@ -1136,7 +1137,7 @@ public class GameManager : MonoBehaviour
                 break;
         }
 
-        int softCap = 70 + tenWaveBlock * 10;
+        int softCap = 82 + tenWaveBlock * 14 + Mathf.FloorToInt(wavesAfterTen * 0.4f);
         return Mathf.Clamp(calculatedCount, 10, softCap);
     }
 

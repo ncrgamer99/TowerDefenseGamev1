@@ -729,7 +729,7 @@ public class MainMenuLexiconManager : MonoBehaviour
 
         AddTowerEntryIfMissing("tower_sniper", TowerRole.Sniper, "Sniper Tower", 70,
             "Sehr hohe Reichweite und starker Einzelschuss. Priorisiert gefährliche Elite-Ziele.",
-            120, 42, 5.2f, 0.30f, "Keine", "Mage", "Knight", "Boss", "Elite");
+            120, 37, 5.2f, 0.30f, "Keine", "Mage", "Knight", "Boss", "Elite");
 
         AddTowerEntryIfMissing("tower_alchemist", TowerRole.Alchemist, "Alchemist Tower", 80,
             "Hybrid aus Gift und Kontrolle. Schwächer als spezialisierte Tower, aber flexibel.",

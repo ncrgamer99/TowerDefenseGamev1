@@ -456,13 +456,13 @@ public class TowerUI : MonoBehaviour
         }
 
         if (goldDamageButtonText != null)
-            goldDamageButtonText.text = BuildUpgradeButtonText("Damage", "+" + selectedTower.damageIncreasePerGoldUpgrade, selectedTower.damageUpgradeCost + " Gold");
+            goldDamageButtonText.text = BuildUpgradeButtonText("Damage", "+" + selectedTower.GetGoldDamageIncreasePreview(), selectedTower.damageUpgradeCost + " Gold");
 
         if (goldRangeButtonText != null)
-            goldRangeButtonText.text = BuildUpgradeButtonText("Range", "+" + selectedTower.rangeIncreasePerGoldUpgrade.ToString("0.00"), selectedTower.rangeUpgradeCost + " Gold");
+            goldRangeButtonText.text = BuildUpgradeButtonText("Range", "+" + selectedTower.GetGoldRangeIncreasePreview().ToString("0.00"), selectedTower.rangeUpgradeCost + " Gold");
 
         if (goldFireRateButtonText != null)
-            goldFireRateButtonText.text = BuildUpgradeButtonText("Fire Rate", "+" + selectedTower.fireRateIncreasePerGoldUpgrade.ToString("0.00"), selectedTower.fireRateUpgradeCost + " Gold");
+            goldFireRateButtonText.text = BuildUpgradeButtonText("Fire Rate", "+" + selectedTower.GetGoldFireRateIncreasePreview().ToString("0.00"), selectedTower.fireRateUpgradeCost + " Gold");
 
         if (goldEffectButtonText != null)
         {
@@ -505,19 +505,19 @@ public class TowerUI : MonoBehaviour
             return "";
 
         if (selectedTower.appliesBurn)
-            return "+" + selectedTower.burnDamageIncreasePerGoldUpgrade + " Burn / +" + selectedTower.effectDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
+            return "+" + selectedTower.GetGoldBurnDamageIncreasePreview() + " Burn / +" + selectedTower.GetGoldEffectDurationIncreasePreview().ToString("0.00") + "s";
 
         if (selectedTower.appliesPoison)
-            return "+" + selectedTower.poisonDamageIncreasePerGoldUpgrade + " Poison / +" + selectedTower.effectDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
+            return "+" + selectedTower.GetGoldPoisonDamageIncreasePreview() + " Poison / +" + selectedTower.GetGoldEffectDurationIncreasePreview().ToString("0.00") + "s";
 
         if (selectedTower.towerRole == TowerRole.Lightning)
             return "+" + (selectedTower.GetLightningBonusChainChanceIncreasePerGoldUpgrade() * 100f).ToString("0") + "% Bonus-Chain";
 
         if (selectedTower.appliesSlow)
-            return "-" + selectedTower.slowAmountIncreasePerGoldUpgrade.ToString("0.00") + " Slow / +" + selectedTower.slowDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
+            return "-" + selectedTower.GetGoldSlowAmountIncreasePreview().ToString("0.00") + " Slow / +" + selectedTower.GetGoldSlowDurationIncreasePreview().ToString("0.00") + "s";
 
         if (selectedTower.towerRole == TowerRole.Spike)
-            return "+1 Bleed / +" + selectedTower.effectDurationIncreasePerGoldUpgrade.ToString("0.00") + "s";
+            return "+" + selectedTower.GetGoldSpikeBleedDamageIncreasePreview().ToString("0.0") + " Bleed / +" + selectedTower.GetGoldEffectDurationIncreasePreview().ToString("0.00") + "s";
 
         return "+0";
     }

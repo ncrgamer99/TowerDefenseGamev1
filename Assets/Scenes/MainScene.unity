@@ -7558,7 +7558,7 @@ MonoBehaviour:
   startOptionsButton: {fileID: 0}
   startResetButton: {fileID: 0}
   waveNumber: 0
-  baseEnemyCount: 5
+  baseEnemyCount: 10
   delayBeforeWave: 1
   currentWaveScenario: 0
   nextWaveScenario: 0
@@ -9412,8 +9412,8 @@ MonoBehaviour:
   spawnDelay: 0.45
   scaleSpawnDelayByWave: 1
   spawnDelayScalingStartWave: 11
-  spawnDelayReductionPer10Waves: 0.08
-  minSpawnDelayMultiplier: 0.55
+  spawnDelayReductionPer10Waves: 0.1
+  minSpawnDelayMultiplier: 0.5
   minimumSpawnDelay: 0.08
   lastGeneratedWave: []
   lastWaveData:
@@ -9448,14 +9448,14 @@ MonoBehaviour:
   usePreparedWaveModifiers: 0
   activeWaveModifiers: []
   useWaveRiskPressureBudget: 1
-  maxWaveRiskPressureBudget: 24
+  maxWaveRiskPressureBudget: 38
   enableChaosVariantsV1: 1
   chaosVariantsStartLevel: 3
   chaosVariantChanceAtStartLevel: 0.7
   chaosVariantChancePerAdditionalLevel: 0.3
   maxChaosVariantChance: 1
-  maxChaosVariantsAtStartLevel: 2
-  maxChaosVariantsPerAdditionalLevel: 1
+  maxChaosVariantsAtStartLevel: 3
+  maxChaosVariantsPerAdditionalLevel: 2
   chaosVariantSeedSalt: 9137
   allowChaosVariantBossesInV1: 0
   allowChaosVariantMiniBossesInV1: 0
@@ -9464,8 +9464,8 @@ MonoBehaviour:
   chaosWaveBlocksStartLevel: 2
   forceChaosWaveBlockAtLevel: 4
   maxChaosWaveBlocksV1: 3
-  chaosWaveBlockChanceAtStartLevel: 0.6
-  chaosWaveBlockChancePerAdditionalLevel: 0.2
+  chaosWaveBlockChanceAtStartLevel: 0.7
+  chaosWaveBlockChancePerAdditionalLevel: 0.25
   chaosWaveBlockSeedSalt: 44117
   allowRolePressureBlock: 1
   allowDensityBlock: 1
@@ -18826,18 +18826,18 @@ MonoBehaviour:
   useRewardRiskDiminishingReturns: 1
   rewardRiskDiminishingFactor: 0.8
   maxChaosRewardBonus: 1.5
-  maxSingleRiskRewardBonus: 0.45
+  maxSingleRiskRewardBonus: 0.55
   enforceTotalRiskPressureBudget: 1
-  maxTotalRiskPressureBudget: 36
-  maxWaveRiskPressureBudget: 24
-  maxEnemyCountMultiplierPerRisk: 1.65
-  maxFlatEnemyBonusPerRisk: 12
-  maxExtraRoleAmountPerRisk: 10
-  minSpawnDelayMultiplierPerRisk: 0.55
-  maxChaosVariantChanceBonusPerRisk: 0.3
-  maxChaosVariantFlatBonusPerRisk: 5
-  maxChaosWaveBlockStrengthBonusPerRisk: 3
-  maxChaosWaveBlockChanceBonusPerRisk: 0.2
+  maxTotalRiskPressureBudget: 56
+  maxWaveRiskPressureBudget: 38
+  maxEnemyCountMultiplierPerRisk: 2.05
+  maxFlatEnemyBonusPerRisk: 20
+  maxExtraRoleAmountPerRisk: 14
+  minSpawnDelayMultiplierPerRisk: 0.44
+  maxChaosVariantChanceBonusPerRisk: 0.5
+  maxChaosVariantFlatBonusPerRisk: 9
+  maxChaosWaveBlockStrengthBonusPerRisk: 5
+  maxChaosWaveBlockChanceBonusPerRisk: 0.38
   useFairRiskRotation: 1
   avoidDuplicateRiskModifiersUntilPoolExhausted: 1
   includeRiskSummaryInChoiceText: 1

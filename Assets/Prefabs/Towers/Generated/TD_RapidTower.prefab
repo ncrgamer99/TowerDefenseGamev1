@@ -546,7 +546,7 @@ MonoBehaviour:
   autoApplyTowerRoleStats: 1
   damage: 2
   range: 2.3
-  fireRate: 3.1
+  fireRate: 2.8
   originalBuildCost: 75
   sellRefundPercent: 0.8
   builtGridPosition: {x: 0, y: 0}

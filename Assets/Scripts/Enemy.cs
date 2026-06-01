@@ -529,7 +529,7 @@ public class Enemy : MonoBehaviour
         waveScalingAppliedForWave = safeWave;
 
         int scalingWave = safeWave - scalingStartWave + 1;
-        float healthMultiplier = 1f + scalingWave * healthScalingPerWave;
+        float healthMultiplier = 1f + scalingWave * healthScalingPerWave * 1.25f;
         float rewardMultiplier = 1f + scalingWave * rewardScalingPerWave;
         float xpMultiplier = 1f + scalingWave * xpScalingPerWave;
         float speedMultiplier = 1f + Mathf.Min(maxNormalSpeedBonus, scalingWave * speedScalingPerWave);

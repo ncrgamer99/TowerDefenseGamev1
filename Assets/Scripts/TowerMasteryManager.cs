@@ -260,7 +260,26 @@ public class TowerMasteryManager : MonoBehaviour
 
     public static int GetRepeatingUpgradeCostForRank(int nextRank)
     {
-        return Mathf.Clamp(nextRank, 1, 5);
+        int safeRank = Mathf.Max(1, nextRank);
+        return Mathf.Max(1, (safeRank + 1) / 2);
+    }
+
+    public static int GetMasteryNodeCostForNextRank(int currentRank, int maxRank, int[] rankCosts)
+    {
+        int safeMaxRank = Mathf.Max(1, maxRank);
+        int safeRank = Mathf.Clamp(currentRank, 0, safeMaxRank);
+
+        if (safeRank >= safeMaxRank)
+            return 0;
+
+        if (safeMaxRank > 1)
+            return GetRepeatingUpgradeCostForRank(safeRank + 1);
+
+        if (rankCosts == null || rankCosts.Length == 0)
+            return GetRepeatingUpgradeCostForRank(safeRank + 1);
+
+        int index = Mathf.Clamp(safeRank, 0, rankCosts.Length - 1);
+        return Mathf.Max(1, rankCosts[index]);
     }
 
     public static int GetMilestoneSpentPointRequirement(TowerMasteryMilestone milestone)
@@ -725,10 +744,10 @@ public class TowerMasteryManager : MonoBehaviour
                "- Boss-, Chaos-, Variant- und rollenbezogene Bonus-XP werden am Run-Ende addiert und gecappt.\n" +
                "- First-Time-Boni gibt es fuer Level 10/20/30/40/50, erste Boss-Beteiligung, erste Chaos-3-Wave und Chaos-5/Elite-Ziele.\n\n" +
                "Kostenmodell:\n" +
-               "- Wiederholbare Rangs: 1 / 2 / 3 / 4 / 5 Punkte.\n" +
-               "- Kleine Utility-Knoten: 2-3 Punkte.\n" +
-               "- Normale Faehigkeiten: 4-6 Punkte.\n" +
-               "- Starke Faehigkeiten: 8-12 Punkte.\n" +
+               "- Mehrstufige Rangs: 1 / 1 / 2 / 2 / 3 / 3 ... Punkte.\n" +
+               "- Einmalige Utility-Knoten behalten feste Kosten.\n" +
+               "- Normale Faehigkeiten behalten feste Kosten.\n" +
+               "- Starke Faehigkeiten behalten feste Kosten.\n" +
                "- Keystones: 15-25 Punkte.\n\n" +
                "Milestones gelten fuer alle Tower:\n" +
                "- I: 10 Punkte ausgegeben + Mastery-Level 3 + Level 10.\n" +

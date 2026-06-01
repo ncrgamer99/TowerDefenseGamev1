@@ -42,20 +42,7 @@ public class SniperTowerMasteryNodeDefinition
 
     public int GetCostForNextRank(int currentRank)
     {
-        int safeRank = Mathf.Clamp(currentRank, 0, maxRank);
-
-        if (safeRank >= maxRank)
-        {
-            return 0;
-        }
-
-        if (costs == null || costs.Length == 0)
-        {
-            return TowerMasteryManager.GetRepeatingUpgradeCostForRank(safeRank + 1);
-        }
-
-        int index = Mathf.Clamp(safeRank, 0, costs.Length - 1);
-        return Mathf.Max(1, costs[index]);
+        return TowerMasteryManager.GetMasteryNodeCostForNextRank(currentRank, maxRank, costs);
     }
 }
 

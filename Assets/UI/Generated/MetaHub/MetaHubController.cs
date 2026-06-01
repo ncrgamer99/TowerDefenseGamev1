@@ -1937,7 +1937,8 @@ public class MetaHubController : MonoBehaviour
         }
 
         int columns = 5;
-        int maxVisible = Mathf.Min(nodes.Count, 15);
+        int maxVisibleNodes = selectedGeneralTreeCategory == "start" ? 20 : 15;
+        int maxVisible = Mathf.Min(nodes.Count, maxVisibleNodes);
         Vector2 cardSize = new Vector2(174f, 82f);
         float gapX = 22f;
         float gapY = 18f;
@@ -1958,7 +1959,10 @@ public class MetaHubController : MonoBehaviour
         }
 
         if (nodes.Count > maxVisible)
-            CreateCanvasLabel(parent, "FocusedTreeMore", "+" + (nodes.Count - maxVisible) + " weitere Freischaltungen nach naechstem Fortschritt", new Vector2(0f, -200f), new Vector2(520f, 20f), 10f, new Color32(190, 178, 150, 255), TextAlignmentOptions.Center, FontStyles.Normal);
+        {
+            float moreY = maxVisible > 15 ? -304f : -200f;
+            CreateCanvasLabel(parent, "FocusedTreeMore", "+" + (nodes.Count - maxVisible) + " weitere Freischaltungen nach naechstem Fortschritt", new Vector2(0f, moreY), new Vector2(520f, 20f), 10f, new Color32(190, 178, 150, 255), TextAlignmentOptions.Center, FontStyles.Normal);
+        }
     }
 
     private void CreateReadableGeneralNode(Transform parent, string name, GeneralMetaNodeDefinition definition, Vector2 position, Vector2 size, MetaHubTone fallbackTone)
@@ -1971,8 +1975,9 @@ public class MetaHubController : MonoBehaviour
         Transform node = CreateCanvasPanel(parent, name, position, size, fill, toneColor);
         CreateArtIcon(node, "Icon", GetGeneralNodeDisplayArt(nodeId, GetCategoryArtName(definition.category)), new Vector2(-size.x * 0.5f + 28f, 19f), new Vector2(36f, 36f));
         CreateCanvasLabel(node, "Title", Shorten(definition.displayName, 20), new Vector2(26f, 22f), new Vector2(size.x - 62f, 18f), 8.6f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
-        TextMeshProUGUI effect = CreateCanvasLabel(node, "Effect", ToTwoLineText(string.IsNullOrEmpty(definition.effectText) ? definition.requirementText : definition.effectText, 26, 62), new Vector2(26f, -5f), new Vector2(size.x - 62f, 34f), 6.9f, new Color32(188, 178, 155, 255), TextAlignmentOptions.TopLeft, FontStyles.Normal);
+        TextMeshProUGUI effect = CreateCanvasLabel(node, "Effect", ToTwoLineText(string.IsNullOrEmpty(definition.effectText) ? definition.requirementText : definition.effectText, 24, 54), new Vector2(26f, -5f), new Vector2(size.x - 62f, 34f), 9.2f, new Color32(188, 178, 155, 255), TextAlignmentOptions.TopLeft, FontStyles.Normal);
         effect.enableWordWrapping = true;
+        ConfigureCardDescriptionText(effect, 7.2f, 9.2f);
         string costLabel = runtimeUnlockInfoMode ? "" : definition.cost + " KW";
         CreateCanvasLabel(node, "Cost", costLabel, new Vector2(-size.x * 0.25f, -31f), new Vector2(size.x * 0.44f, 14f), 7.3f, new Color32(244, 196, 88, 255), TextAlignmentOptions.Center, FontStyles.Bold);
         CreateCanvasLabel(node, "State", Shorten(GeneralNodeStateLabel(nodeId), 10), new Vector2(size.x * 0.25f, -31f), new Vector2(size.x * 0.44f, 14f), 7.3f, toneColor, TextAlignmentOptions.Center, FontStyles.Bold);
@@ -2083,8 +2088,9 @@ public class MetaHubController : MonoBehaviour
         Transform card = CreateCanvasPanel(parent, "LoadoutNode_" + nodeId, position, size, fill, toneColor);
         CreateArtIcon(card, "Icon", GetGeneralNodeDisplayArt(nodeId, GetCategoryArtName(definition.category)), new Vector2(-size.x * 0.5f + 28f, 16f), new Vector2(34f, 34f));
         CreateCanvasLabel(card, "Title", Shorten(definition.displayName, 19), new Vector2(28f, 20f), new Vector2(size.x - 64f, 18f), 8.8f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
-        TextMeshProUGUI effect = CreateCanvasLabel(card, "Effect", ToTwoLineText(definition.effectText, 28, 58), new Vector2(28f, -4f), new Vector2(size.x - 64f, 30f), 6.8f, new Color32(188, 178, 155, 255), TextAlignmentOptions.TopLeft, FontStyles.Normal);
+        TextMeshProUGUI effect = CreateCanvasLabel(card, "Effect", ToTwoLineText(definition.effectText, 24, 52), new Vector2(28f, -4f), new Vector2(size.x - 64f, 30f), 9.0f, new Color32(188, 178, 155, 255), TextAlignmentOptions.TopLeft, FontStyles.Normal);
         effect.enableWordWrapping = true;
+        ConfigureCardDescriptionText(effect, 7.0f, 9.0f);
         CreateCanvasLabel(card, "Slots", definition.slotCost + " Slot", new Vector2(-size.x * 0.28f, -30f), new Vector2(size.x * 0.42f, 14f), 7.1f, new Color32(244, 196, 88, 255), TextAlignmentOptions.Center, FontStyles.Bold);
         string state = active ? "AKTIV" : canActivate ? "EINSETZEN" : "KEIN SLOT";
         CreateCanvasLabel(card, "State", state, new Vector2(size.x * 0.25f, -30f), new Vector2(size.x * 0.46f, 14f), 7.1f, toneColor, TextAlignmentOptions.Center, FontStyles.Bold);
@@ -2183,7 +2189,7 @@ public class MetaHubController : MonoBehaviour
             case "comfort":
                 return new string[] { "general.qol.speed_fast", "general.qol.preview_roles_1", "general.qol.goal_pin_1", "general.qol.preview_boss", "general.qol.preview_chaos_1", "general.qol.speed_faster", "general.qol.preview_roles_2", "general.qol.goal_pin_2", "general.qol.preview_chaos_wave" };
             case "start":
-                return new string[] { "general.start.gold_1", "general.start.life_1", "general.start.path_1", "general.loadout.slot_4", "general.start.discount_1", "general.start.gold_2", "general.start.life_2", "general.loadout.slot_5", "general.start.scout_1", "general.start.gold_3", "general.start.life_3", "general.loadout.slot_6", "general.start.path_2", "general.loadout.slot_7", "general.loadout.slot_8" };
+                return new string[] { "general.start.gold_1", "general.start.life_1", "general.start.path_1", "general.loadout.slot_4", "general.start.discount_1", "general.start.gold_2", "general.start.life_2", "general.loadout.slot_5", "general.start.scout_1", "general.start.gold_3", "general.start.life_3", "general.loadout.slot_6", "general.start.gold_4", "general.start.life_4", "general.start.path_2", "general.loadout.slot_7", "general.start.gold_5", "general.start.life_5", "general.loadout.slot_8", "general.loadout.slot_9", "general.loadout.slot_10", "general.loadout.slot_11", "general.loadout.slot_12" };
             case "tower":
             default:
                 return new string[] { "general.tower.basic", "general.tower.rapid", "general.tower.heavy", "general.tower.slow", "general.tower.fire", "general.tower.poison", "general.tower.sniper", "general.tower.alchemist", "general.tower.lightning", "general.tower.mortar", "general.tower.spike" };
@@ -2205,6 +2211,17 @@ public class MetaHubController : MonoBehaviour
             breakIndex = searchStart;
 
         return shortened.Substring(0, breakIndex).Trim() + "\n" + shortened.Substring(breakIndex).Trim();
+    }
+
+    private void ConfigureCardDescriptionText(TextMeshProUGUI text, float minFontSize, float maxFontSize)
+    {
+        if (text == null)
+            return;
+
+        text.enableAutoSizing = true;
+        text.fontSizeMin = minFontSize;
+        text.fontSizeMax = maxFontSize;
+        text.overflowMode = TextOverflowModes.Ellipsis;
     }
 
     private void CreateUnlockTowerContent(Transform main, MetaHubData data)
@@ -2427,8 +2444,9 @@ public class MetaHubController : MonoBehaviour
         Transform node = CreateCanvasPanel(parent, name, position, size, fill, toneColor);
         CreateArtIcon(node, "Icon", view.isKeystone ? "icon_keystone_purple" : "icon_tower", new Vector2(-size.x * 0.5f + 30f, 21f), new Vector2(38f, 38f));
         CreateCanvasLabel(node, "Title", Shorten(view.displayName, 21), new Vector2(30f, 24f), new Vector2(size.x - 68f, 18f), 8.8f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
-        TextMeshProUGUI effect = CreateCanvasLabel(node, "Effect", ToTwoLineText(view.effectText, 30, 74), new Vector2(30f, -4f), new Vector2(size.x - 68f, 34f), 6.8f, new Color32(188, 178, 155, 255), TextAlignmentOptions.TopLeft, FontStyles.Normal);
+        TextMeshProUGUI effect = CreateCanvasLabel(node, "Effect", ToTwoLineText(view.effectText, 28, 64), new Vector2(30f, -4f), new Vector2(size.x - 68f, 34f), 9.0f, new Color32(188, 178, 155, 255), TextAlignmentOptions.TopLeft, FontStyles.Normal);
         effect.textWrappingMode = TextWrappingModes.Normal;
+        ConfigureCardDescriptionText(effect, 7.1f, 9.0f);
         CreateCanvasLabel(node, "Cost", GetTowerNodeCostLabel(view), new Vector2(-size.x * 0.25f, -34f), new Vector2(size.x * 0.44f, 14f), 7.2f, new Color32(244, 196, 88, 255), TextAlignmentOptions.Center, FontStyles.Bold);
         CreateCanvasLabel(node, "State", Shorten(GetTowerNodeStateLabel(view), 11), new Vector2(size.x * 0.25f, -34f), new Vector2(size.x * 0.44f, 14f), 7.2f, toneColor, TextAlignmentOptions.Center, FontStyles.Bold);
         string capturedNodeId = view.nodeId;
@@ -4137,9 +4155,10 @@ public class MetaHubController : MonoBehaviour
         Transform node = CreateCanvasPanel(parent, name, position, size, fill, toneColor);
         CreateArtIcon(node, "Icon", artName, new Vector2(-size.x * 0.5f + 30f, 18f), new Vector2(34f, 34f));
         CreateCanvasLabel(node, "Title", Shorten(title, 22), new Vector2(31f, 20f), new Vector2(size.x - 68f, 18f), 8.8f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
-        TextMeshProUGUI effectLabel = CreateCanvasLabel(node, "Effect", ToTwoLineText(effect, 32, 80), new Vector2(31f, -5f), new Vector2(size.x - 68f, 30f), 6.6f, new Color32(188, 178, 155, 255), TextAlignmentOptions.TopLeft, FontStyles.Normal);
+        TextMeshProUGUI effectLabel = CreateCanvasLabel(node, "Effect", ToTwoLineText(effect, 28, 68), new Vector2(31f, -5f), new Vector2(size.x - 68f, 30f), 8.8f, new Color32(188, 178, 155, 255), TextAlignmentOptions.TopLeft, FontStyles.Normal);
         effectLabel.textWrappingMode = TextWrappingModes.Normal;
         effectLabel.enableWordWrapping = true;
+        ConfigureCardDescriptionText(effectLabel, 6.9f, 8.8f);
         CreateCanvasLabel(node, "Cost", Shorten(cost, 15), new Vector2(-size.x * 0.25f, -31f), new Vector2(size.x * 0.44f, 14f), 7.1f, new Color32(244, 196, 88, 255), TextAlignmentOptions.Center, FontStyles.Bold);
         CreateCanvasLabel(node, "State", Shorten(state, 12), new Vector2(size.x * 0.25f, -31f), new Vector2(size.x * 0.44f, 14f), 7.1f, toneColor, TextAlignmentOptions.Center, FontStyles.Bold);
         MakeCanvasClickable(node, onClick, fill, toneColor);

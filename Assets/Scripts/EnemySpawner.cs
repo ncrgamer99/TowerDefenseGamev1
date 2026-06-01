@@ -46,8 +46,8 @@ public class EnemySpawner : MonoBehaviour
     [Header("Spawn Delay Scaling")]
     public bool scaleSpawnDelayByWave = true;
     public int spawnDelayScalingStartWave = 11;
-    public float spawnDelayReductionPer10Waves = 0.08f;
-    public float minSpawnDelayMultiplier = 0.55f;
+    public float spawnDelayReductionPer10Waves = 0.10f;
+    public float minSpawnDelayMultiplier = 0.50f;
     public float minimumSpawnDelay = 0.08f;
 
     [Header("Debug / Backend Preview")]
@@ -58,7 +58,7 @@ public class EnemySpawner : MonoBehaviour
     public bool usePreparedWaveModifiers = false;
     public List<WaveModifier> activeWaveModifiers = new List<WaveModifier>();
     public bool useWaveRiskPressureBudget = true;
-    public int maxWaveRiskPressureBudget = 24;
+    public int maxWaveRiskPressureBudget = 38;
 
     [Header("Chaos Variants V1")]
     public bool enableChaosVariantsV1 = true;
@@ -78,8 +78,8 @@ public class EnemySpawner : MonoBehaviour
     public int chaosWaveBlocksStartLevel = 2;
     public int forceChaosWaveBlockAtLevel = 4;
     public int maxChaosWaveBlocksV1 = 3;
-    public float chaosWaveBlockChanceAtStartLevel = 0.60f;
-    public float chaosWaveBlockChancePerAdditionalLevel = 0.20f;
+    public float chaosWaveBlockChanceAtStartLevel = 0.70f;
+    public float chaosWaveBlockChancePerAdditionalLevel = 0.25f;
     public int chaosWaveBlockSeedSalt = 44117;
     public bool allowRolePressureBlock = true;
     public bool allowDensityBlock = true;

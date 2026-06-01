@@ -42,16 +42,7 @@ public class AlchemistTowerMasteryNodeDefinition
 
     public int GetCostForNextRank(int currentRank)
     {
-        int safeRank = Mathf.Clamp(currentRank, 0, maxRank);
-
-        if (safeRank >= maxRank)
-            return 0;
-
-        if (rankCosts == null || rankCosts.Length == 0)
-            return TowerMasteryManager.GetRepeatingUpgradeCostForRank(safeRank + 1);
-
-        int index = Mathf.Clamp(safeRank, 0, rankCosts.Length - 1);
-        return Mathf.Max(1, rankCosts[index]);
+        return TowerMasteryManager.GetMasteryNodeCostForNextRank(currentRank, maxRank, rankCosts);
     }
 }
 

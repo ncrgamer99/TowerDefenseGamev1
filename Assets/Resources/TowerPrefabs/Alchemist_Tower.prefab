@@ -164,7 +164,7 @@ MonoBehaviour:
   autoApplyTowerRoleStats: 1
   damage: 1
   range: 2.6
-  fireRate: 0.85
+  fireRate: 0.75
   targetMode: 6
   level: 1
   currentXP: 0

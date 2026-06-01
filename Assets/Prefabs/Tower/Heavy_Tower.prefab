@@ -131,9 +131,9 @@ MonoBehaviour:
   towerName: Heavy Tower
   towerRole: 2
   autoApplyTowerRoleStats: 1
-  damage: 18
+  damage: 16
   range: 2.8
-  fireRate: 0.45
+  fireRate: 0.42
   targetMode: 3
   level: 1
   currentXP: 0
@@ -159,7 +159,7 @@ MonoBehaviour:
   effectUpgradeCost: 999
   goldUpgradeCostIncrease: 25
   goldUpgradeCostMultiplier: 1.30
-  damageIncreasePerGoldUpgrade: 3
+  damageIncreasePerGoldUpgrade: 2
   rangeIncreasePerGoldUpgrade: 0.20
   fireRateIncreasePerGoldUpgrade: 0.10
   burnDamageIncreasePerGoldUpgrade: 1

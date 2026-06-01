@@ -535,7 +535,7 @@ MonoBehaviour:
   towerName: Lightning Tower
   towerRole: 8
   autoApplyTowerRoleStats: 1
-  damage: 5
+  damage: 7
   range: 3
   fireRate: 0.85
   originalBuildCost: 90

@@ -166,23 +166,23 @@ public class ChaosJusticeManager : MonoBehaviour
     public bool useRewardRiskDiminishingReturns = true;
     public float rewardRiskDiminishingFactor = 0.80f;
     public float maxChaosRewardBonus = 1.50f;
-    public float maxSingleRiskRewardBonus = 0.45f;
-    public float riskModifierRewardBonusMultiplier = 2.66f;
+    public float maxSingleRiskRewardBonus = 0.55f;
+    public float riskModifierRewardBonusMultiplier = 3.00f;
 
     [Header("Risk Budget V1")]
     public bool enforceTotalRiskPressureBudget = true;
-    public int maxTotalRiskPressureBudget = 36;
-    public int maxWaveRiskPressureBudget = 24;
+    public int maxTotalRiskPressureBudget = 56;
+    public int maxWaveRiskPressureBudget = 38;
 
     [Header("Risk Level Caps V1")]
-    public float maxEnemyCountMultiplierPerRisk = 1.65f;
-    public int maxFlatEnemyBonusPerRisk = 12;
-    public int maxExtraRoleAmountPerRisk = 10;
-    public float minSpawnDelayMultiplierPerRisk = 0.55f;
-    public float maxChaosVariantChanceBonusPerRisk = 0.30f;
-    public int maxChaosVariantFlatBonusPerRisk = 5;
-    public int maxChaosWaveBlockStrengthBonusPerRisk = 3;
-    public float maxChaosWaveBlockChanceBonusPerRisk = 0.20f;
+    public float maxEnemyCountMultiplierPerRisk = 2.05f;
+    public int maxFlatEnemyBonusPerRisk = 20;
+    public int maxExtraRoleAmountPerRisk = 14;
+    public float minSpawnDelayMultiplierPerRisk = 0.44f;
+    public float maxChaosVariantChanceBonusPerRisk = 0.50f;
+    public int maxChaosVariantFlatBonusPerRisk = 9;
+    public int maxChaosWaveBlockStrengthBonusPerRisk = 5;
+    public float maxChaosWaveBlockChanceBonusPerRisk = 0.38f;
 
     [Header("Fair Risk Selection V1 - Legacy / Optional")]
     public bool useFairRiskRotation = true;
@@ -1371,10 +1371,10 @@ public class ChaosJusticeManager : MonoBehaviour
         }
 
         float softLevel = Mathf.Sqrt(level);
-        float enemyCountScale = 1f + 0.45f * softLevel;
-        float roleScale = 1f + 0.40f * softLevel;
-        float rewardScale = 1f + 0.25f * softLevel;
-        float spawnPressureScale = 1f + 0.35f * softLevel;
+        float enemyCountScale = 1f + 0.78f * softLevel;
+        float roleScale = 1f + 0.70f * softLevel;
+        float rewardScale = 1f + 0.35f * softLevel;
+        float spawnPressureScale = 1f + 0.60f * softLevel;
 
         if (modifier.enemyCountMultiplier > 1f)
         {
@@ -1399,24 +1399,24 @@ public class ChaosJusticeManager : MonoBehaviour
         if (modifier.spawnDelayMultiplier > 0f && modifier.spawnDelayMultiplier < 1f)
         {
             float pressure = 1f - modifier.spawnDelayMultiplier;
-            modifier.spawnDelayMultiplier = Mathf.Clamp(1f - pressure * spawnPressureScale, 0.45f, 1f);
+            modifier.spawnDelayMultiplier = Mathf.Clamp(1f - pressure * spawnPressureScale, 0.36f, 1f);
         }
         else if (modifier.spawnDelayMultiplier > 1f)
         {
-            modifier.spawnDelayMultiplier = Mathf.Max(1f, modifier.spawnDelayMultiplier * (1f + 0.10f * softLevel));
+            modifier.spawnDelayMultiplier = Mathf.Max(1f, modifier.spawnDelayMultiplier * (1f + 0.16f * softLevel));
         }
 
         if (modifier.chaosVariantChanceBonus > 0f)
-            modifier.chaosVariantChanceBonus *= Mathf.Clamp(1f + 0.25f * softLevel, 1f, 2.5f);
+            modifier.chaosVariantChanceBonus *= Mathf.Clamp(1f + 0.45f * softLevel, 1f, 3.0f);
 
         if (modifier.flatChaosVariantBonus > 0)
-            modifier.flatChaosVariantBonus = Mathf.Max(modifier.flatChaosVariantBonus + 1, Mathf.RoundToInt(modifier.flatChaosVariantBonus * (1f + 0.35f * softLevel)));
+            modifier.flatChaosVariantBonus = Mathf.Max(modifier.flatChaosVariantBonus + 1, Mathf.RoundToInt(modifier.flatChaosVariantBonus * (1f + 0.60f * softLevel)));
 
         if (modifier.chaosWaveBlockStrengthBonus > 0)
-            modifier.chaosWaveBlockStrengthBonus = Mathf.Max(modifier.chaosWaveBlockStrengthBonus, Mathf.RoundToInt(modifier.chaosWaveBlockStrengthBonus * (1f + 0.25f * softLevel)));
+            modifier.chaosWaveBlockStrengthBonus = Mathf.Max(modifier.chaosWaveBlockStrengthBonus + 1, Mathf.RoundToInt(modifier.chaosWaveBlockStrengthBonus * (1f + 0.50f * softLevel)));
 
         if (modifier.chaosWaveBlockChanceBonus > 0f)
-            modifier.chaosWaveBlockChanceBonus *= Mathf.Clamp(1f + 0.20f * softLevel, 1f, 2.0f);
+            modifier.chaosWaveBlockChanceBonus *= Mathf.Clamp(1f + 0.40f * softLevel, 1f, 2.75f);
 
         if (modifier.goldRewardMultiplierBonus > 0f)
             modifier.goldRewardMultiplierBonus *= rewardScale;
@@ -1750,21 +1750,21 @@ public class ChaosJusticeManager : MonoBehaviour
     private List<WaveModifier> CreateDefaultRiskModifierPool()
     {
         int levelForScaling = Mathf.Clamp(runData.chaosLevel + 1, 1, runData.maxChaosLevel);
-        int lightExtra = Mathf.Clamp(1 + levelForScaling, 2, 5);
-        int supportExtra = Mathf.Clamp(1 + levelForScaling / 2, 1, 4);
-        int heavyExtra = Mathf.Clamp(1 + (levelForScaling - 1) / 2, 1, 3);
-        int allRounderExtra = Mathf.Clamp(levelForScaling / 3, 1, 2);
-        int mixedLightExtra = Mathf.Clamp(1 + levelForScaling / 2, 1, 3);
-        int mixedSupportExtra = Mathf.Clamp(levelForScaling / 2, 1, 2);
+        int lightExtra = Mathf.Clamp(2 + levelForScaling, 3, 7);
+        int supportExtra = Mathf.Clamp(2 + (levelForScaling + 1) / 2, 2, 6);
+        int heavyExtra = Mathf.Clamp(1 + levelForScaling / 2, 2, 5);
+        int allRounderExtra = Mathf.Clamp((levelForScaling + 2) / 3, 1, 3);
+        int mixedLightExtra = Mathf.Clamp(2 + levelForScaling / 2, 2, 5);
+        int mixedSupportExtra = Mathf.Clamp(1 + levelForScaling / 2, 1, 4);
 
-        float enemyMultiplier = 1f + 0.10f + levelForScaling * 0.02f;
-        float greedyEnemyMultiplier = 1f + 0.08f + levelForScaling * 0.015f;
-        float fasterSpawnMultiplier = Mathf.Clamp(0.92f - levelForScaling * 0.025f, 0.78f, 0.90f);
-        float greedyGoldBonus = 0.16f + levelForScaling * 0.04f;
-        float greedyXpBonus = 0.10f + levelForScaling * 0.025f;
-        float goldRushBonus = 0.18f + levelForScaling * 0.045f;
-        float xpTrialBonus = 0.18f + levelForScaling * 0.04f;
-        float rewardSpawnMultiplier = Mathf.Clamp(0.94f - levelForScaling * 0.02f, 0.82f, 0.92f);
+        float enemyMultiplier = 1f + 0.14f + levelForScaling * 0.05f;
+        float greedyEnemyMultiplier = 1f + 0.12f + levelForScaling * 0.035f;
+        float fasterSpawnMultiplier = Mathf.Clamp(0.91f - levelForScaling * 0.04f, 0.70f, 0.86f);
+        float greedyGoldBonus = 0.18f + levelForScaling * 0.045f;
+        float greedyXpBonus = 0.12f + levelForScaling * 0.03f;
+        float goldRushBonus = 0.20f + levelForScaling * 0.055f;
+        float xpTrialBonus = 0.20f + levelForScaling * 0.05f;
+        float rewardSpawnMultiplier = Mathf.Clamp(0.92f - levelForScaling * 0.03f, 0.74f, 0.88f);
 
         List<WaveModifier> pool = new List<WaveModifier>();
 
@@ -1772,10 +1772,10 @@ public class ChaosJusticeManager : MonoBehaviour
         {
             modifierId = "risk_extra_enemies",
                 displayName = "Mehr Gegner",
-            description = "Alle zukünftigen Waves erhalten mehr Gegner. Die Stärke skaliert vorsichtig mit dem aktuellen Chaos-Level.",
+            description = "Alle zukünftigen Waves erhalten mehr Gegner. Die Stärke skaliert spuerbar mit dem aktuellen Chaos-Level.",
             modifierType = WaveModifierType.ExtraEnemies,
             enemyCountMultiplier = enemyMultiplier,
-            flatEnemyCountBonus = levelForScaling,
+            flatEnemyCountBonus = Mathf.CeilToInt(levelForScaling * 1.4f),
             isChaosModifier = true,
             goldRewardMultiplierBonus = 0.04f + levelForScaling * 0.01f,
             xpRewardMultiplierBonus = 0.03f + levelForScaling * 0.008f,
@@ -1946,8 +1946,8 @@ public class ChaosJusticeManager : MonoBehaviour
                 description = "Zukünftige Waves enthalten häufiger sichtbare Chaos-Varianten. Diese Gegner ersetzen normale Gegner; es entstehen dadurch keine zusätzlichen Gegner.",
                 modifierType = WaveModifierType.ChaosVariantPressure,
                 increasesChaosVariantChance = true,
-                chaosVariantChanceBonus = 0.08f + levelForScaling * 0.015f,
-                flatChaosVariantBonus = Mathf.Max(1, levelForScaling / 3),
+                chaosVariantChanceBonus = 0.12f + levelForScaling * 0.025f,
+                flatChaosVariantBonus = Mathf.Max(2, (levelForScaling + 1) / 2),
                 xpRewardMultiplierBonus = 0.03f + levelForScaling * 0.01f,
                 isChaosModifier = true,
                 isRewardModifier = true
@@ -1965,7 +1965,7 @@ public class ChaosJusticeManager : MonoBehaviour
                 strengthensChaosWaveBlocks = true,
                 preferredChaosWaveBlockType = ChaosWaveBlockType.Density,
                 chaosWaveBlockStrengthBonus = 1,
-                chaosWaveBlockChanceBonus = 0.08f,
+                chaosWaveBlockChanceBonus = 0.10f,
                 goldRewardMultiplierBonus = 0.03f + levelForScaling * 0.01f,
                 isChaosModifier = true,
                 isRewardModifier = true
@@ -1980,7 +1980,7 @@ public class ChaosJusticeManager : MonoBehaviour
                 strengthensChaosWaveBlocks = true,
                 preferredChaosWaveBlockType = ChaosWaveBlockType.Toughness,
                 chaosWaveBlockStrengthBonus = 1,
-                chaosWaveBlockChanceBonus = 0.07f,
+                chaosWaveBlockChanceBonus = 0.09f,
                 xpRewardMultiplierBonus = 0.03f + levelForScaling * 0.01f,
                 isChaosModifier = true,
                 isRewardModifier = true
@@ -1998,7 +1998,7 @@ public class ChaosJusticeManager : MonoBehaviour
                 strengthensChaosWaveBlocks = true,
                 preferredChaosWaveBlockType = ChaosWaveBlockType.Rearguard,
                 chaosWaveBlockStrengthBonus = 1,
-                chaosWaveBlockChanceBonus = 0.07f,
+                chaosWaveBlockChanceBonus = 0.09f,
                 goldRewardMultiplierBonus = 0.03f + levelForScaling * 0.008f,
                 xpRewardMultiplierBonus = 0.02f + levelForScaling * 0.006f,
                 isChaosModifier = true,
@@ -2014,7 +2014,7 @@ public class ChaosJusticeManager : MonoBehaviour
                 strengthensChaosWaveBlocks = true,
                 preferredChaosWaveBlockType = ChaosWaveBlockType.ChaosVariantGroup,
                 chaosWaveBlockStrengthBonus = 1,
-                chaosWaveBlockChanceBonus = 0.06f,
+                chaosWaveBlockChanceBonus = 0.08f,
                 xpRewardMultiplierBonus = 0.04f + levelForScaling * 0.008f,
                 isChaosModifier = true,
                 isRewardModifier = true
@@ -2032,7 +2032,7 @@ public class ChaosJusticeManager : MonoBehaviour
                 strengthensChaosWaveBlocks = true,
                 preferredChaosWaveBlockType = ChaosWaveBlockType.Armor,
                 chaosWaveBlockStrengthBonus = 1,
-                chaosWaveBlockChanceBonus = 0.05f,
+                chaosWaveBlockChanceBonus = 0.07f,
                 goldRewardMultiplierBonus = 0.04f + levelForScaling * 0.008f,
                 isChaosModifier = true,
                 isRewardModifier = true
@@ -2046,7 +2046,7 @@ public class ChaosJusticeManager : MonoBehaviour
             description = "Zukünftige Waves erhalten mehr Gegner. Dafür geben Rewards über diesen Modifier zusätzlich Gold und XP.",
             modifierType = WaveModifierType.ChaosPrepared,
             enemyCountMultiplier = greedyEnemyMultiplier,
-            flatEnemyCountBonus = Mathf.Max(1, levelForScaling / 2),
+            flatEnemyCountBonus = Mathf.Max(2, levelForScaling),
             goldRewardMultiplierBonus = greedyGoldBonus,
             xpRewardMultiplierBonus = greedyXpBonus,
             isChaosModifier = true,
@@ -2061,8 +2061,8 @@ public class ChaosJusticeManager : MonoBehaviour
                 displayName = "Goldrausch-Risiko",
                 description = "Zukünftige Waves erhalten etwas mehr Gegner. Dafür steigen Gold-Rewards stärker.",
                 modifierType = WaveModifierType.ChaosPrepared,
-                enemyCountMultiplier = 1.06f + levelForScaling * 0.012f,
-                flatEnemyCountBonus = Mathf.Max(1, levelForScaling / 2),
+                enemyCountMultiplier = 1.08f + levelForScaling * 0.02f,
+                flatEnemyCountBonus = Mathf.Max(1, (levelForScaling + 1) / 2),
                 goldRewardMultiplierBonus = goldRushBonus,
                 isChaosModifier = true,
                 isRewardModifier = true
