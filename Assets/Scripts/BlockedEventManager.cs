@@ -16,7 +16,8 @@ public enum BlockedEventType
     RaiseLowTowersToLevelFive,
     ChaosResetKeepOneRisk,
     RelocateBaseTile,
-    TeleporterBase
+    TeleporterBase,
+    VerbauTileChoice
 }
 
 [System.Serializable]
@@ -422,10 +423,8 @@ public class BlockedEventManager : MonoBehaviour
 
         possibleEvents = new List<BlockedEventOption>();
 
-        possibleEvents.Add(CreatePersistentRewardBonusOption());
-        possibleEvents.Add(CreateEvolutionPointOption());
-        possibleEvents.Add(CreateLargeLifeBoostOption());
-        possibleEvents.Add(CreateRaiseLowTowersOption());
+        possibleEvents.Add(CreateGoldReserveOption());
+        possibleEvents.Add(CreateLifeRepairOption());
         possibleEvents.Add(CreateLongBuildPhaseOption());
     }
 
@@ -501,13 +500,16 @@ public class BlockedEventManager : MonoBehaviour
 
     private void AddBuiltInBlockedRewardOptions(List<BlockedEventOption> eventPool)
     {
-        AddOptionIfUnique(eventPool, CreatePersistentRewardBonusOption());
-        AddOptionIfUnique(eventPool, CreateEvolutionPointOption());
-        AddOptionIfUnique(eventPool, CreateLargeLifeBoostOption());
-        AddOptionIfUnique(eventPool, CreateRaiseLowTowersOption());
-        AddOptionIfUnique(eventPool, CreateChaosResetKeepOneRiskOption());
-        AddOptionIfUnique(eventPool, CreateRelocateBaseTileOption());
-        AddOptionIfUnique(eventPool, CreateTeleporterBaseOption());
+        AddOptionIfAvailable(eventPool, CreateGoldReserveOption());
+        AddOptionIfAvailable(eventPool, CreateLifeRepairOption());
+        AddOptionIfAvailable(eventPool, CreateLongBuildPhaseOption());
+        AddOptionIfAvailable(eventPool, CreateEvolutionPointOption());
+        AddOptionIfAvailable(eventPool, CreateEmergencyTrainingOption());
+        AddOptionIfAvailable(eventPool, CreateRaiseLowTowersOption());
+        AddOptionIfAvailable(eventPool, CreateChaosResetKeepOneRiskOption());
+        AddOptionIfAvailable(eventPool, CreateVerbauTileChoiceOption());
+        AddOptionIfAvailable(eventPool, CreateRelocateBaseTileOption());
+        AddOptionIfAvailable(eventPool, CreateTeleporterBaseOption());
     }
 
     private bool IsSelectableEventOption(BlockedEventOption option)
@@ -515,8 +517,11 @@ public class BlockedEventManager : MonoBehaviour
         if (option == null)
             return false;
 
-        // "Weiter" ist in Phase 7 keine auswählbare Verbau-Option mehr.
-        return option.eventType != BlockedEventType.Continue;
+        if (option.eventType == BlockedEventType.VerbauTileChoice && !CanQueueVerbauTileChoice())
+            return false;
+
+        // Der Event-Pool folgt der Pfadtechnik-Meta; Basis-Events bleiben immer verfuegbar.
+        return IsBlockedEventUnlocked(option.eventType);
     }
 
     private void AddFallbackOptionsUntilReady(List<BlockedEventOption> eventPool)
@@ -536,10 +541,18 @@ public class BlockedEventManager : MonoBehaviour
     {
         return new List<BlockedEventOption>
         {
-            CreatePersistentRewardBonusOption(),
-            CreateRelocateBaseTileOption(),
+            CreateGoldReserveOption(),
+            CreateLifeRepairOption(),
             CreateLongBuildPhaseOption()
         };
+    }
+
+    private void AddOptionIfAvailable(List<BlockedEventOption> options, BlockedEventOption option)
+    {
+        if (!IsSelectableEventOption(option))
+            return;
+
+        AddOptionIfUnique(options, option);
     }
 
     private void AddOptionIfUnique(List<BlockedEventOption> options, BlockedEventOption option)
@@ -566,6 +579,66 @@ public class BlockedEventManager : MonoBehaviour
                first.goldAmount == second.goldAmount &&
                first.lifeAmount == second.lifeAmount &&
                Mathf.Approximately(first.buildPhaseDurationOverride, second.buildPhaseDurationOverride);
+    }
+
+    private bool IsBlockedEventUnlocked(BlockedEventType eventType)
+    {
+        switch (eventType)
+        {
+            case BlockedEventType.GoldBonus:
+            case BlockedEventType.LifeBonus:
+            case BlockedEventType.BuildTimeBonus:
+                return true;
+
+            case BlockedEventType.EvolutionPoint:
+                return IsPathTechniqueNodeReady("path.event.evolution_point");
+
+            case BlockedEventType.LargeLifeBoost:
+                return IsPathTechniqueNodeReady("path.event.emergency_xp");
+
+            case BlockedEventType.RaiseLowTowersToLevelFive:
+                return IsPathTechniqueNodeReady("path.event.raise_low_towers");
+
+            case BlockedEventType.ChaosResetKeepOneRisk:
+                return IsPathTechniqueNodeReady("path.event.chaos_order") || IsPathTechniqueNodeReady("path.rift.chaos_order_1");
+
+            case BlockedEventType.RelocateBaseTile:
+                return IsPathTechniqueNodeReady("path.event.base_relocate");
+
+            case BlockedEventType.TeleporterBase:
+                return IsPathTechniqueNodeReady("path.event.teleporter");
+
+            case BlockedEventType.VerbauTileChoice:
+                return IsPathTechniqueNodeReady("path.event.choice_cache");
+
+            case BlockedEventType.Continue:
+            case BlockedEventType.PersistentRewardBonus:
+            default:
+                return false;
+        }
+    }
+
+    private bool IsPathTechniqueNodeReady(string nodeId)
+    {
+        PathTechniqueProgressionManager progression = GetPathTechniqueProgressionManager();
+        if (progression == null)
+            return false;
+
+        PathTechniqueNodeDefinition definition = progression.GetDefinition(nodeId);
+        if (definition == null)
+            return false;
+
+        return definition.RequiresLoadoutSlot()
+            ? progression.IsNodeActive(nodeId)
+            : progression.IsNodePurchased(nodeId);
+    }
+
+    private PathTechniqueProgressionManager GetPathTechniqueProgressionManager()
+    {
+        if (gameManager != null)
+            return gameManager.GetPathTechniqueProgressionManager();
+
+        return PathTechniqueProgressionManager.GetOrCreate(null);
     }
 
     private BlockedEventOption GetRandomOptionFromPool(List<BlockedEventOption> eventPool)
@@ -604,6 +677,16 @@ public class BlockedEventManager : MonoBehaviour
             displayName = "Evolutionspunkt",
             description = "Der nächste angeklickte Tower erhält +50% aktuelle Werte. Danach " + GetTimedBuildPhaseText() + ".",
             eventType = BlockedEventType.EvolutionPoint
+        };
+    }
+
+    private BlockedEventOption CreateEmergencyTrainingOption()
+    {
+        return new BlockedEventOption
+        {
+            displayName = "Notfall-Ausbildung",
+            description = "Alle Tower erhalten +50 XP. Danach " + GetTimedBuildPhaseText() + ".",
+            eventType = BlockedEventType.LargeLifeBoost
         };
     }
 
@@ -656,6 +739,42 @@ public class BlockedEventManager : MonoBehaviour
             description = "Eine neue Basis erscheint zufällig nahe am Weg. Gegner teleportieren direkt vom alten zum neuen Basis-Tile.",
             eventType = BlockedEventType.TeleporterBase
         };
+    }
+
+    private BlockedEventOption CreateVerbauTileChoiceOption()
+    {
+        return new BlockedEventOption
+        {
+            displayName = "Tile-Vorrat",
+            description = "Aktiviert Tile-Vorrat: alle 5 Waves eine Nicht-Weg-Tile-Auswahl. Danach " + GetTimedBuildPhaseText() + ".",
+            eventType = BlockedEventType.VerbauTileChoice
+        };
+    }
+
+    private PathBuildManager GetPathBuildManager()
+    {
+        if (pathBuildManagerStyleSource == null)
+            pathBuildManagerStyleSource = FindObjectOfType<PathBuildManager>();
+
+        return pathBuildManagerStyleSource;
+    }
+
+    private bool CanQueueVerbauTileChoice()
+    {
+        PathBuildManager manager = GetPathBuildManager();
+        return manager != null && manager.CanQueueBlockedVerbauChoice();
+    }
+
+    private bool TryActivateVerbauTileChoice()
+    {
+        PathBuildManager manager = GetPathBuildManager();
+        if (manager == null || !manager.CanQueueBlockedVerbauChoice())
+            return false;
+
+        if (gameManager != null)
+            gameManager.ActivateTileVorrat();
+
+        return true;
     }
 
     private BlockedEventOption CreateGoldReserveOption()
@@ -828,7 +947,7 @@ public class BlockedEventManager : MonoBehaviour
             case BlockedEventType.LifeBonus:
                 appliedLives = Mathf.Max(0, option.lifeAmount);
                 gameManager.AddLives(appliedLives);
-                Debug.Log("Blocked Event gewählt: Leben +" + appliedLives);
+                Debug.Log("Blocked Event gewaehlt: Leben +" + appliedLives);
                 break;
 
             case BlockedEventType.BuildTimeBonus:
@@ -846,9 +965,8 @@ public class BlockedEventManager : MonoBehaviour
                 break;
 
             case BlockedEventType.LargeLifeBoost:
-                appliedLives = Mathf.Max(0, option.lifeAmount);
-                gameManager.AddLives(appliedLives);
-                Debug.Log("Blocked Event gewählt: Leben +" + appliedLives);
+                gameManager.GrantXPToAllTowers(50, true);
+                Debug.Log("Blocked Event gewaehlt: Notfall-Ausbildung, alle Tower +50 XP.");
                 break;
 
             case BlockedEventType.RaiseLowTowersToLevelFive:
@@ -877,6 +995,19 @@ public class BlockedEventManager : MonoBehaviour
                 else
                 {
                     Debug.Log("Blocked Event gewählt: Teleporter-Basis erstellt.");
+                }
+                break;
+
+            case BlockedEventType.VerbauTileChoice:
+                if (TryActivateVerbauTileChoice())
+                {
+                    Debug.Log("Blocked Event gewaehlt: Tile-Vorrat aktiviert.");
+                }
+                else
+                {
+                    appliedGold = 50;
+                    gameManager.AddGold(appliedGold, true, RunGoldSource.BlockedEvent);
+                    Debug.LogWarning("Tile-Vorrat konnte nicht aktiviert werden; sichere Ersatzbelohnung +50 Gold.");
                 }
                 break;
 

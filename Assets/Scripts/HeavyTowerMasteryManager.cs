@@ -579,7 +579,7 @@ public class HeavyTowerMasteryManager : MonoBehaviour
 
     public float GetHeavyRangeBonus()
     {
-        return GetNodeRank(DrawnLine) * 0.08f;
+        return GetNodeRank(DrawnLine) * 0.12f;
     }
 
     public float GetHeavyFireRateAdditive()
@@ -1108,7 +1108,7 @@ public class HeavyTowerMasteryManager : MonoBehaviour
 
         AddDefinition(HeavyCore, "Schwerer Kern", HeavyTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+1 Heavy Damage pro Rang.", 1, 2, 3, 4, 5);
         AddDefinition(StableBarrel, "Stabiler Lauf", HeavyTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+0,02 Fire Rate pro Rang.", 1, 2, 3, 4, 5);
-        AddDefinition(DrawnLine, "Gezogene Linie", HeavyTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,08 Range pro Rang.", 1, 2, 3);
+        AddDefinition(DrawnLine, "Gezogene Linie", HeavyTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,12 Range pro Rang.", 1, 2, 3);
         AddDefinition(WeightFeel, "Gewichtsgefuehl", HeavyTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "Heavy Tower erhalten +3% Tower-XP pro Rang.", 1, 2, 3);
         AddDefinition(TargetWeighting, "Zielgewichtung", HeavyTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+2% Damage gegen Gegner ueber 60% HP pro Rang.", 1, 2, 3);
 
@@ -1204,6 +1204,10 @@ public class HeavyTowerMasteryManager : MonoBehaviour
 
     private void SaveProfile()
     {
+        TowerMasteryManager towerMastery = GetTowerMasteryManager();
+        if (towerMastery != null && towerMastery.IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         EnsureDefinitions();
         EnsureNodeStates();
 

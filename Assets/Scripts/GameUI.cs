@@ -22,6 +22,7 @@ public class GameUI : MonoBehaviour
     public bool applyStatsTextDefaultsOnStart = true;
     public bool applyStatsRectDefaultsOnStart = true;
     public float statsFontSize = 18f;
+    public Color statsTextColor = new Color32(42, 50, 60, 255);
     public Vector2 statsAnchoredPosition = new Vector2(12f, -12f);
     public Vector2 statsSize = new Vector2(320f, 92f);
     public bool showPhaseInMainHud = false;
@@ -175,7 +176,7 @@ public class GameUI : MonoBehaviour
         statsText.overflowMode = TextOverflowModes.Overflow;
         statsText.fontSize = statsFontSize;
         statsText.alignment = TextAlignmentOptions.TopLeft;
-        statsText.color = Color.white;
+        statsText.color = statsTextColor;
         statsText.margin = new Vector4(8f, 8f, 8f, 8f);
         statsText.raycastTarget = false;
 

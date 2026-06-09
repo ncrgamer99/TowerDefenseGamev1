@@ -336,7 +336,7 @@ MonoBehaviour:
   range: 2.6
   fireRate: 0.75
   originalBuildCost: 85
-  sellRefundPercent: 0.8
+  sellRefundPercent: 0.5
   builtGridPosition: {x: 0, y: 0}
   hasBuildGridPosition: 0
   targetMode: 6
@@ -362,6 +362,10 @@ MonoBehaviour:
   autoCreateRangeIndicator: 1
   autoCreateTowerVisualFeedback: 1
   autoCreateVisualTierController: 0
+  autoTightenClickCollider: 1
+  clickColliderRadius: 0.36
+  clickColliderHeight: 1.05
+  clickColliderCenterY: 0.25
   applyVisualTierStatBonus: 1
   visualTierStatBonusPerTier: 0.25
   damageUpgradeCost: 60
@@ -397,8 +401,27 @@ MonoBehaviour:
   appliesSlow: 1
   slowAmount: 0.7
   slowDuration: 1.6
+  beamDamagePerSecondMultiplier: 1
+  beamTickInterval: 0.15
+  beamLineColor: {r: 0.3529412, g: 0.92156863, b: 1, a: 0.8627451}
+  beamLineWidth: 0.045
+  supportAuraRange: 2.6
+  supportAuraDamageBonus: 0.08
+  supportAuraFireRateBonus: 0.05
   projectilePrefab: {fileID: 1169158669789981972, guid: 7ee81efd9e206544485c4f3ccc44816e, type: 3}
   firePoint: {fileID: 4301715327351413912}
+  pointDamageBonusPurchased: 0
+  pointRangeBonusPurchased: 0
+  pointFireRateBonusPurchased: 0
+  pointBurnDamageBonusPurchased: 0
+  pointBurnDurationBonusPurchased: 0
+  pointPoisonDamageBonusPurchased: 0
+  pointPoisonDurationBonusPurchased: 0
+  pointSlowAmountBonusPurchased: 0
+  pointSlowDurationBonusPurchased: 0
+  pointSpikeBleedDamageBonusPurchased: 0
+  pointSpikeBleedDurationBonusPurchased: 0
+  pointLightningBonusChainChancePurchased: 0
 --- !u!136 &6049313409922044247
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -510,6 +533,11 @@ MonoBehaviour:
   generatedModelEulerCorrection: {x: -90, y: 0, z: 0}
   applyGeneratedVisualGroundOffset: 1
   generatedVisualRootOffset: {x: 0, y: -0.5, z: 0}
+  autoAlignGeneratedVisualsToGround: 1
+  localGroundY: -0.5
+  baseHideDepth: 0.01
+  visiblePartGroundPadding: 0.005
+  applyGeneratedRoleColors: 1
 --- !u!1 &4381753522554135775
 GameObject:
   m_ObjectHideFlags: 0
@@ -535,7 +563,7 @@ Transform:
   m_GameObject: {fileID: 4381753522554135775}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.5, z: 0}
+  m_LocalPosition: {x: 0, y: -0.6495, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:

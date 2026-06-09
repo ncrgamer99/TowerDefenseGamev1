@@ -247,7 +247,7 @@ public class PathTechniqueProgressionManager : MonoBehaviour
 
     public void RecordBlockedCrisis(Vector2Int blockedPosition, int completedWaveNumber, int chaosLevel, bool hadChaosWaveBlock)
     {
-        if (runFinalized)
+        if (runFinalized || IsMetaProgressionSuppressedForCurrentRun())
             return;
 
         string positionKey = blockedPosition.x + "," + blockedPosition.y;
@@ -281,7 +281,7 @@ public class PathTechniqueProgressionManager : MonoBehaviour
 
     public void RecordBlockedEventChoice(string eventName, string eventType)
     {
-        if (runFinalized)
+        if (runFinalized || IsMetaProgressionSuppressedForCurrentRun())
             return;
 
         lastRunBlockedEventsChosen++;
@@ -310,6 +310,10 @@ public class PathTechniqueProgressionManager : MonoBehaviour
             return;
 
         runFinalized = true;
+
+        if (IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         lastRunPathTechniqueXPGained = Mathf.Max(0, pendingPathTechniqueXP);
         lastRunBlueprintsGained = Mathf.Max(0, pendingBlueprints);
         lastRunRiftBlueprintsGained = Mathf.Max(0, pendingRiftBlueprints);
@@ -684,7 +688,7 @@ public class PathTechniqueProgressionManager : MonoBehaviour
 
     private void HandleWaveCompleted(WaveCompletionResult result)
     {
-        if (result == null || !result.waveCompleted || runFinalized)
+        if (result == null || !result.waveCompleted || runFinalized || IsMetaProgressionSuppressedForCurrentRun())
             return;
 
         highestWaveThisRun = Mathf.Max(highestWaveThisRun, result.waveNumber);
@@ -783,6 +787,9 @@ public class PathTechniqueProgressionManager : MonoBehaviour
 
     private void AddPathTechniqueXP(int amount)
     {
+        if (IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         pendingPathTechniqueXP += Mathf.Max(0, amount);
     }
 
@@ -1082,11 +1089,11 @@ public class PathTechniqueProgressionManager : MonoBehaviour
         if (definitions.Count == 0)
             CreateDefaultDefinitions();
 
-        RemoveBridgeTileDefinitions();
+        RemoveRemovedTileDefinitions();
         RebuildDefinitionLookup();
     }
 
-    private void RemoveBridgeTileDefinitions()
+    private void RemoveRemovedTileDefinitions()
     {
         RemoveDefinition("path.event.bridge_path");
         RemoveDefinition("path.tool.bridge_emergency");
@@ -1170,18 +1177,18 @@ public class PathTechniqueProgressionManager : MonoBehaviour
         AddDefinition("path.core.lexicon", "Pfadtechnik-Archiv", PathTechniqueCategory.Overview, PathTechniqueNodeKind.Core, 2, 0, 1, "Lexikon-Kategorie Pfadtechnik wird vorbereitet.", false, "Pfadtechnik sichtbar.");
         AddDefinition("path.core.recovery_goal", "Rettungsziel", PathTechniqueCategory.Overview, PathTechniqueNodeKind.Core, 3, 0, 1, "Zeigt das Ziel 'nach Verbau 2 Waves ueberleben' im Meta-Hub.", false, "1 Verbau-Krise.");
 
-        AddDefinition("path.event.core", "Grund-Events", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 0, 0, 1, "Goldreserve, Notfall-Reparatur und sichere Weiterfuehrung gehoeren zur Basis.", true);
-        AddDefinition("path.event.build_time", "Baupause", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 3, 0, 2, "Baupause-Event wird fuer den Event-Pool vorbereitet.");
-        AddDefinition("path.event.path_scan", "Pfadscan", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 4, 0, 1, "Pfadscan-Event zeigt sichere Erweiterungsrichtungen / bessere Vorschau.", false, "2x verbaut gewesen.");
-        AddDefinition("path.event.emergency_xp", "Notfall-Ausbildung", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 5, 0, 1, "Tower-XP-Event wird vorbereitet.", false, "3 Verbau-Krisen.");
-        AddDefinition("path.event.evolution_point", "Evolutionsfunke", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 8, 0, 1, "Evolutions-Event fuer einen Run-internen Tower-Bonus.", false, "Boss nach Verbau erreicht.");
-        AddDefinition("path.event.raise_low_towers", "Nachschulung", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 10, 0, 8, "Low-Level-Tower-Event wird vorbereitet.");
-        AddDefinition("path.event.base_relocate", "Basisversatz", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 12, 0, 1, "Base-Relocation-Event wird vorbereitet.", false, "5 Krisen ueberlebt.");
-        AddDefinition("path.event.teleporter", "Teleporterbasis", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 18, 0, 1, "Teleporter-Event wird vorbereitet.", false, "Boss nach Verbau.");
-        AddDefinition("path.event.chaos_order", "Chaos ordnen", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 20, 1, 1, "Chaos-Ordnen-Event wird vorbereitet.", false, "Chaos-Verbau.");
-        AddDefinition("path.event.rift_anchor", "Rissanker", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 0, 3, 1, "Starke Endgame-Rettung mit Risiko.", false, "Chaos 5 nach Verbau.");
-        AddDefinition("path.event.debt_build", "Schuldenbau", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 12, 0, 10, "Sofortressourcen gegen naechste-Wave-Risiko.");
-        AddDefinition("path.event.choice_cache", "Krisenlager", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 15, 0, 1, "Kleine Auswahl aus Gold, Leben oder Bauzeit.", false, "10 Verbau-Krisen.");
+        AddDefinition("path.event.core", "Grund-Events", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 0, 0, 1, "Gold und Leben bei Verbau.", true);
+        AddDefinition("path.event.build_time", "Baupause", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 0, 0, 1, "Lange Buildphase bei Verbau.", true);
+        AddDefinition("path.event.path_scan", "Pfadscan", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 4, 0, 1, "Zeigt sichere Wegoptionen.", false, "2x verbaut gewesen.");
+        AddDefinition("path.event.emergency_xp", "Notfall-Ausbildung", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 5, 0, 1, "Alle Tower erhalten XP.", false, "3 Verbau-Krisen.");
+        AddDefinition("path.event.evolution_point", "Evolutionsfunke", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 8, 0, 1, "Ein Tower erhaelt +50% Werte.", false, "Boss nach Verbau erreicht.");
+        AddDefinition("path.event.raise_low_towers", "Nachschulung", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 10, 0, 8, "Schwache Tower auf Lv. 5.");
+        AddDefinition("path.event.base_relocate", "Basisversatz", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 12, 0, 1, "Base auf neues Feld setzen.", false, "5 Krisen ueberlebt.");
+        AddDefinition("path.event.teleporter", "Teleporterbasis", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 18, 0, 1, "Neue Base mit Teleporter.", false, "Boss nach Verbau.");
+        AddDefinition("path.event.chaos_order", "Chaos ordnen", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 20, 1, 1, "Chaos auf 1, ein Risiko bleibt.", false, "Chaos-Verbau.");
+        AddDefinition("path.event.rift_anchor", "Rissanker", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 0, 3, 1, "Spaete Rettung mit Risiko.", false, "Chaos 5 nach Verbau.");
+        AddDefinition("path.event.debt_build", "Schuldenbau", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 12, 0, 10, "Soforthilfe, naechste Wave riskanter.");
+        AddDefinition("path.event.choice_cache", "Krisenlager", PathTechniqueCategory.EventPool, PathTechniqueNodeKind.EventPoolUnlock, 15, 0, 1, "Alle 5 Waves Nicht-Weg-Tile.", false, "10 Verbau-Krisen.");
 
         AddDefinition("path.quality.preview_1", "Krisen-Vorschau I", PathTechniqueCategory.EventQuality, PathTechniqueNodeKind.EventQuality, 2, 0, 1, "Event-Texte zeigen klare Folgen.", false, "1 Verbau erlebt.");
         AddDefinition("path.quality.no_duplicate", "Keine Doppelkrise", PathTechniqueCategory.EventQuality, PathTechniqueNodeKind.EventQuality, 4, 0, 1, "Gleiche Event-Art erscheint seltener direkt erneut.", false, "2 Verbau-Krisen.");
@@ -1361,6 +1368,12 @@ public class PathTechniqueProgressionManager : MonoBehaviour
         return gameManager;
     }
 
+    private bool IsMetaProgressionSuppressedForCurrentRun()
+    {
+        GameManager currentGameManager = GetGameManager();
+        return currentGameManager != null && currentGameManager.IsMetaProgressionSuppressedForCurrentRun();
+    }
+
     private void LoadProfile()
     {
         EnsureStates();
@@ -1406,6 +1419,23 @@ public class PathTechniqueProgressionManager : MonoBehaviour
             if (!definition.RequiresLoadoutSlot())
                 state.active = state.purchased;
         }
+
+        EnsureDirectEventDefaults();
+    }
+
+    private void EnsureDirectEventDefaults()
+    {
+        EnsureNodePurchasedAndActive("path.event.build_time");
+    }
+
+    private void EnsureNodePurchasedAndActive(string nodeId)
+    {
+        PathTechniqueNodeState state = GetNodeState(nodeId);
+        if (state == null)
+            return;
+
+        state.purchased = true;
+        state.active = true;
     }
 
     private void SaveProfile()

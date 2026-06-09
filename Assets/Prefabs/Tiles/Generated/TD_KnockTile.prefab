@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7961914764398738916}
   - component: {fileID: 6278876230578287187}
+  - component: {fileID: 6310923263630754901}
   m_Layer: 0
   m_Name: TD_KnockTile
   m_TagString: Untagged
@@ -30,7 +31,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 5884189460431880044}
+  - {fileID: 1040873752280513299}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &6278876230578287187
@@ -54,7 +55,25 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 0.25, z: 1}
   m_Center: {x: 0, y: 0.1, z: 0}
---- !u!1001 &6206644586654128263
+--- !u!114 &6310923263630754901
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6100565347807413038}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 813e29624df68984a8e513c35db4e052, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::KnockTileVisualAnimator
+  idleAmplitude: 0.018
+  idleSpeed: 2.5
+  strikeDistance: 0.14
+  strikeSpinDegrees: 0
+  strikeOutTime: 0.06
+  strikeReturnTime: 0.18
+--- !u!1001 &719261288639257848
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -111,8 +130,8 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 3990d29e2b5983747bb3d91916a4d583, type: 3}
---- !u!4 &5884189460431880044 stripped
+--- !u!4 &1040873752280513299 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 3990d29e2b5983747bb3d91916a4d583, type: 3}
-  m_PrefabInstance: {fileID: 6206644586654128263}
+  m_PrefabInstance: {fileID: 719261288639257848}
   m_PrefabAsset: {fileID: 0}

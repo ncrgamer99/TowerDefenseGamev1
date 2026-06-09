@@ -192,6 +192,7 @@ public class Enemy : MonoBehaviour
     private bool roleStatsApplied = false;
     private Color[] rendererBaseColors;
     private bool visualEffectColorWasApplied = false;
+    private bool weakpointVisualWasActive = false;
     private bool isDead = false;
     private bool reachedBase = false;
     private bool isBurning = false;
@@ -209,6 +210,10 @@ public class Enemy : MonoBehaviour
     private int rapidNeedleMarks = 0;
     private float heavyArmorBreakMarkedUntil = -1f;
     private float heavyArmorWeakenedUntil = -1f;
+    private float weakpointArmorBreakUntil = -1f;
+    private float weakpointArmorReductionPercent = 0f;
+    private int weakpointArmorReductionFlat = 0;
+    private int weakpointArmorMaxCap = int.MaxValue;
     private float heavyImpactStaggerUntil = -1f;
     private float sniperHeadshotMarkedUntil = -1f;
     private Tower sniperHeadshotSourceTower;
@@ -256,7 +261,7 @@ public class Enemy : MonoBehaviour
     public bool IsBleeding => isBleeding;
     public bool IsDarkened => isDarkened;
     public bool IsSlowed => isSlowed;
-    public bool HasAnyEffect => isBurning || isPoisoned || isBleeding || isDarkened || isSlowed;
+    public bool HasAnyEffect => isBurning || isPoisoned || isBleeding || isDarkened || isSlowed || HasWeakpointArmorBreak();
 
     private void Awake()
     {
@@ -295,6 +300,7 @@ public class Enemy : MonoBehaviour
     {
         MoveAlongPath();
         UpdateChaosVariantRuntimeEffects();
+        UpdateWeakpointVisualRuntimeState();
     }
 
     public void Initialize(EnemyRole role, List<Vector3> path, GameManager manager = null)
@@ -831,12 +837,28 @@ public class Enemy : MonoBehaviour
             return damage;
 
         int effectiveArmor = Mathf.Max(0, armor - Mathf.Max(0, armorPierce));
+        effectiveArmor = ApplyWeakpointArmorReduction(effectiveArmor);
         float armoredDamage = damage - effectiveArmor;
 
         if (!useArmorMinimumDamage)
             return Mathf.Max(0f, armoredDamage);
 
         return Mathf.Max(1f, armoredDamage);
+    }
+
+    private int ApplyWeakpointArmorReduction(int effectiveArmor)
+    {
+        if (effectiveArmor <= 0 || Time.time > weakpointArmorBreakUntil)
+            return effectiveArmor;
+
+        float percent = Mathf.Clamp01(weakpointArmorReductionPercent);
+        int percentReduction = Mathf.FloorToInt(effectiveArmor * percent);
+        int reducedArmor = Mathf.Max(0, effectiveArmor - percentReduction - Mathf.Max(0, weakpointArmorReductionFlat));
+
+        if (weakpointArmorMaxCap != int.MaxValue)
+            reducedArmor = Mathf.Min(reducedArmor, Mathf.Max(0, weakpointArmorMaxCap));
+
+        return reducedArmor;
     }
 
     private void BuildAdaptiveEffectResistance()
@@ -1267,7 +1289,10 @@ public class Enemy : MonoBehaviour
 
     public bool KnockBackPathTiles(int tilesBack, float duration)
     {
-        if (isDead || reachedBase || immuneToEffects || IsBossOrMiniBossTarget() || pathPoints == null || pathPoints.Count == 0)
+        if (isDead || reachedBase || IsBossOrMiniBossTarget() || pathPoints == null || pathPoints.Count == 0)
+            return false;
+
+        if (immuneToEffects && enemyRole != EnemyRole.Learner)
             return false;
 
         int currentTileIndex = Mathf.Clamp(currentPathIndex - 1, 0, pathPoints.Count - 1);
@@ -1363,7 +1388,10 @@ public class Enemy : MonoBehaviour
         isDead = true;
 
         if (killingTower != null)
+        {
             killingTower.RegisterKill(enemyRole);
+            TowerSupportTileEffect.TryRestoreLifeOnKill(killingTower, gameManager);
+        }
 
         TowerMasteryManager towerMasteryManager = TowerMasteryManager.GetOrCreate(gameManager);
         if (towerMasteryManager != null)
@@ -1645,6 +1673,34 @@ public class Enemy : MonoBehaviour
     public bool HasHeavyArmorWeaken()
     {
         return Time.time <= heavyArmorWeakenedUntil;
+    }
+
+    public void ApplyWeakpointArmorBreak(float percentReduction, int flatReduction, float duration)
+    {
+        ApplyWeakpointArmorBreak(percentReduction, flatReduction, int.MaxValue, duration);
+    }
+
+    public void ApplyWeakpointArmorBreak(float percentReduction, int flatReduction, int maxArmorCap, float duration)
+    {
+        if (isDead || reachedBase)
+            return;
+
+        if (!HasWeakpointArmorBreak())
+        {
+            weakpointArmorReductionPercent = 0f;
+            weakpointArmorReductionFlat = 0;
+            weakpointArmorMaxCap = int.MaxValue;
+        }
+
+        weakpointArmorReductionPercent = Mathf.Max(weakpointArmorReductionPercent, Mathf.Clamp01(percentReduction));
+        weakpointArmorReductionFlat = Mathf.Max(weakpointArmorReductionFlat, Mathf.Max(0, flatReduction));
+        if (maxArmorCap >= 0)
+            weakpointArmorMaxCap = Mathf.Min(weakpointArmorMaxCap, maxArmorCap);
+
+        weakpointArmorBreakUntil = Mathf.Max(weakpointArmorBreakUntil, Time.time + Mathf.Max(0.1f, duration));
+        weakpointVisualWasActive = HasWeakpointArmorBreak();
+        UpdateVisualColor();
+        RefreshHealthBar();
     }
 
     public void ApplyHeavyImpactStagger(float duration, Tower sourceTower)
@@ -2198,6 +2254,13 @@ public class Enemy : MonoBehaviour
                 targetColor = Color.Lerp(targetColor, slowVisualColor, slowVisualBlend);
             }
 
+            if (HasWeakpointArmorBreak())
+            {
+                Color weakpointVisualColor = new Color32(120, 160, 255, 255);
+                weakpointVisualColor.a = baseColor.a;
+                targetColor = Color.Lerp(targetColor, weakpointVisualColor, 0.35f);
+            }
+
             if (enemyRenderers[i].material != null)
                 enemyRenderers[i].material.color = targetColor;
         }
@@ -2205,7 +2268,18 @@ public class Enemy : MonoBehaviour
 
     private bool HasActiveVisualTint()
     {
-        return HasChaosVisualSignal() || isBleeding || isDarkened || isSlowed;
+        return HasChaosVisualSignal() || isBleeding || isDarkened || isSlowed || HasWeakpointArmorBreak();
+    }
+
+    private void UpdateWeakpointVisualRuntimeState()
+    {
+        bool hasWeakpointArmorBreak = HasWeakpointArmorBreak();
+        if (weakpointVisualWasActive == hasWeakpointArmorBreak)
+            return;
+
+        weakpointVisualWasActive = hasWeakpointArmorBreak;
+        UpdateVisualColor();
+        RefreshHealthBar();
     }
 
     private void CacheRenderersIfNeeded()
@@ -2432,6 +2506,14 @@ public class Enemy : MonoBehaviour
         return isSlowed;
     }
 
+    public bool HasWeakpointArmorBreak()
+    {
+        return Time.time <= weakpointArmorBreakUntil &&
+               (weakpointArmorReductionPercent > 0f ||
+                weakpointArmorReductionFlat > 0 ||
+                weakpointArmorMaxCap != int.MaxValue);
+    }
+
     public int GetActiveStatusEffectCount()
     {
         int count = 0;
@@ -2449,6 +2531,9 @@ public class Enemy : MonoBehaviour
             count++;
 
         if (HasDarkness())
+            count++;
+
+        if (HasWeakpointArmorBreak())
             count++;
 
         if (HasAlchemistUnstable())

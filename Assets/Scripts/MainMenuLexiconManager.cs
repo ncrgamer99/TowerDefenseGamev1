@@ -895,12 +895,12 @@ public class MainMenuLexiconManager : MonoBehaviour
         AddPathTileEntryIfMissing("trap_tile", PathBuildOptionType.TrapTile, "Trap Tile", 10,
             "Weg-Tile mit Bleed.",
             "Weg-Tile",
-            "Gegner auf dem Tile bluten: 2 Schaden alle 3s für 20s.");
+            "Gegner auf dem Tile bluten: 4 Schaden alle 3s für 20s.");
 
         AddPathTileEntryIfMissing("slow_tile", PathBuildOptionType.SlowTile, "Slow Tile", 20,
             "Weg-Tile mit Slow.",
             "Weg-Tile",
-            "Gegner auf dem Tile laufen kurz auf 45% Speed für 2s.");
+            "Gegner auf dem Tile laufen kurz auf 40% Speed für 2s.");
 
         AddPathTileEntryIfMissing("knock_tile", PathBuildOptionType.KnockTile, "Knock Tile", 30,
             "Weg-Tile mit Rückstoß.",
@@ -915,7 +915,7 @@ public class MainMenuLexiconManager : MonoBehaviour
         AddPathTileEntryIfMissing("damage_tile", PathBuildOptionType.DamageTile, "Damage Tile", 50,
             "Bebaubares Support-Tile neben dem Weg.",
             "Support-Tile",
-            "Baue einen Tower direkt auf dieses Tile. Nur dieser Tower verursacht +20% Schaden.");
+            "Baue einen Tower direkt auf dieses Tile. Nur dieser Tower verursacht +25% Schaden.");
 
         AddPathTileEntryIfMissing("rate_tile", PathBuildOptionType.RateTile, "Rate Tile", 60,
             "Bebaubares Support-Tile neben dem Weg.",
@@ -935,7 +935,7 @@ public class MainMenuLexiconManager : MonoBehaviour
         AddPathTileEntryIfMissing("combo_tile", PathBuildOptionType.ComboTile, "Combo Tile", 90,
             "Weg-Tile für Effekt-Kombos.",
             "Weg-Tile",
-            "Löst Darkness aus, wenn ein Gegner gleichzeitig Burn, Poison und Bleed hat.");
+            "Löst Darkness aus: 20 Schaden alle 3s für 10s, wenn Burn, Poison und Bleed aktiv sind.");
     }
 
     private void AddTowerGeneralInfoIfMissing()

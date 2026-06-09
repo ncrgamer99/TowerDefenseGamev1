@@ -505,12 +505,12 @@ public class RapidTowerMasteryManager : MonoBehaviour
 
     public float GetRapidRangeBonus()
     {
-        return GetNodeRank(QuickAdjustment) * 0.08f;
+        return GetNodeRank(QuickAdjustment) * 0.12f;
     }
 
     public float GetRapidFireRateAdditive()
     {
-        return GetNodeRank(LightTrigger) * 0.04f + GetNodeRank(FireCadence) * 0.05f;
+        return GetNodeRank(LightTrigger) * 0.06f + GetNodeRank(FireCadence) * 0.05f;
     }
 
     public float GetRapidFireRateMultiplier(Tower tower)
@@ -1031,9 +1031,9 @@ public class RapidTowerMasteryManager : MonoBehaviour
         definitions.Clear();
         definitionById.Clear();
 
-        AddDefinition(LightTrigger, "Leichter Abzug", RapidTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+0,04 Fire Rate pro Rang.", 1, 2, 3, 4, 5);
+        AddDefinition(LightTrigger, "Leichter Abzug", RapidTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+0,06 Fire Rate pro Rang.", 1, 2, 3, 4, 5);
         AddDefinition(CleanBullets, "Saubere Kugeln", RapidTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+0,25 Damage pro Rang.", 1, 2, 3, 4, 5);
-        AddDefinition(QuickAdjustment, "Schnelle Justierung", RapidTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,08 Range pro Rang.", 1, 2, 3);
+        AddDefinition(QuickAdjustment, "Schnelle Justierung", RapidTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,12 Range pro Rang.", 1, 2, 3);
         AddDefinition(TrainedHand, "Trainierte Hand", RapidTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "Rapid Tower erhalten +3% Tower-XP pro Rang.", 1, 2, 3);
         AddDefinition(CleanupRoutine, "Aufraeumroutine", RapidTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+2% Damage gegen Gegner unter 35% HP pro Rang.", 1, 2, 3);
 
@@ -1126,6 +1126,10 @@ public class RapidTowerMasteryManager : MonoBehaviour
 
     private void SaveProfile()
     {
+        TowerMasteryManager towerMastery = GetTowerMasteryManager();
+        if (towerMastery != null && towerMastery.IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         EnsureDefinitions();
         EnsureNodeStates();
 

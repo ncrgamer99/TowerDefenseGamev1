@@ -597,7 +597,7 @@ public class PoisonTowerMasteryManager : MonoBehaviour
 
     public float GetPoisonRangeBonus()
     {
-        return GetNodeRank(ToxicRange) * 0.08f;
+        return GetNodeRank(ToxicRange) * 0.12f;
     }
 
     public float GetPoisonXPMultiplier()
@@ -1086,7 +1086,7 @@ public class PoisonTowerMasteryManager : MonoBehaviour
         AddDefinition(PureToxin, "Reines Toxin", PoisonTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+0,30 Poison Damage pro Rang.", 1, 2, 3, 4, 5);
         AddDefinition(LongerEffect, "Laengere Wirkung", PoisonTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+0,25s Poison Duration pro Rang.", 1, 2, 3, 4, 5);
         AddDefinition(FineDosage, "Feine Dosierung", PoisonTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,03 Fire Rate pro Rang.", 1, 2, 3);
-        AddDefinition(ToxicRange, "Toxische Reichweite", PoisonTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,08 Range pro Rang.", 1, 2, 3);
+        AddDefinition(ToxicRange, "Toxische Reichweite", PoisonTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,12 Range pro Rang.", 1, 2, 3);
         AddDefinition(LabRoutine, "Laborroutine", PoisonTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "Poison Tower erhalten +3% Tower-XP pro Rang.", 1, 2, 3);
 
         AddDefinition(ConcentratedPoison, "Konzentriertes Gift", PoisonTowerMasteryPath.DeepPoison, TowerMasteryMilestone.I, 5, "+0,40 Poison Damage pro Rang.", 1, 2, 3, 4, 5);
@@ -1182,6 +1182,10 @@ public class PoisonTowerMasteryManager : MonoBehaviour
 
     private void SaveProfile()
     {
+        TowerMasteryManager towerMastery = GetTowerMasteryManager();
+        if (towerMastery != null && towerMastery.IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         EnsureDefinitions();
         EnsureNodeStates();
 

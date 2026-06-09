@@ -376,11 +376,14 @@ public class TowerUI : MonoBehaviour
         if (statsText == null)
             return;
 
+        string dpsText = GetUnlockedDpsStatsText();
+
         statsText.text =
             "Stats" +
             "\nDMG: " + BuildEffectiveStatText(selectedTower.damage.ToString(), selectedTower.GetEffectiveDamage().ToString()) +
             "\nRNG: " + BuildEffectiveStatText(selectedTower.range.ToString("0.0"), selectedTower.GetEffectiveRange().ToString("0.0")) +
             "\nFR: " + BuildEffectiveStatText(selectedTower.fireRate.ToString("0.00"), selectedTower.GetEffectiveFireRate().ToString("0.00")) +
+            dpsText +
             GetLightningStatsText() +
             GetEffectStatsText();
 
@@ -400,6 +403,22 @@ public class TowerUI : MonoBehaviour
             return baseValue;
 
         return baseValue + " > " + effectiveValue;
+    }
+
+    private string GetUnlockedDpsStatsText()
+    {
+        if (selectedTower == null)
+            return "";
+
+        GeneralMetaProgressionManager generalMeta = gameManager != null ? gameManager.GetGeneralMetaProgressionManager() : GeneralMetaProgressionManager.GetOrCreate();
+        if (generalMeta == null || !generalMeta.HasDPSDisplay())
+            return "";
+
+        float dps = selectedTower.towerRole == TowerRole.Beam
+            ? selectedTower.GetBeamDamagePerSecond()
+            : selectedTower.GetEffectiveDamage() * selectedTower.GetEffectiveFireRate();
+
+        return "\nDPS: " + dps.ToString("0.0");
     }
 
     private string GetLightningStatsText()
@@ -436,6 +455,16 @@ public class TowerUI : MonoBehaviour
         if (selectedTower.appliesSlow)
         {
             text += "\nSlow: " + selectedTower.slowAmount.ToString("0.00") + " / " + selectedTower.slowDuration.ToString("0.0") + "s";
+        }
+
+        if (selectedTower.towerRole == TowerRole.Beam)
+        {
+            text += "\nBeam: " + selectedTower.GetBeamDamagePerSecond().ToString("0.0") + " DPS";
+        }
+
+        if (selectedTower.towerRole == TowerRole.Support)
+        {
+            text += "\nAura: +" + (selectedTower.supportAuraDamageBonus * 100f).ToString("0") + "% DMG / +" + (selectedTower.supportAuraFireRateBonus * 100f).ToString("0") + "% FR";
         }
 
         return text;
@@ -519,6 +548,12 @@ public class TowerUI : MonoBehaviour
         if (selectedTower.towerRole == TowerRole.Spike)
             return "+" + selectedTower.GetGoldSpikeBleedDamageIncreasePreview().ToString("0.0") + " Bleed / +" + selectedTower.GetGoldEffectDurationIncreasePreview().ToString("0.00") + "s";
 
+        if (selectedTower.towerRole == TowerRole.Beam)
+            return "+" + (selectedTower.GetGoldBeamDamageMultiplierIncreasePreview() * 100f).ToString("0") + "% Beam-DPS";
+
+        if (selectedTower.towerRole == TowerRole.Support)
+            return "+" + (selectedTower.GetGoldSupportAuraDamageIncreasePreview() * 100f).ToString("0") + "% DMG / +" + (selectedTower.GetGoldSupportAuraFireRateIncreasePreview() * 100f).ToString("0") + "% FR";
+
         return "+0";
     }
 
@@ -541,6 +576,12 @@ public class TowerUI : MonoBehaviour
 
         if (selectedTower.towerRole == TowerRole.Spike)
             return "+" + selectedTower.GetPointSpikeBleedDamageIncreasePreview() + " Bleed / +" + selectedTower.GetPointSpikeBleedDurationIncreasePreview().ToString("0.00") + "s";
+
+        if (selectedTower.towerRole == TowerRole.Beam)
+            return "+" + (selectedTower.GetPointBeamDamageMultiplierIncreasePreview() * 100f).ToString("0") + "% Beam-DPS";
+
+        if (selectedTower.towerRole == TowerRole.Support)
+            return "+" + (selectedTower.GetPointSupportAuraDamageIncreasePreview() * 100f).ToString("0") + "% DMG / +" + (selectedTower.GetPointSupportAuraFireRateIncreasePreview() * 100f).ToString("0") + "% FR";
 
         return "+0";
     }

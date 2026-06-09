@@ -225,6 +225,10 @@ public class EliteHuntProgressionManager : MonoBehaviour
             return;
 
         runFinalized = true;
+
+        if (IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         lastRunEliteSealsGained = Mathf.Max(0, pendingRunEliteSeals);
         lastRunEliteRankXPGained = Mathf.Max(0, pendingRunEliteRankXP);
 
@@ -732,7 +736,7 @@ public class EliteHuntProgressionManager : MonoBehaviour
 
     private void HandleWaveCompleted(WaveCompletionResult result)
     {
-        if (result == null || !result.waveCompleted || runFinalized)
+        if (result == null || !result.waveCompleted || runFinalized || IsMetaProgressionSuppressedForCurrentRun())
             return;
 
         highestWaveThisRun = Mathf.Max(highestWaveThisRun, result.waveNumber);
@@ -834,12 +838,15 @@ public class EliteHuntProgressionManager : MonoBehaviour
 
     private void AddEliteRankXP(int amount)
     {
+        if (IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         pendingRunEliteRankXP += Mathf.Max(0, amount);
     }
 
     private void AwardEliteSeals(int amount)
     {
-        if (amount <= 0)
+        if (amount <= 0 || IsMetaProgressionSuppressedForCurrentRun())
             return;
 
         int cap = GetSealCapForActiveMode();
@@ -1573,6 +1580,12 @@ public class EliteHuntProgressionManager : MonoBehaviour
             gameManager = FindObjectOfType<GameManager>();
 
         return gameManager;
+    }
+
+    private bool IsMetaProgressionSuppressedForCurrentRun()
+    {
+        GameManager currentGameManager = GetGameManager();
+        return currentGameManager != null && currentGameManager.IsMetaProgressionSuppressedForCurrentRun();
     }
 
     private GeneralMetaProgressionManager GetGeneralMetaProgressionManager()

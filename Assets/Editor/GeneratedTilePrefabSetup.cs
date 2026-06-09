@@ -12,8 +12,8 @@ public static class GeneratedTilePrefabSetup
     private const string GeneratedModelFolder = "Assets/Models/Generated/Tiles";
     private const string GeneratedMaterialFolder = "Assets/Materials/Generated/Tiles";
     private const string PrefabSetObjectName = "GeneratedTilePrefabSet";
-    private const string AutoRepairSessionKey = "GeneratedTilePrefabSetup.AutoRepairRanV7";
-    private static readonly Vector3 GeneratedModelEulerCorrection = Vector3.zero;
+    private const string AutoRepairSessionKey = "GeneratedTilePrefabSetup.AutoRepairRanV21";
+    private static readonly Vector3 DefaultGeneratedModelEulerCorrection = Vector3.zero;
     private const float VisualBottomLocalY = -0.05f;
     private static readonly Vector3 GeneratedVisualLocalPosition = new Vector3(0f, VisualBottomLocalY, 0f);
 
@@ -25,16 +25,16 @@ public static class GeneratedTilePrefabSetup
         new TileDefinition("TD_BuildTile", new Color32(70, 120, 220, 255), true, false),
         new TileDefinition("TD_TrapTile", new Color32(170, 40, 40, 255), false, false),
         new TileDefinition("TD_SlowTile", new Color32(70, 180, 255, 255), false, false),
-        new TileDefinition("TD_KnockTile", new Color32(255, 170, 45, 255), false, false),
+        new TileDefinition("TD_KnockTile", new Color32(60, 220, 240, 255), false, false),
         new TileDefinition("TD_ComboTile", new Color32(210, 80, 230, 255), false, false),
-        new TileDefinition("TD_SpecialTile", new Color32(190, 80, 220, 255), false, false),
-        new TileDefinition("TD_BridgeTile", new Color32(120, 90, 55, 255), false, false),
         new TileDefinition("TD_GoldTile", new Color32(245, 190, 40, 255), false, false),
         new TileDefinition("TD_RangeTile", new Color32(65, 155, 255, 255), false, false),
         new TileDefinition("TD_DamageTile", new Color32(235, 70, 70, 255), false, false),
         new TileDefinition("TD_RateTile", new Color32(75, 235, 130, 255), false, false),
         new TileDefinition("TD_XpTile", new Color32(155, 105, 255, 255), false, false),
         new TileDefinition("TD_UpgradeTile", new Color32(255, 245, 120, 255), false, false),
+        new TileDefinition("TD_HealTile", new Color32(95, 225, 135, 255), false, false),
+        new TileDefinition("TD_WeakpointTile", new Color(0.1f, 0.17f, 0.25f, 1f), false, false),
         new TileDefinition("TD_PathGhostTile", new Color32(90, 210, 255, 120), false, true),
         new TileDefinition("TD_BlockedTile", new Color32(80, 85, 95, 255), false, false)
     };
@@ -76,15 +76,18 @@ public static class GeneratedTilePrefabSetup
 
         foreach (TileDefinition definition in TileDefinitions)
         {
-            GameObject model = AssetDatabase.LoadAssetAtPath<GameObject>(definition.ModelPath);
+            EnsureTileModelMaterialRemaps(definition);
 
-            if (model == null)
+            GameObject model = AssetDatabase.LoadAssetAtPath<GameObject>(definition.ModelPath);
+            GameObject prefabRoot = UsesProceduralGeneratedTileVisual(definition)
+                ? CreateProceduralGeneratedTileRoot(definition)
+                : CreateGeneratedTileRoot(definition, model);
+
+            if (prefabRoot == null)
             {
                 Debug.LogWarning("GeneratedTilePrefabSetup: FBX fehlt, Prefab wird nicht ueberschrieben: " + definition.ModelPath);
                 continue;
             }
-
-            GameObject prefabRoot = CreateGeneratedTileRoot(definition, model);
             GameObject savedPrefab = PrefabUtility.SaveAsPrefabAsset(prefabRoot, definition.PrefabPath);
             Object.DestroyImmediate(prefabRoot);
 
@@ -173,6 +176,9 @@ public static class GeneratedTilePrefabSetup
 
     private static GameObject CreateGeneratedTileRoot(TileDefinition definition, GameObject model)
     {
+        if (model == null)
+            return null;
+
         GameObject root = new GameObject(definition.AssetName);
         root.transform.position = Vector3.zero;
         root.transform.rotation = Quaternion.identity;
@@ -182,18 +188,181 @@ public static class GeneratedTilePrefabSetup
         visual.name = "Visual";
         visual.transform.SetParent(root.transform, false);
         visual.transform.localPosition = Vector3.zero;
-        visual.transform.localRotation = Quaternion.Euler(GeneratedModelEulerCorrection);
+        Vector3 modelEulerCorrection = GetGeneratedModelEulerCorrection(definition);
+        visual.transform.localRotation = Quaternion.Euler(modelEulerCorrection);
         visual.transform.localScale = Vector3.one;
 
         RemoveUnwantedImportedObjects(visual);
         AlignVisualToTileRoot(visual, definition);
         ValidateAndRepairMaterials(root, definition);
         AddTileCollider(root, definition);
+        if (definition.AssetName == "TD_KnockTile")
+            ConfigureKnockTile(root);
 
         if (definition.IsBuildTile)
             ConfigureBuildTile(root);
 
         return root;
+    }
+
+    private static GameObject CreateProceduralGeneratedTileRoot(TileDefinition definition)
+    {
+        if (definition.AssetName == "TD_WeakpointTile")
+            return CreateWeakpointTileRootFromPathVisual(definition);
+
+        GameObject root = new GameObject(definition.AssetName);
+        root.transform.position = Vector3.zero;
+        root.transform.rotation = Quaternion.identity;
+        root.transform.localScale = Vector3.one;
+
+        GameObject visual = new GameObject("Visual");
+        visual.transform.SetParent(root.transform, false);
+        visual.transform.localPosition = GeneratedVisualLocalPosition;
+        visual.transform.localRotation = Quaternion.identity;
+        visual.transform.localScale = Vector3.one;
+
+        if (definition.AssetName == "TD_HealTile")
+            CreateProceduralHealTileVisual(visual.transform, definition);
+
+        ValidateAndRepairMaterials(root, definition);
+        AddTileCollider(root, definition);
+        return root;
+    }
+
+    private static GameObject CreateWeakpointTileRootFromPathVisual(TileDefinition definition)
+    {
+        GameObject pathModel = AssetDatabase.LoadAssetAtPath<GameObject>(GeneratedModelFolder + "/TD_PathTile.fbx");
+        if (pathModel == null)
+            return null;
+
+        GameObject root = new GameObject(definition.AssetName);
+        root.transform.position = Vector3.zero;
+        root.transform.rotation = Quaternion.identity;
+        root.transform.localScale = Vector3.one;
+
+        GameObject visual = InstantiateModelVisual(pathModel);
+        visual.name = "Visual";
+        visual.transform.SetParent(root.transform, false);
+        visual.transform.localPosition = Vector3.zero;
+        visual.transform.localRotation = Quaternion.identity;
+        visual.transform.localScale = Vector3.one;
+
+        RemoveUnwantedImportedObjects(visual);
+        RemoveVisibleFlowMarkerObjects(visual);
+        AlignVisualToTileRoot(visual, definition);
+        CreateFlowMarkerChildren(visual.transform, null);
+        CreateWeakpointCrackVisual(visual.transform, definition);
+
+        AddTileCollider(root, definition);
+        return root;
+    }
+
+    private static void CreateProceduralHealTileVisual(Transform visual, TileDefinition definition)
+    {
+        Material baseMaterial = GetGeneratedTileMaterialOrFallback(definition, "heal_tile_dark");
+        Material energyMaterial = GetGeneratedTileMaterialOrFallback(definition, "heal_heal_green");
+        Material crossMaterial = GetGeneratedTileMaterialOrFallback(definition, "heal_white");
+
+        CreatePrimitiveChild(visual, "Heal_Base", PrimitiveType.Cube, new Vector3(0f, 0.04f, 0f), new Vector3(1f, 0.08f, 1f), baseMaterial);
+        CreatePrimitiveChild(visual, "Heal_Surface", PrimitiveType.Cube, new Vector3(0f, 0.095f, 0f), new Vector3(0.8f, 0.035f, 0.8f), baseMaterial);
+        CreatePrimitiveChild(visual, "Heal_Energy_Disc", PrimitiveType.Cylinder, new Vector3(0f, 0.142f, 0f), new Vector3(0.34f, 0.014f, 0.34f), energyMaterial);
+        CreatePrimitiveChild(visual, "Heal_Cross_Horizontal", PrimitiveType.Cube, new Vector3(0f, 0.168f, 0f), new Vector3(0.54f, 0.03f, 0.1f), crossMaterial);
+        CreatePrimitiveChild(visual, "Heal_Cross_Vertical", PrimitiveType.Cube, new Vector3(0f, 0.17f, 0f), new Vector3(0.1f, 0.032f, 0.54f), crossMaterial);
+    }
+
+    private static void CreateWeakpointCrackVisual(Transform visual, TileDefinition definition)
+    {
+        Material redMaterial = GetGeneratedTileMaterialOrFallback(definition, "weak_weak_red");
+
+        CreatePrimitiveChild(visual, "Weakpoint_Crack_Main", PrimitiveType.Cube, new Vector3(0f, 0.172f, 0f), new Vector3(0.32f, 0.018f, 0.045f), redMaterial, Quaternion.Euler(0f, 45f, 0f));
+        CreatePrimitiveChild(visual, "Weakpoint_Crack_Cross", PrimitiveType.Cube, new Vector3(0f, 0.174f, 0f), new Vector3(0.23f, 0.018f, 0.038f), redMaterial, Quaternion.Euler(0f, -45f, 0f));
+        CreatePrimitiveChild(visual, "Weakpoint_Crack_Detail_A", PrimitiveType.Cube, new Vector3(-0.09f, 0.176f, 0.08f), new Vector3(0.14f, 0.016f, 0.032f), redMaterial, Quaternion.Euler(0f, -15f, 0f));
+        CreatePrimitiveChild(visual, "Weakpoint_Crack_Detail_B", PrimitiveType.Cube, new Vector3(0.1f, 0.178f, -0.07f), new Vector3(0.12f, 0.016f, 0.032f), redMaterial, Quaternion.Euler(0f, 20f, 0f));
+    }
+
+    private static void CreatePathRailChildren(Transform visual, Material material)
+    {
+        CreatePrimitiveChild(visual, "Rail_South", PrimitiveType.Cube, new Vector3(0f, 0.145f, 0.49f), new Vector3(1.08f, 0.12f, 0.06f), material);
+        CreatePrimitiveChild(visual, "Rail_North", PrimitiveType.Cube, new Vector3(0f, 0.145f, -0.49f), new Vector3(1.08f, 0.12f, 0.06f), material);
+        CreatePrimitiveChild(visual, "Rail_West", PrimitiveType.Cube, new Vector3(0.49f, 0.145f, 0f), new Vector3(0.06f, 0.12f, 1.08f), material);
+        CreatePrimitiveChild(visual, "Rail_East", PrimitiveType.Cube, new Vector3(-0.49f, 0.145f, 0f), new Vector3(0.06f, 0.12f, 1.08f), material);
+
+        CreatePrimitiveChild(visual, "Corner_NE", PrimitiveType.Cube, new Vector3(-0.45f, 0.145f, -0.45f), new Vector3(0.09f, 0.13f, 0.09f), material);
+        CreatePrimitiveChild(visual, "Corner_NW", PrimitiveType.Cube, new Vector3(0.45f, 0.145f, -0.45f), new Vector3(0.09f, 0.13f, 0.09f), material);
+        CreatePrimitiveChild(visual, "Corner_SE", PrimitiveType.Cube, new Vector3(-0.45f, 0.145f, 0.45f), new Vector3(0.09f, 0.13f, 0.09f), material);
+        CreatePrimitiveChild(visual, "Corner_SW", PrimitiveType.Cube, new Vector3(0.45f, 0.145f, 0.45f), new Vector3(0.09f, 0.13f, 0.09f), material);
+    }
+
+    private static void CreateFlowMarkerChildren(Transform visual, Material material)
+    {
+        CreateEmptyChild(visual, "Flow_North", Vector3.zero);
+        CreateEmptyChild(visual, "Flow_South", Vector3.zero);
+        CreateEmptyChild(visual, "Flow_East", Vector3.zero);
+        CreateEmptyChild(visual, "Flow_West", Vector3.zero);
+    }
+
+    private static GameObject CreateEmptyChild(Transform parent, string childName, Vector3 localPosition)
+    {
+        GameObject child = new GameObject(childName);
+        child.transform.SetParent(parent, false);
+        child.transform.localPosition = localPosition;
+        child.transform.localRotation = Quaternion.identity;
+        child.transform.localScale = Vector3.one;
+        return child;
+    }
+
+    private static GameObject CreatePrimitiveChild(
+        Transform parent,
+        string childName,
+        PrimitiveType primitiveType,
+        Vector3 localPosition,
+        Vector3 localScale,
+        Material material)
+    {
+        return CreatePrimitiveChild(parent, childName, primitiveType, localPosition, localScale, material, Quaternion.identity);
+    }
+
+    private static GameObject CreatePrimitiveChild(
+        Transform parent,
+        string childName,
+        PrimitiveType primitiveType,
+        Vector3 localPosition,
+        Vector3 localScale,
+        Material material,
+        Quaternion localRotation)
+    {
+        GameObject child = GameObject.CreatePrimitive(primitiveType);
+        child.name = childName;
+        child.transform.SetParent(parent, false);
+        child.transform.localPosition = localPosition;
+        child.transform.localRotation = localRotation;
+        child.transform.localScale = localScale;
+
+        Renderer renderer = child.GetComponent<Renderer>();
+        if (renderer != null && material != null)
+            renderer.sharedMaterial = material;
+
+        Collider[] colliders = child.GetComponents<Collider>();
+        foreach (Collider collider in colliders)
+        {
+            if (collider != null)
+                Object.DestroyImmediate(collider);
+        }
+
+        return child;
+    }
+
+    private static Material GetGeneratedTileMaterialOrFallback(TileDefinition definition, string sourceMaterialName)
+    {
+        Material material = GetGeneratedTileMaterialForSlot(definition, sourceMaterialName);
+        return material != null ? material : GetOrCreateFallbackMaterial(definition);
+    }
+
+    private static bool UsesProceduralGeneratedTileVisual(TileDefinition definition)
+    {
+        return definition != null &&
+               (definition.AssetName == "TD_HealTile" ||
+                definition.AssetName == "TD_WeakpointTile");
     }
 
     private static GameObject InstantiateModelVisual(GameObject model)
@@ -224,9 +393,14 @@ public static class GeneratedTilePrefabSetup
 
         Debug.Log(
             "GeneratedTilePrefabSetup: " + definition.AssetName +
-            " rotiert (" + GeneratedModelEulerCorrection + ") und auf Ground ausgerichtet. Bounds: " +
+            " rotiert (" + GetGeneratedModelEulerCorrection(definition) + ") und auf Ground ausgerichtet. Bounds: " +
             alignedBounds.size
         );
+    }
+
+    private static Vector3 GetGeneratedModelEulerCorrection(TileDefinition definition)
+    {
+        return DefaultGeneratedModelEulerCorrection;
     }
 
     private static bool TryGetRendererBounds(GameObject root, out Bounds bounds)
@@ -275,6 +449,22 @@ public static class GeneratedTilePrefabSetup
         }
     }
 
+    private static void RemoveVisibleFlowMarkerObjects(GameObject visualRoot)
+    {
+        if (visualRoot == null)
+            return;
+
+        Renderer[] renderers = visualRoot.GetComponentsInChildren<Renderer>(true);
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer == null || renderer.gameObject == null)
+                continue;
+
+            if (IsVisibleFlowMarkerObjectName(renderer.gameObject.name))
+                Object.DestroyImmediate(renderer.gameObject);
+        }
+    }
+
     private static void ValidateAndRepairMaterials(GameObject root, TileDefinition definition)
     {
         Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
@@ -306,6 +496,18 @@ public static class GeneratedTilePrefabSetup
 
             for (int i = 0; i < sharedMaterials.Length; i++)
             {
+                Material forcedMaterial = GetGeneratedTileMaterialForSlot(definition, sharedMaterials[i] != null ? sharedMaterials[i].name : "");
+                if (forcedMaterial != null)
+                {
+                    if (sharedMaterials[i] != forcedMaterial)
+                    {
+                        sharedMaterials[i] = forcedMaterial;
+                        changed = true;
+                    }
+
+                    continue;
+                }
+
                 if (sharedMaterials[i] != null)
                     continue;
 
@@ -320,6 +522,275 @@ public static class GeneratedTilePrefabSetup
                 Debug.LogWarning("GeneratedTilePrefabSetup: Fehlende Material-Slots repariert: " + definition.ModelPath);
             }
         }
+    }
+
+    private static void EnsureTileModelMaterialRemaps(TileDefinition definition)
+    {
+        if (definition == null || !UsesGeneratedTileModelMaterialRemaps(definition))
+            return;
+
+        ModelImporter importer = AssetImporter.GetAtPath(definition.ModelPath) as ModelImporter;
+        if (importer == null)
+            return;
+
+        bool changed = false;
+
+        if (importer.materialImportMode != ModelImporterMaterialImportMode.ImportStandard)
+        {
+            importer.materialImportMode = ModelImporterMaterialImportMode.ImportStandard;
+            changed = true;
+        }
+
+        if (importer.materialLocation != ModelImporterMaterialLocation.External)
+        {
+            importer.materialLocation = ModelImporterMaterialLocation.External;
+            changed = true;
+        }
+
+        var externalObjectMap = importer.GetExternalObjectMap();
+        string[] sourceMaterialNames = GetExpectedTileMaterialNames(definition);
+
+        foreach (string sourceMaterialName in sourceMaterialNames)
+        {
+            if (string.IsNullOrEmpty(sourceMaterialName))
+                continue;
+
+            Material targetMaterial = GetGeneratedTileMaterialForSlot(definition, sourceMaterialName);
+            if (targetMaterial == null)
+                continue;
+
+            AssetImporter.SourceAssetIdentifier sourceIdentifier = new AssetImporter.SourceAssetIdentifier(typeof(Material), sourceMaterialName);
+
+            if (!externalObjectMap.TryGetValue(sourceIdentifier, out Object mappedObject) || mappedObject != targetMaterial)
+            {
+                importer.AddRemap(sourceIdentifier, targetMaterial);
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            importer.SaveAndReimport();
+            Debug.Log("GeneratedTilePrefabSetup: Material-Remaps aktualisiert: " + definition.ModelPath);
+        }
+    }
+
+    private static Material GetGeneratedTileMaterialForSlot(TileDefinition definition, string sourceMaterialName)
+    {
+        if (definition == null || !UsesGeneratedTileMaterials(definition) || string.IsNullOrEmpty(sourceMaterialName))
+            return null;
+
+        string marker = sourceMaterialName.ToLowerInvariant();
+
+        if (definition.AssetName == "TD_WeakpointTile" &&
+            !marker.Contains("weak") &&
+            !marker.Contains("weakpoint"))
+        {
+            return null;
+        }
+
+        Color color = ResolveTileMaterialColor(definition, marker);
+        bool emission = IsTileEmissionMaterial(marker);
+
+        string materialFolder = GeneratedMaterialFolder + "/" + definition.AssetName;
+        EnsureFolder(materialFolder);
+
+        string materialPath = GetGeneratedTileMaterialPath(definition, sourceMaterialName);
+        Material material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+        bool created = material == null;
+
+        if (material == null)
+            material = new Material(GetGeneratedMaterialShader());
+
+        material.name = GetGeneratedTileMaterialAssetName(definition, sourceMaterialName);
+        ApplyMaterialColor(material, color);
+        ApplyEmissionColor(material, emission ? color : Color.black);
+
+        if (created)
+            AssetDatabase.CreateAsset(material, materialPath);
+        else
+            EditorUtility.SetDirty(material);
+
+        return material;
+    }
+
+    private static string GetGeneratedTileMaterialPath(TileDefinition definition, string sourceMaterialName)
+    {
+        return GeneratedMaterialFolder + "/" + definition.AssetName + "/" + GetGeneratedTileMaterialAssetName(definition, sourceMaterialName) + ".mat";
+    }
+
+    private static string GetGeneratedTileMaterialAssetName(TileDefinition definition, string sourceMaterialName)
+    {
+        string marker = string.IsNullOrEmpty(sourceMaterialName) ? "" : sourceMaterialName.ToLowerInvariant();
+
+        if (definition.AssetName == "TD_HealTile")
+        {
+            if (marker.Contains("white") || marker.Contains("cross"))
+                return "Heal_Cross";
+            if (marker.Contains("energy") || marker.Contains("green") || marker.Contains("glow") || marker.Contains("node"))
+                return "Heal_Energy";
+            if (marker.Contains("edge"))
+                return "Heal_Edge";
+            return "Heal_Dark";
+        }
+
+        if (definition.AssetName == "TD_WeakpointTile")
+        {
+            if (marker.Contains("path") || marker.Contains("cyan"))
+                return "Weakpoint_Path";
+            if (marker.Contains("red"))
+                return "Weakpoint_Red";
+            if (marker.Contains("orange"))
+                return "Weakpoint_Orange";
+            if (marker.Contains("edge"))
+                return "Weakpoint_Edge";
+            if (marker.Contains("surface"))
+                return "Weakpoint_Surface";
+            return "Weakpoint_Base";
+        }
+
+        if (definition.AssetName == "TD_KnockTile")
+        {
+            if (marker.Contains("surface"))
+                return "Knock_Surface";
+            if (marker.Contains("cyan") || marker.Contains("path") || marker.Contains("glow"))
+                return "Knock_Path";
+            if (marker.Contains("edge") || marker.Contains("rail"))
+                return "Knock_Edge";
+            if (marker.Contains("piston_dark"))
+                return "Knock_Piston_Dark";
+            if (marker.Contains("piston_blue"))
+                return "Knock_Piston_Blue";
+            if (marker.Contains("piston") || marker.Contains("metal"))
+                return "Knock_Piston_Metal";
+            if (marker.Contains("panel"))
+                return "Knock_Panel";
+            return "Knock_Base";
+        }
+
+        return SanitizeAssetFileName(sourceMaterialName);
+    }
+
+    private static bool UsesGeneratedTileMaterials(TileDefinition definition)
+    {
+        return definition.AssetName == "TD_HealTile" ||
+               definition.AssetName == "TD_WeakpointTile";
+    }
+
+    private static bool UsesGeneratedTileModelMaterialRemaps(TileDefinition definition)
+    {
+        return definition.AssetName == "TD_HealTile" ||
+               definition.AssetName == "TD_WeakpointTile";
+    }
+
+    private static string[] GetExpectedTileMaterialNames(TileDefinition definition)
+    {
+        if (definition.AssetName == "TD_HealTile")
+        {
+            return new[]
+            {
+                "heal_white",
+                "heal_heal_green",
+                "heal_tile_dark",
+                "heal_edge"
+            };
+        }
+
+        if (definition.AssetName == "TD_WeakpointTile")
+        {
+            return new[]
+            {
+                "weak_weak_red",
+                "weak_edge",
+                "weak_path_cyan",
+                "weak_weak_orange",
+                "weak_road",
+                "weak_base",
+                "weak_surface"
+            };
+        }
+
+        if (definition.AssetName == "TD_KnockTile")
+        {
+            return new[]
+            {
+                "knock_base",
+                "knock_surface",
+                "knock_edge",
+                "knock_path_cyan",
+                "knock_piston_dark",
+                "knock_piston_metal",
+                "knock_piston_blue"
+            };
+        }
+
+        return new string[0];
+    }
+
+    private static Color ResolveTileMaterialColor(TileDefinition definition, string marker)
+    {
+        if (definition.AssetName == "TD_HealTile")
+        {
+            if (marker.Contains("white") || marker.Contains("cross"))
+                return new Color32(80, 245, 135, 255);
+            if (marker.Contains("energy") || marker.Contains("green") || marker.Contains("glow") || marker.Contains("node"))
+                return new Color32(45, 125, 85, 255);
+            if (marker.Contains("edge"))
+                return new Color32(82, 92, 104, 255);
+            if (marker.Contains("dark") || marker.Contains("tile") || marker.Contains("base") || marker.Contains("surface"))
+                return new Color32(82, 92, 104, 255);
+            return definition.FallbackColor;
+        }
+
+        if (definition.AssetName == "TD_WeakpointTile")
+        {
+            if (marker.Contains("path") || marker.Contains("cyan"))
+                return new Color(0f, 0.88f, 1f, 1f);
+            if (marker.Contains("red"))
+                return new Color32(235, 70, 70, 255);
+            if (marker.Contains("orange"))
+                return new Color(0.36f, 0.39f, 0.42f, 1f);
+            if (marker.Contains("edge"))
+                return new Color(0.36f, 0.39f, 0.42f, 1f);
+            if (marker.Contains("surface"))
+                return new Color(0.1f, 0.17f, 0.25f, 1f);
+            if (marker.Contains("road") || marker.Contains("base"))
+                return new Color(0.1f, 0.12f, 0.15f, 1f);
+            return definition.FallbackColor;
+        }
+
+        if (definition.AssetName == "TD_KnockTile")
+        {
+            if (marker.Contains("surface"))
+                return new Color32(26, 43, 64, 255);
+            if (marker.Contains("path") || marker.Contains("cyan") || marker.Contains("glow"))
+                return new Color32(0, 224, 255, 255);
+            if (marker.Contains("edge") || marker.Contains("rail"))
+                return new Color32(92, 99, 107, 255);
+            if (marker.Contains("piston_blue"))
+                return new Color32(0, 224, 255, 255);
+            if (marker.Contains("piston_dark"))
+                return new Color32(26, 43, 64, 255);
+            if (marker.Contains("piston") || marker.Contains("metal"))
+                return new Color32(92, 99, 107, 255);
+            if (marker.Contains("panel"))
+                return new Color32(26, 43, 64, 255);
+            if (marker.Contains("base") || marker.Contains("road"))
+                return new Color32(26, 31, 38, 255);
+            return definition.FallbackColor;
+        }
+
+        return definition.FallbackColor;
+    }
+
+    private static bool IsTileEmissionMaterial(string marker)
+    {
+        return marker.Contains("energy") ||
+               marker.Contains("green") ||
+               marker.Contains("glow") ||
+               marker.Contains("path") ||
+               marker.Contains("cyan") ||
+               marker.Contains("piston_blue");
     }
 
     private static Material GetOrCreateFallbackMaterial(TileDefinition definition)
@@ -351,6 +822,8 @@ public static class GeneratedTilePrefabSetup
         if (material == null)
             return;
 
+        material.color = color;
+
         if (material.HasProperty("_BaseColor"))
             material.SetColor("_BaseColor", color);
 
@@ -373,6 +846,60 @@ public static class GeneratedTilePrefabSetup
         }
     }
 
+    private static Shader GetGeneratedMaterialShader()
+    {
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null)
+            shader = Shader.Find("Standard");
+        if (shader == null)
+            shader = Shader.Find("Diffuse");
+        if (shader == null)
+            shader = Shader.Find("Sprites/Default");
+
+        return shader;
+    }
+
+    private static void ApplyEmissionColor(Material material, Color emissionColor)
+    {
+        if (material == null)
+            return;
+
+        bool emissionEnabled = emissionColor.maxColorComponent > 0.001f;
+
+        if (material.HasProperty("_EmissionColor"))
+            material.SetColor("_EmissionColor", emissionEnabled ? emissionColor * 1.35f : Color.black);
+
+        if (emissionEnabled)
+        {
+            material.EnableKeyword("_EMISSION");
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+        }
+        else
+        {
+            material.DisableKeyword("_EMISSION");
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.EmissiveIsBlack;
+        }
+
+        if (material.HasProperty("_Metallic"))
+            material.SetFloat("_Metallic", 0.1f);
+
+        if (material.HasProperty("_Smoothness"))
+            material.SetFloat("_Smoothness", 0.45f);
+
+        if (material.HasProperty("_Glossiness"))
+            material.SetFloat("_Glossiness", 0.45f);
+    }
+
+    private static string SanitizeAssetFileName(string fileName)
+    {
+        string safeName = string.IsNullOrEmpty(fileName) ? "Material" : fileName.Trim();
+
+        foreach (char invalidChar in Path.GetInvalidFileNameChars())
+            safeName = safeName.Replace(invalidChar, '_');
+
+        return string.IsNullOrEmpty(safeName) ? "Material" : safeName;
+    }
+
     private static void AddTileCollider(GameObject root, TileDefinition definition)
     {
         BoxCollider collider = root.AddComponent<BoxCollider>();
@@ -386,6 +913,12 @@ public static class GeneratedTilePrefabSetup
         BuildTile buildTile = root.AddComponent<BuildTile>();
         buildTile.isOccupied = false;
         buildTile.useHoverFeedback = true;
+    }
+
+    private static void ConfigureKnockTile(GameObject root)
+    {
+        if (root != null && root.GetComponent<KnockTileVisualAnimator>() == null)
+            root.AddComponent<KnockTileVisualAnimator>();
     }
 
     private static GeneratedTilePrefabSet CreateOrUpdateGeneratedTilePrefabSetInOpenSceneInternal()
@@ -426,14 +959,14 @@ public static class GeneratedTilePrefabSetup
         prefabSet.slowTilePrefab = LoadGeneratedPrefab("TD_SlowTile");
         prefabSet.knockTilePrefab = LoadGeneratedPrefab("TD_KnockTile");
         prefabSet.comboTilePrefab = LoadGeneratedPrefab("TD_ComboTile");
-        prefabSet.specialTilePrefab = LoadGeneratedPrefab("TD_SpecialTile");
-        prefabSet.bridgeTilePrefab = LoadGeneratedPrefab("TD_BridgeTile");
         prefabSet.goldTilePrefab = LoadGeneratedPrefab("TD_GoldTile");
         prefabSet.rangeTilePrefab = LoadGeneratedPrefab("TD_RangeTile");
         prefabSet.damageTilePrefab = LoadGeneratedPrefab("TD_DamageTile");
         prefabSet.rateTilePrefab = LoadGeneratedPrefab("TD_RateTile");
         prefabSet.xpTilePrefab = LoadGeneratedPrefab("TD_XpTile");
         prefabSet.upgradeTilePrefab = LoadGeneratedPrefab("TD_UpgradeTile");
+        prefabSet.healTilePrefab = LoadGeneratedPrefab("TD_HealTile");
+        prefabSet.weakpointTilePrefab = LoadGeneratedPrefab("TD_WeakpointTile");
         prefabSet.pathGhostTilePrefab = LoadGeneratedPrefab("TD_PathGhostTile");
         prefabSet.blockedTilePrefab = LoadGeneratedPrefab("TD_BlockedTile");
     }
@@ -513,14 +1046,14 @@ public static class GeneratedTilePrefabSetup
                 AssignIfNotNull(ref tileManager.slowTilePrefab, prefabSet.slowTilePrefab);
                 AssignIfNotNull(ref tileManager.knockTilePrefab, prefabSet.knockTilePrefab);
                 AssignIfNotNull(ref tileManager.comboTilePrefab, prefabSet.comboTilePrefab);
-                AssignIfNotNull(ref tileManager.specialTilePrefab, prefabSet.specialTilePrefab);
-                AssignIfNotNull(ref tileManager.bridgeTilePrefab, prefabSet.bridgeTilePrefab);
                 AssignIfNotNull(ref tileManager.goldTilePrefab, prefabSet.goldTilePrefab);
                 AssignIfNotNull(ref tileManager.rangeTilePrefab, prefabSet.rangeTilePrefab);
                 AssignIfNotNull(ref tileManager.damageTilePrefab, prefabSet.damageTilePrefab);
                 AssignIfNotNull(ref tileManager.rateTilePrefab, prefabSet.rateTilePrefab);
                 AssignIfNotNull(ref tileManager.xpTilePrefab, prefabSet.xpTilePrefab);
                 AssignIfNotNull(ref tileManager.upgradeTilePrefab, prefabSet.upgradeTilePrefab);
+                AssignIfNotNull(ref tileManager.healTilePrefab, prefabSet.healTilePrefab);
+                AssignIfNotNull(ref tileManager.weakpointTilePrefab, prefabSet.weakpointTilePrefab);
                 AssignIfNotNull(ref tileManager.blockedTilePrefab, prefabSet.blockedTilePrefab);
             }
 
@@ -543,11 +1076,13 @@ public static class GeneratedTilePrefabSetup
         AddOrUpdatePathOption(options, PathBuildOptionType.SlowTile, "Slow Tile", "Slow-Tile: Weg-Tile. Gegner werden kurz stark verlangsamt.");
         AddOrUpdatePathOption(options, PathBuildOptionType.KnockTile, "Knock Tile", "Knock-Tile: Weg-Tile. Wirft normale Gegner zurueck; Boss/MiniBoss/Elite immun.");
         AddOrUpdatePathOption(options, PathBuildOptionType.RangeTile, "Range Tile", "Range-Tile: kein Weg. Baue einen Tower darauf: +1 Reichweite.");
-        AddOrUpdatePathOption(options, PathBuildOptionType.DamageTile, "Damage Tile", "Damage-Tile: kein Weg. Baue einen Tower darauf: +20% Schaden.");
+        AddOrUpdatePathOption(options, PathBuildOptionType.DamageTile, "Damage Tile", "Damage-Tile: kein Weg. Baue einen Tower darauf: +25% Schaden.");
         AddOrUpdatePathOption(options, PathBuildOptionType.RateTile, "Rate Tile", "Rate-Tile: kein Weg. Baue einen Tower darauf: +20% Feuerrate.");
         AddOrUpdatePathOption(options, PathBuildOptionType.XPTile, "XP Tile", "XP-Tile: kein Weg. Baue einen Tower darauf: +25% XP.");
         AddOrUpdatePathOption(options, PathBuildOptionType.UpgradeTile, "Upgrade Tile", "Upgrade-Tile: kein Weg. Baue einen Tower darauf: Point-Upgrades +1 staerker.");
-        AddOrUpdatePathOption(options, PathBuildOptionType.ComboTile, "Combo Tile", "Combo-Tile: Darkness, wenn Gegner Burn, Poison und Bleed gleichzeitig haben.");
+        AddOrUpdatePathOption(options, PathBuildOptionType.HealTile, "Heal Tile", "Heal-Tile: kein Weg. Tower macht weniger Schaden, 2% Kill-Chance auf +1 Leben.");
+        AddOrUpdatePathOption(options, PathBuildOptionType.WeakpointTile, "Weakpoint Tile", "Weakpoint-Tile: Weg-Tile. Ruestung max. 2 und -50% fuer 10s.");
+        AddOrUpdatePathOption(options, PathBuildOptionType.ComboTile, "Combo Tile", "Combo-Tile: Darkness 20 Schaden alle 3s fuer 10s, wenn Burn, Poison und Bleed aktiv sind.");
         RemoveDuplicatePathOptions(options);
     }
 
@@ -567,8 +1102,9 @@ public static class GeneratedTilePrefabSetup
 
     private static bool IsRemovedPathBuildSelectionOption(PathBuildOptionType optionType)
     {
-        return optionType == PathBuildOptionType.SpecialTile ||
-               optionType == PathBuildOptionType.BridgeTile ||
+        int rawOptionValue = (int)optionType;
+        return rawOptionValue == 2 ||
+               rawOptionValue == 3 ||
                optionType == PathBuildOptionType.GoldTile;
     }
 
@@ -855,6 +1391,9 @@ public static class GeneratedTilePrefabSetup
         if (!AllGeneratedTilePrefabsExist())
             return true;
 
+        if (AnyGeneratedTileModelNeedsMaterialRepair())
+            return true;
+
         if (AnyGeneratedTilePrefabNeedsDirectRailRepair())
             return true;
 
@@ -885,6 +1424,65 @@ public static class GeneratedTilePrefabSetup
         return false;
     }
 
+    private static bool AnyGeneratedTileModelNeedsMaterialRepair()
+    {
+        foreach (TileDefinition definition in TileDefinitions)
+        {
+            if (!UsesGeneratedTileModelMaterialRemaps(definition))
+                continue;
+
+            if (TileModelMaterialRemapsNeedRepair(definition))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TileModelMaterialRemapsNeedRepair(TileDefinition definition)
+    {
+        ModelImporter importer = AssetImporter.GetAtPath(definition.ModelPath) as ModelImporter;
+        if (importer == null)
+            return true;
+
+        if (importer.materialImportMode != ModelImporterMaterialImportMode.ImportStandard ||
+            importer.materialLocation != ModelImporterMaterialLocation.External)
+        {
+            return true;
+        }
+
+        var externalObjectMap = importer.GetExternalObjectMap();
+        string[] sourceMaterialNames = GetExpectedTileMaterialNames(definition);
+
+        foreach (string sourceMaterialName in sourceMaterialNames)
+        {
+            if (string.IsNullOrEmpty(sourceMaterialName))
+                continue;
+
+            string expectedPath = GetGeneratedTileMaterialPath(definition, sourceMaterialName);
+            Material expectedMaterial = AssetDatabase.LoadAssetAtPath<Material>(expectedPath);
+            if (expectedMaterial == null)
+                return true;
+
+            AssetImporter.SourceAssetIdentifier sourceIdentifier = new AssetImporter.SourceAssetIdentifier(typeof(Material), sourceMaterialName);
+
+            if (!externalObjectMap.TryGetValue(sourceIdentifier, out Object mappedObject) || mappedObject != expectedMaterial)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static TileDefinition FindTileDefinition(string assetName)
+    {
+        foreach (TileDefinition definition in TileDefinitions)
+        {
+            if (definition != null && definition.AssetName == assetName)
+                return definition;
+        }
+
+        return null;
+    }
+
     private static bool AnyGeneratedTilePrefabNeedsDirectRailRepair()
     {
         foreach (TileDefinition definition in TileDefinitions)
@@ -897,7 +1495,13 @@ public static class GeneratedTilePrefabSetup
             if (GeneratedModelIsNewerThanPrefab(definition))
                 return true;
 
-            if (PrefabVisualNeedsIdentityRotationRepair(prefab))
+            if (UsesProceduralGeneratedTileVisual(definition) && !PrefabUsesProceduralGeneratedTileVisual(prefab, definition))
+                return true;
+
+            if (PrefabShouldHideVisibleFlowMarkers(definition) && PrefabHasVisibleFlowMarker(prefab))
+                return true;
+
+            if (PrefabVisualNeedsRotationRepair(prefab, definition))
                 return true;
 
             if (PrefabVisualBottomNeedsRepair(prefab))
@@ -925,9 +1529,9 @@ public static class GeneratedTilePrefabSetup
             "TD_PathTile",
             "TD_StartTile",
             "TD_TrapTile",
-            "TD_SpecialTile",
-            "TD_BridgeTile",
-            "TD_GoldTile"
+            "TD_GoldTile",
+            "TD_KnockTile",
+            "TD_WeakpointTile"
         };
 
         foreach (string prefabName in pathLikePrefabNames)
@@ -943,8 +1547,23 @@ public static class GeneratedTilePrefabSetup
             if (PrefabFlowMarkerNeedsCenterRepair(prefab))
                 return true;
 
+            if (prefabName != "TD_PathTile" && PrefabHasVisibleFlowMarker(prefab))
+                return true;
+
             if (!PrefabHasAllNamedRails(prefab))
                 return true;
+        }
+
+        GameObject knockPrefab = LoadGeneratedPrefab("TD_KnockTile");
+        if (knockPrefab == null ||
+            knockPrefab.GetComponent<KnockTileVisualAnimator>() == null ||
+            FindChildByNameContains(knockPrefab.transform, "Knock_North") == null ||
+            FindChildByNameContains(knockPrefab.transform, "Knock_East") == null ||
+            FindChildByNameContains(knockPrefab.transform, "Knock_South") == null ||
+            FindChildByNameContains(knockPrefab.transform, "Knock_West") == null ||
+            PrefabUsesGeneratedKnockMaterials(knockPrefab))
+        {
+            return true;
         }
 
         GameObject basePrefab = LoadGeneratedPrefab("TD_BaseTile");
@@ -952,7 +1571,7 @@ public static class GeneratedTilePrefabSetup
         if (basePrefab == null)
             return true;
 
-        return PrefabVisualNeedsIdentityRotationRepair(basePrefab) ||
+        return PrefabVisualNeedsRotationRepair(basePrefab, FindTileDefinition("TD_BaseTile")) ||
                !PrefabHasAllNamedRails(basePrefab) ||
                FindChildByNameContains(basePrefab.transform, "Corner_NE") == null ||
                FindChildByNameContains(basePrefab.transform, "Corner_NW") == null ||
@@ -960,7 +1579,75 @@ public static class GeneratedTilePrefabSetup
                FindChildByNameContains(basePrefab.transform, "Corner_SW") == null;
     }
 
-    private static bool PrefabVisualNeedsIdentityRotationRepair(GameObject prefab)
+    private static bool PrefabUsesGeneratedKnockMaterials(GameObject prefab)
+    {
+        if (prefab == null)
+            return true;
+
+        Renderer[] renderers = prefab.GetComponentsInChildren<Renderer>(true);
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer == null)
+                continue;
+
+            Material[] materials = renderer.sharedMaterials;
+            foreach (Material material in materials)
+            {
+                if (material == null)
+                    continue;
+
+                string materialPath = AssetDatabase.GetAssetPath(material);
+                if (!string.IsNullOrEmpty(materialPath) &&
+                    materialPath.StartsWith(GeneratedMaterialFolder + "/TD_KnockTile/", System.StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool PrefabShouldHideVisibleFlowMarkers(TileDefinition definition)
+    {
+        return definition != null &&
+               definition.AssetName != "TD_PathTile" &&
+               definition.AssetName != "TD_PathGhostTile";
+    }
+
+    private static bool PrefabHasVisibleFlowMarker(GameObject prefab)
+    {
+        if (prefab == null)
+            return true;
+
+        Renderer[] renderers = prefab.GetComponentsInChildren<Renderer>(true);
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer == null || renderer.gameObject == null)
+                continue;
+
+            string objectName = renderer.gameObject.name;
+            if (IsVisibleFlowMarkerObjectName(objectName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsVisibleFlowMarkerObjectName(string objectName)
+    {
+        if (string.IsNullOrEmpty(objectName))
+            return false;
+
+        return objectName.StartsWith("Flow_") ||
+               objectName.Contains("_Flow_") ||
+               objectName.Contains("PathCenterLine") ||
+               objectName.Contains("Weakpoint_Path_Line");
+    }
+
+    private static bool PrefabVisualNeedsRotationRepair(GameObject prefab, TileDefinition definition)
     {
         if (prefab == null)
             return true;
@@ -970,7 +1657,36 @@ public static class GeneratedTilePrefabSetup
         if (visual == null)
             return true;
 
-        return Quaternion.Angle(visual.localRotation, Quaternion.identity) > 0.1f;
+        Quaternion expectedRotation = Quaternion.Euler(GetGeneratedModelEulerCorrection(definition));
+        return Quaternion.Angle(visual.localRotation, expectedRotation) > 0.1f;
+    }
+
+    private static bool PrefabUsesProceduralGeneratedTileVisual(GameObject prefab, TileDefinition definition)
+    {
+        if (prefab == null || definition == null)
+            return false;
+
+        if (definition.AssetName == "TD_HealTile")
+        {
+            return FindChildByNameContains(prefab.transform, "Heal_Base") != null &&
+                   FindChildByNameContains(prefab.transform, "Heal_Surface") != null &&
+                   FindChildByNameContains(prefab.transform, "Heal_Cross_Horizontal") != null &&
+                   FindChildByNameContains(prefab.transform, "Heal_Cross_Vertical") != null;
+        }
+
+        if (definition.AssetName == "TD_WeakpointTile")
+        {
+            return FindChildByNameContains(prefab.transform, "TD_PathTile_BasePlate") != null &&
+                   FindChildByNameContains(prefab.transform, "TD_PathTile_Surface") != null &&
+                   FindChildByNameContains(prefab.transform, "Weakpoint_Crack_Main") != null &&
+                   FindChildByNameContains(prefab.transform, "Weakpoint_Crack_Detail_A") != null &&
+                   FindChildByNameContains(prefab.transform, "Weakpoint_Surface") == null &&
+                   FindChildByNameContains(prefab.transform, "Weakpoint_Marker_Base") == null &&
+                   FindChildByNameContains(prefab.transform, "Flow_North") != null &&
+                   PrefabHasAllNamedRails(prefab);
+        }
+
+        return true;
     }
 
     private static bool PrefabVisualBottomNeedsRepair(GameObject prefab)
@@ -997,7 +1713,19 @@ public static class GeneratedTilePrefabSetup
         if (!File.Exists(definition.PrefabPath))
             return true;
 
-        return File.GetLastWriteTimeUtc(definition.ModelPath) > File.GetLastWriteTimeUtc(definition.PrefabPath).AddSeconds(1);
+        System.DateTime prefabWriteTime = File.GetLastWriteTimeUtc(definition.PrefabPath).AddSeconds(1);
+
+        if (File.GetLastWriteTimeUtc(definition.ModelPath) > prefabWriteTime)
+            return true;
+
+        if (definition.AssetName == "TD_WeakpointTile")
+        {
+            string pathTileModelPath = GeneratedModelFolder + "/TD_PathTile.fbx";
+            return File.Exists(pathTileModelPath) &&
+                   File.GetLastWriteTimeUtc(pathTileModelPath) > prefabWriteTime;
+        }
+
+        return false;
     }
 
     private static bool PrefabFlowMarkerNeedsCenterRepair(GameObject prefab)
@@ -1062,14 +1790,14 @@ public static class GeneratedTilePrefabSetup
                !IsGeneratedPrefab(prefabSet.slowTilePrefab, "TD_SlowTile") ||
                !IsGeneratedPrefab(prefabSet.knockTilePrefab, "TD_KnockTile") ||
                !IsGeneratedPrefab(prefabSet.comboTilePrefab, "TD_ComboTile") ||
-               !IsGeneratedPrefab(prefabSet.specialTilePrefab, "TD_SpecialTile") ||
-               !IsGeneratedPrefab(prefabSet.bridgeTilePrefab, "TD_BridgeTile") ||
                !IsGeneratedPrefab(prefabSet.goldTilePrefab, "TD_GoldTile") ||
                !IsGeneratedPrefab(prefabSet.rangeTilePrefab, "TD_RangeTile") ||
                !IsGeneratedPrefab(prefabSet.damageTilePrefab, "TD_DamageTile") ||
                !IsGeneratedPrefab(prefabSet.rateTilePrefab, "TD_RateTile") ||
                !IsGeneratedPrefab(prefabSet.xpTilePrefab, "TD_XpTile") ||
                !IsGeneratedPrefab(prefabSet.upgradeTilePrefab, "TD_UpgradeTile") ||
+               !IsGeneratedPrefab(prefabSet.healTilePrefab, "TD_HealTile") ||
+               !IsGeneratedPrefab(prefabSet.weakpointTilePrefab, "TD_WeakpointTile") ||
                !IsGeneratedPrefab(prefabSet.pathGhostTilePrefab, "TD_PathGhostTile") ||
                !IsGeneratedPrefab(prefabSet.blockedTilePrefab, "TD_BlockedTile");
     }
@@ -1102,14 +1830,14 @@ public static class GeneratedTilePrefabSetup
                !IsGeneratedPrefab(tileManager.slowTilePrefab, "TD_SlowTile") ||
                !IsGeneratedPrefab(tileManager.knockTilePrefab, "TD_KnockTile") ||
                !IsGeneratedPrefab(tileManager.comboTilePrefab, "TD_ComboTile") ||
-               !IsGeneratedPrefab(tileManager.specialTilePrefab, "TD_SpecialTile") ||
-               !IsGeneratedPrefab(tileManager.bridgeTilePrefab, "TD_BridgeTile") ||
                !IsGeneratedPrefab(tileManager.goldTilePrefab, "TD_GoldTile") ||
                !IsGeneratedPrefab(tileManager.rangeTilePrefab, "TD_RangeTile") ||
                !IsGeneratedPrefab(tileManager.damageTilePrefab, "TD_DamageTile") ||
                !IsGeneratedPrefab(tileManager.rateTilePrefab, "TD_RateTile") ||
                !IsGeneratedPrefab(tileManager.xpTilePrefab, "TD_XpTile") ||
                !IsGeneratedPrefab(tileManager.upgradeTilePrefab, "TD_UpgradeTile") ||
+               !IsGeneratedPrefab(tileManager.healTilePrefab, "TD_HealTile") ||
+               !IsGeneratedPrefab(tileManager.weakpointTilePrefab, "TD_WeakpointTile") ||
                !IsGeneratedPrefab(tileManager.blockedTilePrefab, "TD_BlockedTile");
     }
 
@@ -1133,6 +1861,8 @@ public static class GeneratedTilePrefabSetup
                !HasPathBuildOption(pathBuildManager.randomOptions, PathBuildOptionType.RateTile) ||
                !HasPathBuildOption(pathBuildManager.randomOptions, PathBuildOptionType.XPTile) ||
                !HasPathBuildOption(pathBuildManager.randomOptions, PathBuildOptionType.UpgradeTile) ||
+               !HasPathBuildOption(pathBuildManager.randomOptions, PathBuildOptionType.HealTile) ||
+               !HasPathBuildOption(pathBuildManager.randomOptions, PathBuildOptionType.WeakpointTile) ||
                !HasPathBuildOption(pathBuildManager.randomOptions, PathBuildOptionType.ComboTile);
     }
 

@@ -581,12 +581,12 @@ public class SlowTowerMasteryManager : MonoBehaviour
 
     public float GetSlowRangeBonus()
     {
-        return GetNodeRank(ControlLine) * 0.08f;
+        return GetNodeRank(ControlLine) * 0.12f;
     }
 
     public float GetSlowFireRateAdditive()
     {
-        return GetNodeRank(CalmCadence) * 0.03f;
+        return GetNodeRank(CalmCadence) * 0.04f;
     }
 
     public float GetSlowFireRateMultiplier(Tower tower)
@@ -1260,8 +1260,8 @@ public class SlowTowerMasteryManager : MonoBehaviour
 
         AddDefinition(ColdCoil, "Kaeltere Spule", SlowTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "Slow-Multiplier wird um 0,01 pro Rang reduziert.", 1, 2, 3, 4, 5);
         AddDefinition(LongerInhibition, "Laengere Hemmung", SlowTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+0,15s Slow Duration pro Rang.", 1, 2, 3, 4, 5);
-        AddDefinition(ControlLine, "Kontrolllinie", SlowTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,08 Range pro Rang.", 1, 2, 3);
-        AddDefinition(CalmCadence, "Ruhiger Takt", SlowTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,03 Fire Rate pro Rang.", 1, 2, 3);
+        AddDefinition(ControlLine, "Kontrolllinie", SlowTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,12 Range pro Rang.", 1, 2, 3);
+        AddDefinition(CalmCadence, "Ruhiger Takt", SlowTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,04 Fire Rate pro Rang.", 1, 2, 3);
         AddDefinition(ControlRoutine, "Kontrollroutine", SlowTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "Slow Tower erhalten +3% Tower-XP pro Rang.", 1, 2, 3);
 
         AddDefinition(DeeperCold, "Tiefere Kaelte", SlowTowerMasteryPath.TimeAnchor, TowerMasteryMilestone.I, 5, "Slow-Multiplier wird um 0,01 pro Rang reduziert.", 1, 2, 3, 4, 5);
@@ -1357,6 +1357,10 @@ public class SlowTowerMasteryManager : MonoBehaviour
 
     private void SaveProfile()
     {
+        TowerMasteryManager towerMastery = GetTowerMasteryManager();
+        if (towerMastery != null && towerMastery.IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         EnsureDefinitions();
         EnsureNodeStates();
 

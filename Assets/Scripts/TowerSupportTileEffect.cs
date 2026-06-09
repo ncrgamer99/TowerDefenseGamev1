@@ -13,11 +13,14 @@ public class TowerSupportTileEffect : MonoBehaviour
 
     [Header("Buff Values")]
     public float rangeBonus = 1.0f;
-    public float damageMultiplierBonus = 0.20f;
+    public float damageMultiplierBonus = 0.25f;
     public float fireRateMultiplierBonus = 0.20f;
     public float xpMultiplierBonus = 0.25f;
     public float goldKillMultiplierBonus = 0.10f;
     public int pointUpgradePowerBonus = 1;
+    public float healTileDamageMultiplier = 0.80f;
+    public float healOnKillChance = 0.02f;
+    public int healAmountOnKill = 1;
 
     [Header("Bonus Caps")]
     public float maxRangeBonus = 3.0f;
@@ -149,7 +152,13 @@ public class TowerSupportTileEffect : MonoBehaviour
     public static float GetDamageMultiplier(Tower tower)
     {
         TowerSupportTileBonus bonus = GetDirectBonus(tower, PathBuildOptionType.DamageTile);
-        return 1f + GetClampedMultiplierBonus(bonus != null ? bonus.damageMultiplierBonus : 0f, bonus != null ? bonus.maxDamageMultiplierBonus : 0f);
+        float multiplier = 1f + GetClampedMultiplierBonus(bonus != null ? bonus.damageMultiplierBonus : 0f, bonus != null ? bonus.maxDamageMultiplierBonus : 0f);
+
+        TowerSupportTileBonus healBonus = GetDirectBonus(tower, PathBuildOptionType.HealTile);
+        if (healBonus != null)
+            multiplier *= Mathf.Clamp(healBonus.healTileDamageMultiplier, 0.25f, 1f);
+
+        return multiplier;
     }
 
     public static float GetFireRateMultiplier(Tower tower)
@@ -198,6 +207,29 @@ public class TowerSupportTileEffect : MonoBehaviour
         return Mathf.Max(1, roundedAmount);
     }
 
+    public static bool TryRestoreLifeOnKill(Tower tower, GameManager gameManager)
+    {
+        TowerSupportTileBonus bonus = GetDirectBonus(tower, PathBuildOptionType.HealTile);
+        if (bonus == null)
+            return false;
+
+        float chance = Mathf.Clamp01(bonus.healOnKillChance);
+        int amount = Mathf.Max(0, bonus.healAmountOnKill);
+        if (chance <= 0f || amount <= 0)
+            return false;
+
+        if (Random.value > chance)
+            return false;
+
+        if (gameManager == null)
+            gameManager = UnityEngine.Object.FindObjectOfType<GameManager>();
+
+        if (gameManager == null)
+            return false;
+
+        return gameManager.AddLivesCapped(amount) > 0;
+    }
+
     public static string GetDisplayName(PathBuildOptionType type)
     {
         switch (type)
@@ -214,6 +246,8 @@ public class TowerSupportTileEffect : MonoBehaviour
                 return "Upgrade Tile";
             case PathBuildOptionType.GoldTile:
                 return "Gold Tile";
+            case PathBuildOptionType.HealTile:
+                return "Heal Tile";
             default:
                 return type.ToString();
         }
@@ -226,7 +260,7 @@ public class TowerSupportTileEffect : MonoBehaviour
             case PathBuildOptionType.RangeTile:
                 return "Der Tower auf diesem Tile erhaelt +1 Reichweite.";
             case PathBuildOptionType.DamageTile:
-                return "Der Tower auf diesem Tile verursacht +20% Schaden.";
+                return "Der Tower auf diesem Tile verursacht +25% Schaden.";
             case PathBuildOptionType.RateTile:
                 return "Der Tower auf diesem Tile feuert +20% schneller.";
             case PathBuildOptionType.XPTile:
@@ -234,7 +268,9 @@ public class TowerSupportTileEffect : MonoBehaviour
             case PathBuildOptionType.UpgradeTile:
                 return "Point-Upgrades des Towers auf diesem Tile sind +1 staerker.";
             case PathBuildOptionType.GoldTile:
-                return "Gibt beim Bau +5% Gold-Rewards. Tower auf diesem Tile erhalten +10% Gold pro Kill.";
+                return "Gibt beim Bau +3% Gold-Rewards. Tower auf diesem Tile erhalten +10% Gold pro Kill.";
+            case PathBuildOptionType.HealTile:
+                return "Tower macht weniger Schaden, hat aber 2% Chance auf +1 Leben pro Kill.";
             default:
                 return "Dieses Tile hat keinen Tower-Bonus.";
         }
@@ -247,7 +283,8 @@ public class TowerSupportTileEffect : MonoBehaviour
                type == PathBuildOptionType.RateTile ||
                type == PathBuildOptionType.XPTile ||
                type == PathBuildOptionType.UpgradeTile ||
-               type == PathBuildOptionType.GoldTile;
+               type == PathBuildOptionType.GoldTile ||
+               type == PathBuildOptionType.HealTile;
     }
 
     private static TowerSupportTileBonus GetDirectBonus(Tower tower, PathBuildOptionType type)

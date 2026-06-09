@@ -449,7 +449,7 @@ public class MortarTowerMasteryManager : MonoBehaviour
 
     public float GetMortarRangeBonus()
     {
-        return GetNodeRank(MappedTrajectory) * 0.10f;
+        return GetNodeRank(MappedTrajectory) * 0.15f;
     }
 
     public float GetMortarFireRateAdditive()
@@ -728,7 +728,7 @@ public class MortarTowerMasteryManager : MonoBehaviour
         AddDefinition(HeavyImpact, "Schwerer Einschlag", MortarTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+1 Mortar Damage pro Rang.", 1, 2, 3, 4, 5);
         AddDefinition(LargerRadius, "Groesserer Radius", MortarTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+0,04 Einschlagsradius pro Rang.", 1, 2, 3, 4, 5);
         AddDefinition(StableBreech, "Stabiler Verschluss", MortarTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,02 Fire Rate pro Rang.", 1, 2, 3);
-        AddDefinition(MappedTrajectory, "Kartierte Flugbahn", MortarTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,10 Range pro Rang.", 1, 2, 3);
+        AddDefinition(MappedTrajectory, "Kartierte Flugbahn", MortarTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,15 Range pro Rang.", 1, 2, 3);
         AddDefinition(ArtilleryRoutine, "Artillerieroutine", MortarTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "Mortar Tower erhalten +3% Tower-XP pro Rang.", 1, 2, 3);
 
         AddDefinition(FragmentCharge, "Splitterladung", MortarTowerMasteryPath.FragmentField, TowerMasteryMilestone.I, 5, "+3% Damage gegen Standard-Gegner pro Rang.", 1, 2, 3, 4, 5);
@@ -1096,6 +1096,10 @@ public class MortarTowerMasteryManager : MonoBehaviour
 
     private void SaveProfile()
     {
+        TowerMasteryManager towerMastery = GetTowerMasteryManager();
+        if (towerMastery != null && towerMastery.IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         foreach (MortarTowerMasteryNodeDefinition definition in definitions)
             PlayerPrefs.SetInt(PlayerPrefsPrefix + "Node_" + definition.nodeId, GetNodeRank(definition.nodeId));
 

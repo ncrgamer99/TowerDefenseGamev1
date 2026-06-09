@@ -321,10 +321,7 @@ public static class MetaHubMockData
 
         int discount = Mathf.Max(0, general.GetAvailableFirstTowerDiscount());
         if (discount > 0)
-            data.activeBuffs.Add(Effect("tower_discount", "Tower-Rabatt", "-" + discount + "% erster Tower", "Loadout", "T", MetaHubTone.Green));
-
-        if (general.IsStartScoutActive())
-            data.activeBuffs.Add(Effect("start_scout", "Start-Scout", "Naechste Wave sichtbar", "Loadout", "S", MetaHubTone.Green));
+            data.activeBuffs.Add(Effect("tower_discount", "Startkosten", "-" + discount + " Gold erster Tower", "Loadout", "T", MetaHubTone.Green));
     }
 
     private static int CountActiveTowerMasteries(TowerMasteryManager towerMastery)

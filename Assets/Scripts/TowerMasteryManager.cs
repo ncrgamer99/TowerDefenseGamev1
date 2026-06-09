@@ -254,6 +254,9 @@ public class TowerMasteryManager : MonoBehaviour
             case TowerRole.Lightning: return "Lightning Tower";
             case TowerRole.Mortar: return "Mortar Tower";
             case TowerRole.Spike: return "Spike Tower";
+            case TowerRole.Beam: return "Beam Tower";
+            case TowerRole.Support: return "Support Tower";
+            case TowerRole.Frost: return "Frost Tower";
             default: return role.ToString();
         }
     }
@@ -341,6 +344,12 @@ public class TowerMasteryManager : MonoBehaviour
     {
         if (runFinalized)
             return;
+
+        if (IsMetaProgressionSuppressedForCurrentRun())
+        {
+            runFinalized = true;
+            return;
+        }
 
         RefreshHighestLevelsFromActiveTowers();
         SyncRunStateFromStatistics();
@@ -527,6 +536,9 @@ public class TowerMasteryManager : MonoBehaviour
         if (safeAmount <= 0)
             return;
 
+        if (IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         if (IsRunActiveForPayout())
         {
             TowerMasteryRunState state = GetRunState(role);
@@ -620,7 +632,7 @@ public class TowerMasteryManager : MonoBehaviour
 
     public void RecordTowerLevelReached(Tower tower, int level)
     {
-        if (tower == null)
+        if (tower == null || IsMetaProgressionSuppressedForCurrentRun())
             return;
 
         TowerRole role = tower.towerRole;
@@ -802,7 +814,7 @@ public class TowerMasteryManager : MonoBehaviour
 
     private void HandleWaveCompleted(WaveCompletionResult result)
     {
-        if (result == null || !result.waveCompleted)
+        if (result == null || !result.waveCompleted || IsMetaProgressionSuppressedForCurrentRun())
             return;
 
         highestWaveReachedThisRun = Mathf.Max(highestWaveReachedThisRun, result.waveNumber);
@@ -862,6 +874,9 @@ public class TowerMasteryManager : MonoBehaviour
         if (safeAmount <= 0)
             return;
 
+        if (IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         if (IsRunActiveForPayout())
         {
             GetRunState(role).pendingRoleBonusXP += safeAmount;
@@ -878,6 +893,14 @@ public class TowerMasteryManager : MonoBehaviour
             profile.lastRunMasteryXPGained += safeAmount;
 
         SaveProfile(profile);
+    }
+
+    public bool IsMetaProgressionSuppressedForCurrentRun()
+    {
+        if (gameManager == null)
+            gameManager = FindObjectOfType<GameManager>();
+
+        return gameManager != null && gameManager.IsMetaProgressionSuppressedForCurrentRun();
     }
 
     private HashSet<TowerRole> GatherContributingRoles(Tower killingTower, IEnumerable<Tower> contributors)

@@ -579,7 +579,7 @@ public class FireTowerMasteryManager : MonoBehaviour
 
     public float GetFireRangeBonus()
     {
-        return GetNodeRank(FlameLine) * 0.08f;
+        return GetNodeRank(FlameLine) * 0.12f;
     }
 
     public float GetFireXPMultiplier()
@@ -1056,7 +1056,7 @@ public class FireTowerMasteryManager : MonoBehaviour
         AddDefinition(HotTip, "Heisse Spitze", FireTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+0,25 direkter Fire Damage pro Rang.", 1, 2, 3, 4, 5);
         AddDefinition(StableFlame, "Stabile Flamme", FireTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+0,25 Burn Damage pro Rang.", 1, 2, 3, 4, 5);
         AddDefinition(LongerEmber, "Laengere Glut", FireTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+0,20s Burn Duration pro Rang.", 1, 2, 3, 4, 5);
-        AddDefinition(FlameLine, "Flammenlinie", FireTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,08 Range pro Rang.", 1, 2, 3);
+        AddDefinition(FlameLine, "Flammenlinie", FireTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,12 Range pro Rang.", 1, 2, 3);
         AddDefinition(BurnRoutine, "Brandroutine", FireTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "Fire Tower erhalten +3% Tower-XP pro Rang.", 1, 2, 3);
 
         AddDefinition(SparkFlight, "Funkenflug", FireTowerMasteryPath.Wildfire, TowerMasteryMilestone.I, 5, "Burn-Schaden gegen Standard-Gegner +3% pro Rang.", 1, 2, 3, 4, 5);
@@ -1151,6 +1151,10 @@ public class FireTowerMasteryManager : MonoBehaviour
 
     private void SaveProfile()
     {
+        TowerMasteryManager towerMastery = GetTowerMasteryManager();
+        if (towerMastery != null && towerMastery.IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         EnsureDefinitions();
         EnsureNodeStates();
 

@@ -29,6 +29,7 @@ public class TowerVisualTierPrefabController : MonoBehaviour
     public float localGroundY = -0.5f;
     public float baseHideDepth = 0.01f;
     public float visiblePartGroundPadding = 0.005f;
+    public bool applyGeneratedRoleColors = true;
 
     private readonly List<GameObject> spawnedVisuals = new List<GameObject>();
     private int appliedPrefabIndex = -1;
@@ -91,6 +92,7 @@ public class TowerVisualTierPrefabController : MonoBehaviour
         if ((appliedPrefabIndex == prefabIndex || appliedPrefabIndex < 0) && HasExpectedGeneratedVisual(prefabIndex))
         {
             AlignGeneratedVisualsToGround();
+            ApplyGeneratedRoleVisualColors();
             appliedPrefabIndex = prefabIndex;
             return;
         }
@@ -107,6 +109,7 @@ public class TowerVisualTierPrefabController : MonoBehaviour
 
         ArrangeVisualInstance(instance);
         AlignGeneratedVisualsToGround();
+        ApplyGeneratedRoleVisualColors();
         appliedPrefabIndex = prefabIndex;
     }
 
@@ -190,8 +193,29 @@ public class TowerVisualTierPrefabController : MonoBehaviour
         modelRoot.localPosition = Vector3.zero;
         modelRoot.localScale = Vector3.one;
         modelRoot.localRotation = applyGeneratedModelRotationFix
-            ? Quaternion.Euler(generatedModelEulerCorrection)
+            ? Quaternion.Euler(GetEffectiveGeneratedModelEulerCorrection())
             : Quaternion.identity;
+    }
+
+    private Vector3 GetEffectiveGeneratedModelEulerCorrection()
+    {
+        if (UsesUnityOrientedGeneratedModel())
+            return Vector3.zero;
+
+        return generatedModelEulerCorrection;
+    }
+
+    private bool UsesUnityOrientedGeneratedModel()
+    {
+        if (tower == null)
+            tower = GetComponent<Tower>();
+
+        if (tower == null)
+            return false;
+
+        return tower.towerRole == TowerRole.Beam ||
+               tower.towerRole == TowerRole.Support ||
+               tower.towerRole == TowerRole.Frost;
     }
 
     private void MoveExistingGeneratedVisualsIntoModelRoots()
@@ -447,6 +471,132 @@ public class TowerVisualTierPrefabController : MonoBehaviour
                     targetBounds.Add(localY);
                 }
             }
+        }
+    }
+
+    private void ApplyGeneratedRoleVisualColors()
+    {
+        if (!Application.isPlaying || !applyGeneratedRoleColors)
+            return;
+
+        if (tower == null)
+            tower = GetComponent<Tower>();
+
+        if (tower == null)
+            return;
+
+        if (!UsesGeneratedRolePalette(tower.towerRole))
+            return;
+
+        ApplyGeneratedRoleVisualColors(baseModelRoot);
+        ApplyGeneratedRoleVisualColors(aimModelRoot);
+    }
+
+    private void ApplyGeneratedRoleVisualColors(Transform root)
+    {
+        if (root == null)
+            return;
+
+        Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+
+        foreach (Renderer targetRenderer in renderers)
+        {
+            if (targetRenderer == null)
+                continue;
+
+            Material[] materials = targetRenderer.materials;
+
+            for (int i = 0; i < materials.Length; i++)
+            {
+                Material material = materials[i];
+
+                if (material == null)
+                    continue;
+
+                string marker = (targetRenderer.gameObject.name + " " + material.name).ToLowerInvariant();
+                Color color = ResolveGeneratedRoleColor(tower.towerRole, marker);
+                ApplyMaterialColor(material, color, IsGeneratedRoleGlowPart(marker));
+            }
+        }
+    }
+
+    private bool UsesGeneratedRolePalette(TowerRole role)
+    {
+        return role == TowerRole.Beam ||
+               role == TowerRole.Support ||
+               role == TowerRole.Frost;
+    }
+
+    private Color ResolveGeneratedRoleColor(TowerRole role, string marker)
+    {
+        switch (role)
+        {
+            case TowerRole.Beam:
+                if (marker.Contains("energy") || marker.Contains("lens") || marker.Contains("glow"))
+                    return new Color32(70, 235, 255, 255);
+                if (marker.Contains("gold") || marker.Contains("trim") || marker.Contains("ring"))
+                    return new Color32(245, 185, 60, 255);
+                if (marker.Contains("barrel") || marker.Contains("steel"))
+                    return new Color32(105, 135, 165, 255);
+                if (marker.Contains("base") || marker.Contains("dark"))
+                    return new Color32(36, 48, 68, 255);
+                return new Color32(90, 220, 245, 255);
+
+            case TowerRole.Support:
+                if (marker.Contains("energy") || marker.Contains("beacon") || marker.Contains("plus") || marker.Contains("glow"))
+                    return new Color32(95, 245, 135, 255);
+                if (marker.Contains("gold") || marker.Contains("trim"))
+                    return new Color32(235, 190, 70, 255);
+                if (marker.Contains("antenna") || marker.Contains("steel"))
+                    return new Color32(135, 170, 155, 255);
+                if (marker.Contains("base") || marker.Contains("pedestal") || marker.Contains("dark"))
+                    return new Color32(34, 58, 48, 255);
+                return new Color32(90, 220, 120, 255);
+
+            case TowerRole.Frost:
+                if (marker.Contains("ice") || marker.Contains("crystal") || marker.Contains("core") || marker.Contains("glow") || marker.Contains("center"))
+                    return new Color32(120, 225, 255, 255);
+                if (marker.Contains("ring"))
+                    return new Color32(185, 245, 255, 255);
+                if (marker.Contains("steel"))
+                    return new Color32(110, 150, 175, 255);
+                if (marker.Contains("base") || marker.Contains("dark"))
+                    return new Color32(34, 52, 70, 255);
+                return new Color32(130, 215, 255, 255);
+
+            default:
+                return Color.white;
+        }
+    }
+
+    private bool IsGeneratedRoleGlowPart(string marker)
+    {
+        return marker.Contains("energy") ||
+               marker.Contains("glow") ||
+               marker.Contains("beacon") ||
+               marker.Contains("plus") ||
+               marker.Contains("crystal") ||
+               marker.Contains("core") ||
+               marker.Contains("lens");
+    }
+
+    private void ApplyMaterialColor(Material material, Color color, bool glow)
+    {
+        if (material == null)
+            return;
+
+        material.color = color;
+
+        if (material.HasProperty("_BaseColor"))
+            material.SetColor("_BaseColor", color);
+
+        if (material.HasProperty("_Color"))
+            material.SetColor("_Color", color);
+
+        if (material.HasProperty("_EmissionColor"))
+        {
+            Color emissionColor = glow ? color * 1.45f : Color.black;
+            material.SetColor("_EmissionColor", emissionColor);
         }
     }
 

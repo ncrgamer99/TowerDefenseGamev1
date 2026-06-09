@@ -10,7 +10,7 @@ public class GoldTileGenerator : MonoBehaviour
     public int totalGoldProduced = 0;
     public int baseGoldGenerated = 0;
     public int generationTicks = 0;
-    public float runGoldRewardBonus = 0.05f;
+    public float runGoldRewardBonus = 0.03f;
     public float towerKillGoldBonus = 0.10f;
 
     private const float PopupWidth = 320f;
@@ -46,7 +46,7 @@ public class GoldTileGenerator : MonoBehaviour
         if (IsPointerOverUI())
             return;
 
-        ShowPopup();
+        HidePopup();
     }
 
     private void OnDestroy()

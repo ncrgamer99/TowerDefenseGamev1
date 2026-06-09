@@ -55,6 +55,9 @@ public class BuildSelectionUI : MonoBehaviour
     public BuildOption lightningTower;
     public BuildOption mortarTower;
     public BuildOption spikeTower;
+    public BuildOption beamTower;
+    public BuildOption supportTower;
+    public BuildOption frostTower;
 
     [Header("New Tower Runtime Slots")]
     public bool autoAddNewTowerSlots = true;
@@ -115,6 +118,8 @@ public class BuildSelectionUI : MonoBehaviour
     public Color selectedWindowColor = new Color32(22, 39, 60, 245);
     public Color textPrimaryColor = new Color32(240, 244, 250, 255);
     public Color textSecondaryColor = new Color32(185, 194, 208, 255);
+    public Color tooltipTitleColor = new Color32(42, 50, 60, 255);
+    public Color tooltipDescriptionColor = new Color32(145, 155, 170, 255);
 
     [Header("Optional Theme Images")]
     public Image selectionPanelBackground;
@@ -307,6 +312,9 @@ public class BuildSelectionUI : MonoBehaviour
         if (key.Contains("spike")) return new Color32(120, 70, 180, 255);
         if (key.Contains("sniper")) return new Color32(65, 180, 110, 255);
         if (key.Contains("alchemist")) return new Color32(155, 75, 210, 255);
+        if (key.Contains("beam")) return new Color32(95, 235, 255, 255);
+        if (key.Contains("support")) return new Color32(90, 230, 135, 255);
+        if (key.Contains("frost")) return new Color32(120, 210, 255, 255);
         return new Color32(70, 110, 165, 255);
     }
 
@@ -322,6 +330,9 @@ public class BuildSelectionUI : MonoBehaviour
         if (lower.Contains("sniper")) return "SniperTower";
         if (lower.Contains("heavy")) return "HeavyTower";
         if (lower.Contains("alchemist")) return "AlchemistTower";
+        if (lower.Contains("beam")) return "BeamTower";
+        if (lower.Contains("support")) return "SupportTower";
+        if (lower.Contains("frost")) return "FrostTower";
         if (lower.Contains("fire")) return "FireTower";
         if (lower.Contains("slow")) return "SlowTower";
         if (lower.Contains("poison")) return "PoisonTower";
@@ -476,6 +487,13 @@ public class BuildSelectionUI : MonoBehaviour
         if (!TryGetTowerRoleForBuildOption(option, out role))
             return true;
 
+        if (IsTemporarilyDisabledTowerRole(role))
+            return false;
+
+        GameManager gameManager = GetGameManager();
+        if (gameManager != null && gameManager.IsDevGameMode())
+            return true;
+
         GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
         return generalMeta != null ? generalMeta.IsTowerUnlocked(role) : IsStarterTowerRole(role);
     }
@@ -498,6 +516,9 @@ public class BuildSelectionUI : MonoBehaviour
         if (option == lightningTower) { role = TowerRole.Lightning; return true; }
         if (option == mortarTower) { role = TowerRole.Mortar; return true; }
         if (option == spikeTower) { role = TowerRole.Spike; return true; }
+        if (option == beamTower) { role = TowerRole.Beam; return true; }
+        if (option == supportTower) { role = TowerRole.Support; return true; }
+        if (option == frostTower) { role = TowerRole.Frost; return true; }
 
         Tower towerPrefab = option.prefab != null ? option.prefab.GetComponent<Tower>() : null;
         if (towerPrefab == null && option.prefab != null)
@@ -545,9 +566,25 @@ public class BuildSelectionUI : MonoBehaviour
             case "spike":
                 role = TowerRole.Spike;
                 return true;
+            case "beam":
+                role = TowerRole.Beam;
+                return true;
+            case "support":
+                role = TowerRole.Support;
+                return true;
+            case "frost":
+                role = TowerRole.Frost;
+                return true;
             default:
                 return false;
         }
+    }
+
+    private bool IsTemporarilyDisabledTowerRole(TowerRole role)
+    {
+        return role == TowerRole.Beam ||
+               role == TowerRole.Support ||
+               role == TowerRole.Frost;
     }
 
     private bool IsStarterTowerRole(TowerRole role)
@@ -957,8 +994,8 @@ public class BuildSelectionUI : MonoBehaviour
         SetImageColor(closeButtonBackground, new Color32(200, 75, 75, 255));
 
         SetTextColor(selectedText, textPrimaryColor);
-        SetTextColor(tooltipTitleText, textPrimaryColor);
-        SetTextColor(tooltipDescriptionText, textSecondaryColor);
+        SetTextColor(tooltipTitleText, tooltipTitleColor);
+        SetTextColor(tooltipDescriptionText, tooltipDescriptionColor);
     }
 
 
@@ -1058,6 +1095,14 @@ public class BuildSelectionUI : MonoBehaviour
     {
         if (targetTile == null || !targetTile.IsTowerSupportTile())
             return;
+
+        if (!targetTile.IsAvailableForBuild())
+        {
+            if (ownerUI != null)
+                ownerUI.Hide();
+
+            return;
+        }
 
         if (IsBlockedByModalUI())
         {
@@ -1185,6 +1230,21 @@ public class BuildSelectionUI : MonoBehaviour
             return;
         }
 
+        if (!targetTile.IsAvailableForBuild())
+        {
+            supportTileBuildTarget = null;
+            supportTileBuildUI = null;
+            selectedOption = null;
+            CloseSelectionPanel();
+            ClearSelectionText();
+
+            if (ownerUI != null)
+                ownerUI.Hide();
+
+            RefreshSlotSelectionVisuals();
+            return;
+        }
+
         GameManager targetGameManager = buildManager != null ? buildManager.gameManager : FindObjectOfType<GameManager>();
         TileManager targetTileManager = buildManager != null ? buildManager.tileManager : FindObjectOfType<TileManager>();
         bool built = targetTile.TryBuildTowerOnTile(option, targetGameManager, targetTileManager);
@@ -1200,7 +1260,7 @@ public class BuildSelectionUI : MonoBehaviour
             ClearSelectionText();
 
             if (ownerUI != null)
-                ownerUI.Show(targetTile);
+                ownerUI.Hide();
         }
         else
         {
@@ -1336,7 +1396,7 @@ public class BuildSelectionUI : MonoBehaviour
         string costText = "\nKosten: " + GetDisplayedBuildCost(option) + " Gold";
         GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
         if (generalMeta != null && generalMeta.GetAvailableFirstTowerDiscount() > 0)
-            costText += "\nMeta-Rabatt: erster Tower -" + generalMeta.GetAvailableFirstTowerDiscount() + " Gold";
+            costText += "\nStartkosten: erster Tower -" + generalMeta.GetAvailableFirstTowerDiscount() + " Gold";
 
         GameManager gameManager = GetGameManager();
         int typePurchases = gameManager != null ? gameManager.GetTowerTypePurchaseCount(option.prefab, option.displayName) : 0;
@@ -1358,6 +1418,9 @@ public class BuildSelectionUI : MonoBehaviour
         if (lowerName.Contains("lightning")) return "Schneller Tower mit Kettenblitz und kurzer Verlangsamung.";
         if (lowerName.Contains("mortar")) return "Langsamer Tower mit hohem Einschlagsschaden.";
         if (lowerName.Contains("spike")) return "Kurze Reichweite mit schnellen Treffern und Bleed.";
+        if (lowerName.Contains("beam")) return "Laser-Tower mit stetigem Schaden.";
+        if (lowerName.Contains("support")) return "Bufft Tower in der Naehe.";
+        if (lowerName.Contains("frost")) return "AoE-Slow gegen Gruppen.";
         if (lowerName.Contains("sniper")) return "Sehr hohe Reichweite und starker Einzelschuss.";
         if (lowerName.Contains("heavy")) return "Langsamer Einzelschaden gegen Tanks, Knights und Bosse.";
         if (lowerName.Contains("alchemist")) return "Gift und Kontrolle in einem kompakten Support-Tower.";

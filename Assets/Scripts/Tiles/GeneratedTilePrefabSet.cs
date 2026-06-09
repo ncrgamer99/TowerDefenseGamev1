@@ -11,14 +11,14 @@ public class GeneratedTilePrefabSet : MonoBehaviour
     public GameObject slowTilePrefab;
     public GameObject knockTilePrefab;
     public GameObject comboTilePrefab;
-    public GameObject specialTilePrefab;
-    public GameObject bridgeTilePrefab;
     public GameObject goldTilePrefab;
     public GameObject rangeTilePrefab;
     public GameObject damageTilePrefab;
     public GameObject rateTilePrefab;
     public GameObject xpTilePrefab;
     public GameObject upgradeTilePrefab;
+    public GameObject healTilePrefab;
+    public GameObject weakpointTilePrefab;
     public GameObject pathGhostTilePrefab;
     public GameObject blockedTilePrefab;
 
@@ -36,8 +36,6 @@ public class GeneratedTilePrefabSet : MonoBehaviour
                 return knockTilePrefab;
             case PathBuildOptionType.ComboTile:
                 return comboTilePrefab;
-            case PathBuildOptionType.SpecialTile:
-                return specialTilePrefab;
             case PathBuildOptionType.GoldTile:
                 return goldTilePrefab;
             case PathBuildOptionType.RangeTile:
@@ -50,6 +48,10 @@ public class GeneratedTilePrefabSet : MonoBehaviour
                 return xpTilePrefab;
             case PathBuildOptionType.UpgradeTile:
                 return upgradeTilePrefab;
+            case PathBuildOptionType.HealTile:
+                return healTilePrefab;
+            case PathBuildOptionType.WeakpointTile:
+                return weakpointTilePrefab;
             default:
                 return null;
         }
@@ -76,13 +78,14 @@ public class GeneratedTilePrefabSet : MonoBehaviour
         AddMissing(missing, slowTilePrefab, "Slow Tile");
         AddMissing(missing, knockTilePrefab, "Knock Tile");
         AddMissing(missing, comboTilePrefab, "Combo Tile");
-        AddMissing(missing, specialTilePrefab, "Special Tile");
         AddMissing(missing, goldTilePrefab, "Gold Tile");
         AddMissing(missing, rangeTilePrefab, "Range Tile");
         AddMissing(missing, damageTilePrefab, "Damage Tile");
         AddMissing(missing, rateTilePrefab, "Rate Tile");
         AddMissing(missing, xpTilePrefab, "XP Tile");
         AddMissing(missing, upgradeTilePrefab, "Upgrade Tile");
+        AddMissing(missing, healTilePrefab, "Heal Tile");
+        AddMissing(missing, weakpointTilePrefab, "Weakpoint Tile");
         AddMissing(missing, pathGhostTilePrefab, "Path Ghost Tile");
         AddMissing(missing, blockedTilePrefab, "Blocked Tile");
 

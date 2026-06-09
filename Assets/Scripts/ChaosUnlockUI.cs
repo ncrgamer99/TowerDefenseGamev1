@@ -3761,7 +3761,7 @@ public class ChaosUnlockUI : MonoBehaviour
     {
         return "<b>Komfort / QoL</b>\n" +
                "<size=90%><color=#B9C2D0>Immer aktiv, keine Slots</color></size>\n\n" +
-               "GameSpeed, Rollen-Preview, Boss-Preview, Chaos-Preview, Chaos-Wave-Erklaerung und Ziel-Pinning gehoeren hierhin.\n\n" +
+               "GameSpeed und DPS-Anzeige gehoeren hierhin.\n\n" +
                "QoL verkauft keine Macht. Es macht Runs lesbarer und die Auswertung klarer.";
     }
 
@@ -3769,7 +3769,7 @@ public class ChaosUnlockUI : MonoBehaviour
     {
         return "<b>Startoptionen</b>\n" +
                "<size=90%><color=#B9C2D0>Power-Boni, Loadout-pflichtig</color></size>\n\n" +
-               "Startgold, Startleben, Startweg, erster Tower Rabatt und Start-Scout werden gekauft und danach bewusst im Loadout aktiviert.\n\n" +
+               "Startgold, Startleben, Startweg und Startkosten werden gekauft und danach bewusst im Loadout aktiviert.\n\n" +
                "Wichtig: Startweg ist hart begrenzt. Gekaufte Boni wirken erst fuer den naechsten Run.";
     }
 
@@ -4245,7 +4245,7 @@ public class ChaosUnlockUI : MonoBehaviour
         builder.AppendLine("- Ueberlebe nach einem Verbau mindestens 2 Waves.");
         builder.AppendLine("- Pruefe Milestones, sobald Punkte und Mastery-Level reichen.");
         builder.AppendLine();
-        builder.AppendLine("Spaeter kann diese Liste als Ziel-Pinning ins Run-HUD wandern.");
+        builder.AppendLine("Diese Liste bleibt als Uebersicht im Meta-Hub.");
         return builder.ToString();
     }
 
@@ -5055,7 +5055,7 @@ public class ChaosUnlockUI : MonoBehaviour
     private void CreateFooterHint(Transform parent)
     {
         TextMeshProUGUI footerText = CreateText(parent, "MetaHubFooterHint", 14f, TextAlignmentOptions.Center, new Color32(184, 178, 160, 255));
-        footerText.text = "Zurueck | Ziele anpinnen vorbereitet | Respec vorbereitet | Keystone-Wechsel vorbereitet | Run-Start wirkt spaeter";
+        footerText.text = "Zurueck | Respec vorbereitet | Keystone-Wechsel vorbereitet | Run-Start wirkt spaeter";
         footerText.enableWordWrapping = false;
         footerText.overflowMode = TextOverflowModes.Ellipsis;
         RectTransform footerRect = footerText.rectTransform;

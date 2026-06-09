@@ -393,7 +393,7 @@ public class LightningTowerMasteryManager : MonoBehaviour
 
     public float GetLightningRangeBonus()
     {
-        return GetNodeRank(ConductiveRange) * 0.10f;
+        return GetNodeRank(ConductiveRange) * 0.12f;
     }
 
     public float GetLightningFireRateAdditive()
@@ -715,7 +715,7 @@ public class LightningTowerMasteryManager : MonoBehaviour
 
         AddDefinition(ChargedCore, "Geladener Kern", LightningTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+0,5 Lightning Damage pro Rang.", 1, 2, 3, 4, 5);
         AddDefinition(FastImpulse, "Schneller Impuls", LightningTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+0,03 Fire Rate pro Rang.", 1, 2, 3, 4, 5);
-        AddDefinition(ConductiveRange, "Leitreichweite", LightningTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,10 Range pro Rang.", 1, 2, 3);
+        AddDefinition(ConductiveRange, "Leitreichweite", LightningTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,12 Range pro Rang.", 1, 2, 3);
         AddDefinition(StableConduction, "Stabile Leitung", LightningTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "Chain-Reichweite +0,10 pro Rang.", 1, 2, 3);
         AddDefinition(CurrentRoutine, "Stromroutine", LightningTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "Lightning Tower erhalten +3% Tower-XP pro Rang.", 1, 2, 3);
 
@@ -1102,6 +1102,10 @@ public class LightningTowerMasteryManager : MonoBehaviour
 
     private void SaveProfile()
     {
+        TowerMasteryManager towerMastery = GetTowerMasteryManager();
+        if (towerMastery != null && towerMastery.IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         foreach (LightningTowerMasteryNodeDefinition definition in definitions)
             PlayerPrefs.SetInt(PlayerPrefsPrefix + "Node_" + definition.nodeId, GetNodeRank(definition.nodeId));
 

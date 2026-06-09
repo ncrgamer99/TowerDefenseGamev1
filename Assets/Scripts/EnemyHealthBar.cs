@@ -29,6 +29,7 @@ public class EnemyHealthBar : MonoBehaviour
     public Color burnIconColor = new Color32(255, 94, 55, 235);
     public Color slowIconColor = new Color32(90, 190, 255, 235);
     public Color poisonIconColor = new Color32(165, 82, 235, 235);
+    public Color weakpointIconColor = new Color32(110, 150, 255, 235);
     public Color bleedIconColor = new Color32(210, 60, 60, 235);
     public Color darknessIconColor = new Color32(18, 18, 24, 245);
     public Color statusIconTextColor = Color.white;
@@ -60,11 +61,13 @@ public class EnemyHealthBar : MonoBehaviour
     private Image burnIconImage;
     private Image slowIconImage;
     private Image poisonIconImage;
+    private Image weakpointIconImage;
     private Image bleedIconImage;
     private Image darknessIconImage;
     private TextMeshProUGUI burnIconText;
     private TextMeshProUGUI slowIconText;
     private TextMeshProUGUI poisonIconText;
+    private TextMeshProUGUI weakpointIconText;
     private TextMeshProUGUI bleedIconText;
     private TextMeshProUGUI darknessIconText;
     private bool isInitialized = false;
@@ -277,11 +280,12 @@ public class EnemyHealthBar : MonoBehaviour
         statusIconRoot.anchorMax = new Vector2(0.5f, 1f);
         statusIconRoot.pivot = new Vector2(0.5f, 0f);
         statusIconRoot.anchoredPosition = new Vector2(0f, statusIconYOffset);
-        statusIconRoot.sizeDelta = new Vector2(5f * statusIconSize.x + 4f * statusIconSpacing, statusIconSize.y);
+        statusIconRoot.sizeDelta = new Vector2(6f * statusIconSize.x + 5f * statusIconSpacing, statusIconSize.y);
 
         burnIconImage = EnsureStatusIcon(statusIconRoot, "BurnIcon", burnIconColor, out burnIconText);
         slowIconImage = EnsureStatusIcon(statusIconRoot, "SlowIcon", slowIconColor, out slowIconText);
         poisonIconImage = EnsureStatusIcon(statusIconRoot, "PoisonIcon", poisonIconColor, out poisonIconText);
+        weakpointIconImage = EnsureStatusIcon(statusIconRoot, "WeakpointIcon", weakpointIconColor, out weakpointIconText);
         bleedIconImage = EnsureStatusIcon(statusIconRoot, "BleedIcon", bleedIconColor, out bleedIconText);
         darknessIconImage = EnsureStatusIcon(statusIconRoot, "DarknessIcon", darknessIconColor, out darknessIconText);
     }
@@ -355,6 +359,9 @@ public class EnemyHealthBar : MonoBehaviour
         if (enemy.HasPoison())
             visibleCount++;
 
+        if (enemy.HasWeakpointArmorBreak())
+            visibleCount++;
+
         if (enemy.HasBleed())
             visibleCount++;
 
@@ -373,6 +380,10 @@ public class EnemyHealthBar : MonoBehaviour
 
         SetStatusIcon(poisonIconImage, poisonIconText, enemy.HasPoison(), "P", visibleIndex, visibleCount, ref hasAnyIcon);
         if (enemy.HasPoison())
+            visibleIndex++;
+
+        SetStatusIcon(weakpointIconImage, weakpointIconText, enemy.HasWeakpointArmorBreak(), "W", visibleIndex, visibleCount, ref hasAnyIcon);
+        if (enemy.HasWeakpointArmorBreak())
             visibleIndex++;
 
         SetStatusIcon(bleedIconImage, bleedIconText, enemy.HasBleed(), "B", visibleIndex, visibleCount, ref hasAnyIcon);

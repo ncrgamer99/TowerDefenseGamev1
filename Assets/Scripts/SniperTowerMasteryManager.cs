@@ -620,7 +620,7 @@ public class SniperTowerMasteryManager : MonoBehaviour
 
     public float GetSniperRangeBonus()
     {
-        return GetNodeRank(NodeLongScope) * 0.15f + GetNodeRank(NodeWatchtowerOptics) * 0.2f;
+        return GetNodeRank(NodeLongScope) * 0.20f + GetNodeRank(NodeWatchtowerOptics) * 0.2f;
     }
 
     public float GetSniperFireRateAdditive()
@@ -933,7 +933,7 @@ public class SniperTowerMasteryManager : MonoBehaviour
 
         AddDefinition(NodeCalibratedBarrel, "Kalibrierter Lauf", "+1 Sniper Damage pro Rang.", SniperTowerMasteryPath.Trunk, 5, Costs(1, 2, 3, 4, 5), TowerMasteryMilestone.None);
         AddDefinition(NodeCalmBreath, "Ruhiger Atem", "+0,02 Fire Rate pro Rang.", SniperTowerMasteryPath.Trunk, 5, Costs(1, 2, 3, 4, 5), TowerMasteryMilestone.None);
-        AddDefinition(NodeLongScope, "Langes Visier", "+0,15 Range pro Rang.", SniperTowerMasteryPath.Trunk, 3, Costs(1, 2, 3), TowerMasteryMilestone.None);
+        AddDefinition(NodeLongScope, "Langes Visier", "+0,20 Range pro Rang.", SniperTowerMasteryPath.Trunk, 3, Costs(1, 2, 3), TowerMasteryMilestone.None);
         AddDefinition(NodeFocusTraining, "Fokusausbildung", "Sniper Tower erhalten +3% Tower-XP pro Rang.", SniperTowerMasteryPath.Trunk, 3, Costs(1, 2, 3), TowerMasteryMilestone.None);
         AddDefinition(NodeFirstHit, "Erster Treffer", "+2% Damage gegen Ziele ueber 80% HP pro Rang.", SniperTowerMasteryPath.Trunk, 3, Costs(1, 2, 3), TowerMasteryMilestone.None);
 
@@ -1477,6 +1477,10 @@ public class SniperTowerMasteryManager : MonoBehaviour
 
     private void SavePersistentState()
     {
+        TowerMasteryManager towerMastery = GetTowerMasteryManager();
+        if (towerMastery != null && towerMastery.IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         foreach (string nodeId in definitionsById.Keys)
         {
             PlayerPrefs.SetInt(GetNodePrefKey(nodeId), GetNodeRank(nodeId));

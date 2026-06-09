@@ -13,7 +13,7 @@ public static class GeneratedTowerPrefabSetup
     private const string GeneratedModelFolder = "Assets/Models/Generated/Towers";
     private const string GeneratedMaterialFolder = "Assets/Materials/Generated/Towers";
     private const string DefaultProjectilePath = "Assets/Prefabs/Projectile.prefab";
-    private const string AutoRepairSessionKey = "GeneratedTowerPrefabSetup.AutoRepairRanV4";
+    private const string AutoRepairSessionKey = "GeneratedTowerPrefabSetup.AutoRepairRanV6";
 
     private static readonly TowerDefinition[] TowerDefinitions =
     {
@@ -200,7 +200,7 @@ public static class GeneratedTowerPrefabSetup
         visualTierPrefabController.destroyPreviousVisual = true;
         visualTierPrefabController.maxTierIndex = 3;
         visualTierPrefabController.applyGeneratedModelRotationFix = true;
-        visualTierPrefabController.generatedModelEulerCorrection = new Vector3(-90f, 0f, 0f);
+        visualTierPrefabController.generatedModelEulerCorrection = GetGeneratedModelEulerCorrection(definition.Role);
         visualTierPrefabController.applyGeneratedVisualGroundOffset = true;
         visualTierPrefabController.generatedVisualRootOffset = new Vector3(0f, -0.5f, 0f);
         visualTierPrefabController.autoAlignGeneratedVisualsToGround = true;
@@ -209,6 +209,7 @@ public static class GeneratedTowerPrefabSetup
         visualTierPrefabController.visiblePartGroundPadding = 0.005f;
         visualTierPrefabController.visualTierPrefabs = tierModels;
         visualTierPrefabController.ApplyTier(0);
+        ApplyTowerGeneratedMaterials(root, definition);
 
         TowerVisualTierController proceduralTierController = root.GetComponent<TowerVisualTierController>();
         if (proceduralTierController != null)
@@ -224,6 +225,8 @@ public static class GeneratedTowerPrefabSetup
         for (int tier = 0; tier < models.Length; tier++)
         {
             string modelPath = definition.GetModelPath(tier);
+            EnsureTowerModelMaterialRemaps(definition, tier, modelPath);
+
             GameObject model = AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
             models[tier] = model;
 
@@ -268,6 +271,266 @@ public static class GeneratedTowerPrefabSetup
 
         if (hasMissingMaterial)
             Debug.LogWarning("GeneratedTowerPrefabSetup: FBX hat Renderer ohne Materialzuweisung: " + modelPath);
+    }
+
+    private static void EnsureTowerModelMaterialRemaps(TowerDefinition definition, int tier, string modelPath)
+    {
+        if (definition == null || !UsesGeneratedColorMaterials(definition.Role))
+            return;
+
+        ModelImporter importer = AssetImporter.GetAtPath(modelPath) as ModelImporter;
+        if (importer == null)
+            return;
+
+        bool changed = false;
+
+        if (importer.materialImportMode != ModelImporterMaterialImportMode.ImportStandard)
+        {
+            importer.materialImportMode = ModelImporterMaterialImportMode.ImportStandard;
+            changed = true;
+        }
+
+        if (importer.materialLocation != ModelImporterMaterialLocation.External)
+        {
+            importer.materialLocation = ModelImporterMaterialLocation.External;
+            changed = true;
+        }
+
+        var externalObjectMap = importer.GetExternalObjectMap();
+        string[] sourceMaterialNames = GetExpectedTowerMaterialNames(definition, tier);
+
+        foreach (string sourceMaterialName in sourceMaterialNames)
+        {
+            if (string.IsNullOrEmpty(sourceMaterialName))
+                continue;
+
+            Material targetMaterial = GetOrCreateTowerMaterial(definition, sourceMaterialName);
+            if (targetMaterial == null)
+                continue;
+
+            AssetImporter.SourceAssetIdentifier sourceIdentifier = new AssetImporter.SourceAssetIdentifier(typeof(Material), sourceMaterialName);
+
+            if (!externalObjectMap.TryGetValue(sourceIdentifier, out Object mappedObject) || mappedObject != targetMaterial)
+            {
+                importer.AddRemap(sourceIdentifier, targetMaterial);
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            importer.SaveAndReimport();
+            Debug.Log("GeneratedTowerPrefabSetup: Material-Remaps aktualisiert: " + modelPath);
+        }
+    }
+
+    private static void ApplyTowerGeneratedMaterials(GameObject root, TowerDefinition definition)
+    {
+        if (root == null || definition == null || !UsesGeneratedColorMaterials(definition.Role))
+            return;
+
+        Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer == null)
+                continue;
+
+            Material[] sharedMaterials = renderer.sharedMaterials;
+            if (sharedMaterials == null || sharedMaterials.Length == 0)
+                continue;
+
+            bool changed = false;
+
+            for (int i = 0; i < sharedMaterials.Length; i++)
+            {
+                Material sourceMaterial = sharedMaterials[i];
+                if (sourceMaterial == null || string.IsNullOrEmpty(sourceMaterial.name))
+                    continue;
+
+                Material replacement = GetOrCreateTowerMaterial(definition, sourceMaterial.name);
+                if (replacement == null || replacement == sourceMaterial)
+                    continue;
+
+                sharedMaterials[i] = replacement;
+                changed = true;
+            }
+
+            if (changed)
+                renderer.sharedMaterials = sharedMaterials;
+        }
+    }
+
+    private static Material GetOrCreateTowerMaterial(TowerDefinition definition, string sourceMaterialName)
+    {
+        string materialFolder = GeneratedMaterialFolder + "/" + definition.GeneratedObjectName;
+        EnsureFolder(materialFolder);
+
+        string materialPath = GetTowerMaterialPath(definition, sourceMaterialName);
+        Material material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+        bool created = material == null;
+
+        if (material == null)
+            material = new Material(GetGeneratedMaterialShader());
+
+        material.name = GetTowerMaterialAssetName(definition.Role, sourceMaterialName);
+        string marker = sourceMaterialName.ToLowerInvariant();
+        Color color = ResolveTowerMaterialColor(definition.Role, marker);
+        ApplyGeneratedMaterialColor(material, color, IsTowerEmissionMaterial(marker));
+
+        if (created)
+            AssetDatabase.CreateAsset(material, materialPath);
+        else
+            EditorUtility.SetDirty(material);
+
+        return material;
+    }
+
+    private static string GetTowerMaterialPath(TowerDefinition definition, string sourceMaterialName)
+    {
+        return GeneratedMaterialFolder + "/" + definition.GeneratedObjectName + "/" + GetTowerMaterialAssetName(definition.Role, sourceMaterialName) + ".mat";
+    }
+
+    private static string GetTowerMaterialAssetName(TowerRole role, string sourceMaterialName)
+    {
+        string marker = string.IsNullOrEmpty(sourceMaterialName) ? "" : sourceMaterialName.ToLowerInvariant();
+
+        switch (role)
+        {
+            case TowerRole.Beam:
+                if (marker.Contains("energy") || marker.Contains("cyan") || marker.Contains("lens"))
+                    return "Beam_Energy";
+                if (marker.Contains("white") || marker.Contains("glow"))
+                    return "Beam_Glow";
+                if (marker.Contains("gold") || marker.Contains("trim") || marker.Contains("ring"))
+                    return "Beam_Gold";
+                if (marker.Contains("steel") || marker.Contains("barrel"))
+                    return "Beam_Steel";
+                return "Beam_Dark";
+
+            case TowerRole.Support:
+                if (marker.Contains("green") || marker.Contains("energy") || marker.Contains("beacon") || marker.Contains("plus"))
+                    return "Support_Energy";
+                if (marker.Contains("white") || marker.Contains("glow"))
+                    return "Support_Glow";
+                if (marker.Contains("gold") || marker.Contains("trim"))
+                    return "Support_Gold";
+                if (marker.Contains("steel") || marker.Contains("antenna"))
+                    return "Support_Steel";
+                return "Support_Dark";
+
+            case TowerRole.Frost:
+                if (marker.Contains("ice") || marker.Contains("blue") || marker.Contains("crystal") || marker.Contains("core"))
+                    return "Frost_Ice";
+                if (marker.Contains("white") || marker.Contains("glow"))
+                    return "Frost_Glow";
+                if (marker.Contains("steel"))
+                    return "Frost_Steel";
+                return "Frost_Dark";
+
+            default:
+                return SanitizeAssetFileName(sourceMaterialName);
+        }
+    }
+
+    private static bool UsesGeneratedColorMaterials(TowerRole role)
+    {
+        return role == TowerRole.Beam ||
+               role == TowerRole.Support ||
+               role == TowerRole.Frost;
+    }
+
+    private static string[] GetExpectedTowerMaterialNames(TowerDefinition definition, int tier)
+    {
+        string prefix = definition.RoleName.ToLowerInvariant() + "_t" + tier + "_";
+
+        switch (definition.Role)
+        {
+            case TowerRole.Beam:
+                return new[]
+                {
+                    prefix + "cyan_energy",
+                    prefix + "dark_metal",
+                    prefix + "steel",
+                    prefix + "gold_trim",
+                    prefix + "white_glow"
+                };
+            case TowerRole.Support:
+                return new[]
+                {
+                    prefix + "gold_trim",
+                    prefix + "dark_metal",
+                    prefix + "green_energy",
+                    prefix + "steel",
+                    prefix + "white_glow"
+                };
+            case TowerRole.Frost:
+                return new[]
+                {
+                    prefix + "dark_metal",
+                    prefix + "white_glow",
+                    prefix + "steel",
+                    prefix + "ice_blue"
+                };
+            default:
+                return new string[0];
+        }
+    }
+
+    private static Color ResolveTowerMaterialColor(TowerRole role, string marker)
+    {
+        switch (role)
+        {
+            case TowerRole.Beam:
+                if (marker.Contains("energy") || marker.Contains("cyan") || marker.Contains("lens") || marker.Contains("glow"))
+                    return new Color32(70, 235, 255, 255);
+                if (marker.Contains("white"))
+                    return new Color32(230, 255, 255, 255);
+                if (marker.Contains("gold") || marker.Contains("trim") || marker.Contains("ring"))
+                    return new Color32(245, 185, 60, 255);
+                if (marker.Contains("steel") || marker.Contains("barrel"))
+                    return new Color32(105, 135, 165, 255);
+                if (marker.Contains("dark") || marker.Contains("metal") || marker.Contains("base"))
+                    return new Color32(36, 48, 68, 255);
+                return new Color32(90, 220, 245, 255);
+
+            case TowerRole.Support:
+                if (marker.Contains("green") || marker.Contains("energy") || marker.Contains("beacon") || marker.Contains("plus"))
+                    return new Color32(95, 245, 135, 255);
+                if (marker.Contains("white") || marker.Contains("glow"))
+                    return new Color32(230, 255, 238, 255);
+                if (marker.Contains("gold") || marker.Contains("trim"))
+                    return new Color32(235, 190, 70, 255);
+                if (marker.Contains("steel") || marker.Contains("antenna"))
+                    return new Color32(135, 170, 155, 255);
+                if (marker.Contains("dark") || marker.Contains("metal") || marker.Contains("base") || marker.Contains("pedestal"))
+                    return new Color32(34, 58, 48, 255);
+                return new Color32(90, 220, 120, 255);
+
+            case TowerRole.Frost:
+                if (marker.Contains("ice") || marker.Contains("blue") || marker.Contains("crystal") || marker.Contains("core"))
+                    return new Color32(120, 225, 255, 255);
+                if (marker.Contains("white") || marker.Contains("glow"))
+                    return new Color32(235, 255, 255, 255);
+                if (marker.Contains("steel"))
+                    return new Color32(110, 150, 175, 255);
+                if (marker.Contains("dark") || marker.Contains("metal") || marker.Contains("base"))
+                    return new Color32(34, 52, 70, 255);
+                return new Color32(130, 215, 255, 255);
+
+            default:
+                return Color.white;
+        }
+    }
+
+    private static bool IsTowerEmissionMaterial(string marker)
+    {
+        return marker.Contains("energy") ||
+               marker.Contains("glow") ||
+               marker.Contains("cyan") ||
+               marker.Contains("green") ||
+               marker.Contains("ice") ||
+               marker.Contains("white");
     }
 
     private static Tower LoadSourceTower(TowerDefinition definition)
@@ -375,6 +638,12 @@ public static class GeneratedTowerPrefabSetup
                 return new Vector3(0f, 0.9f, 0.9f);
             case TowerRole.Rapid:
                 return new Vector3(0f, 0.82f, 0.78f);
+            case TowerRole.Beam:
+                return new Vector3(0f, 0.92f, 0.9f);
+            case TowerRole.Support:
+                return new Vector3(0f, 0.76f, 0.66f);
+            case TowerRole.Frost:
+                return new Vector3(0f, 0.84f, 0.7f);
             case TowerRole.Spike:
                 return new Vector3(0f, 0.55f, 0.5f);
             case TowerRole.Fire:
@@ -385,6 +654,19 @@ public static class GeneratedTowerPrefabSetup
                 return new Vector3(0f, 0.86f, 0.68f);
             default:
                 return new Vector3(0f, 0.86f, 0.78f);
+        }
+    }
+
+    private static Vector3 GetGeneratedModelEulerCorrection(TowerRole role)
+    {
+        switch (role)
+        {
+            case TowerRole.Beam:
+            case TowerRole.Support:
+            case TowerRole.Frost:
+                return Vector3.zero;
+            default:
+                return new Vector3(-90f, 0f, 0f);
         }
     }
 
@@ -420,6 +702,12 @@ public static class GeneratedTowerPrefabSetup
                 return buildSelectionUI.sniperTower;
             case TowerRole.Spike:
                 return buildSelectionUI.spikeTower;
+            case TowerRole.Beam:
+                return buildSelectionUI.beamTower;
+            case TowerRole.Support:
+                return buildSelectionUI.supportTower;
+            case TowerRole.Frost:
+                return buildSelectionUI.frostTower;
             default:
                 return null;
         }
@@ -461,6 +749,15 @@ public static class GeneratedTowerPrefabSetup
                 break;
             case TowerRole.Spike:
                 buildSelectionUI.spikeTower = option;
+                break;
+            case TowerRole.Beam:
+                buildSelectionUI.beamTower = option;
+                break;
+            case TowerRole.Support:
+                buildSelectionUI.supportTower = option;
+                break;
+            case TowerRole.Frost:
+                buildSelectionUI.frostTower = option;
                 break;
         }
     }
@@ -523,7 +820,7 @@ public static class GeneratedTowerPrefabSetup
 
     private static bool IsKnownDefaultCost(int cost)
     {
-        int[] knownCosts = { 50, 65, 75, 80, 85, 90, 95, 100, 110, 115, 120, 125 };
+        int[] knownCosts = { 50, 65, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130 };
 
         for (int i = 0; i < knownCosts.Length; i++)
         {
@@ -550,6 +847,10 @@ public static class GeneratedTowerPrefabSetup
                lowerDescription.Contains("gift") ||
                lowerDescription.Contains("burn") ||
                lowerDescription.Contains("slow") ||
+               lowerDescription.Contains("laser") ||
+               lowerDescription.Contains("support") ||
+               lowerDescription.Contains("frost") ||
+               lowerDescription.Contains("aoe") ||
                lowerDescription.Contains("kontroll");
     }
 
@@ -569,6 +870,9 @@ public static class GeneratedTowerPrefabSetup
         if (AnyGeneratedPrefabNeedsGroundOffsetRepair())
             return true;
 
+        if (AnyGeneratedTowerModelNeedsMaterialRepair())
+            return true;
+
         BuildSelectionUI[] buildSelectionUIs = Object.FindObjectsOfType<BuildSelectionUI>(true);
 
         if (buildSelectionUIs == null || buildSelectionUIs.Length == 0)
@@ -580,6 +884,57 @@ public static class GeneratedTowerPrefabSetup
                 continue;
 
             if (BuildSelectionUIUsesOldOrMissingTowerPrefabs(buildSelectionUI))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool AnyGeneratedTowerModelNeedsMaterialRepair()
+    {
+        foreach (TowerDefinition definition in TowerDefinitions)
+        {
+            if (!UsesGeneratedColorMaterials(definition.Role))
+                continue;
+
+            for (int tier = 0; tier < 4; tier++)
+            {
+                if (TowerModelMaterialRemapsNeedRepair(definition, tier, definition.GetModelPath(tier)))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TowerModelMaterialRemapsNeedRepair(TowerDefinition definition, int tier, string modelPath)
+    {
+        ModelImporter importer = AssetImporter.GetAtPath(modelPath) as ModelImporter;
+        if (importer == null)
+            return true;
+
+        if (importer.materialImportMode != ModelImporterMaterialImportMode.ImportStandard ||
+            importer.materialLocation != ModelImporterMaterialLocation.External)
+        {
+            return true;
+        }
+
+        var externalObjectMap = importer.GetExternalObjectMap();
+        string[] sourceMaterialNames = GetExpectedTowerMaterialNames(definition, tier);
+
+        foreach (string sourceMaterialName in sourceMaterialNames)
+        {
+            if (string.IsNullOrEmpty(sourceMaterialName))
+                continue;
+
+            string expectedPath = GetTowerMaterialPath(definition, sourceMaterialName);
+            Material expectedMaterial = AssetDatabase.LoadAssetAtPath<Material>(expectedPath);
+            if (expectedMaterial == null)
+                return true;
+
+            AssetImporter.SourceAssetIdentifier sourceIdentifier = new AssetImporter.SourceAssetIdentifier(typeof(Material), sourceMaterialName);
+
+            if (!externalObjectMap.TryGetValue(sourceIdentifier, out Object mappedObject) || mappedObject != expectedMaterial)
                 return true;
         }
 
@@ -611,7 +966,9 @@ public static class GeneratedTowerPrefabSetup
             if (prefabController == null || !prefabController.applyGeneratedModelRotationFix)
                 return true;
 
-            if (Vector3.Distance(prefabController.generatedModelEulerCorrection, new Vector3(-90f, 0f, 0f)) > 0.001f)
+            Vector3 expectedEulerCorrection = GetGeneratedModelEulerCorrection(definition.Role);
+
+            if (Vector3.Distance(prefabController.generatedModelEulerCorrection, expectedEulerCorrection) > 0.001f)
                 return true;
 
             Transform visualRoot = prefab.transform.Find("VisualRoot");
@@ -626,7 +983,7 @@ public static class GeneratedTowerPrefabSetup
             if (baseModelRoot == null || aimModelRoot == null)
                 return true;
 
-            Quaternion expectedModelRootRotation = Quaternion.Euler(-90f, 0f, 0f);
+            Quaternion expectedModelRootRotation = Quaternion.Euler(expectedEulerCorrection);
 
             if (Quaternion.Angle(baseModelRoot.localRotation, expectedModelRootRotation) > 0.1f ||
                 Quaternion.Angle(aimModelRoot.localRotation, expectedModelRootRotation) > 0.1f)
@@ -724,6 +1081,68 @@ public static class GeneratedTowerPrefabSetup
         }
 
         return role + " Tower";
+    }
+
+    private static Shader GetGeneratedMaterialShader()
+    {
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+        if (shader == null)
+            shader = Shader.Find("Standard");
+        if (shader == null)
+            shader = Shader.Find("Diffuse");
+        if (shader == null)
+            shader = Shader.Find("Sprites/Default");
+
+        return shader;
+    }
+
+    private static void ApplyGeneratedMaterialColor(Material material, Color color, bool emission)
+    {
+        if (material == null)
+            return;
+
+        material.color = color;
+
+        if (material.HasProperty("_BaseColor"))
+            material.SetColor("_BaseColor", color);
+
+        if (material.HasProperty("_Color"))
+            material.SetColor("_Color", color);
+
+        if (material.HasProperty("_Metallic"))
+            material.SetFloat("_Metallic", 0.15f);
+
+        if (material.HasProperty("_Smoothness"))
+            material.SetFloat("_Smoothness", 0.45f);
+
+        if (material.HasProperty("_Glossiness"))
+            material.SetFloat("_Glossiness", 0.45f);
+
+        Color emissionColor = emission ? color * 1.35f : Color.black;
+
+        if (material.HasProperty("_EmissionColor"))
+            material.SetColor("_EmissionColor", emissionColor);
+
+        if (emission)
+        {
+            material.EnableKeyword("_EMISSION");
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+        }
+        else
+        {
+            material.DisableKeyword("_EMISSION");
+            material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.EmissiveIsBlack;
+        }
+    }
+
+    private static string SanitizeAssetFileName(string fileName)
+    {
+        string safeName = string.IsNullOrEmpty(fileName) ? "Material" : fileName.Trim();
+
+        foreach (char invalidChar in Path.GetInvalidFileNameChars())
+            safeName = safeName.Replace(invalidChar, '_');
+
+        return string.IsNullOrEmpty(safeName) ? "Material" : safeName;
     }
 
     private static void EnsureFolder(string folderPath)

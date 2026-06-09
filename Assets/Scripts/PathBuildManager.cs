@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 [System.Serializable]
@@ -62,14 +63,29 @@ public class PathBuildManager : MonoBehaviour
     public List<PathBuildOption> eliteQualityOptions = new List<PathBuildOption>();
     public int pendingEliteTileQualityBoosts = 0;
 
-    [Header("Special Tile Selection Timing")]
+    [Header("Tile Choice Timing")]
     public int specialTileSelectionWaveInterval = 5;
+
+    [Header("Verbau Choice")]
+    [FormerlySerializedAs("enablePostWaveVerbauChoice")]
+    public bool enableBlockedVerbauChoice = true;
+    public string verbauChoiceDisplayName = "Verbauauswahl";
+    public string noVerbauDisplayName = "Kein Tile";
 
     private GameObject currentGhost;
     private Vector2Int hoveredGridPosition;
     private bool hasValidHover = false;
     private bool choiceOpen = false;
     private bool optionsGeneratedForCurrentBuildPhase = false;
+    private bool specialTileChoicePending = false;
+    private bool specialTileChoiceActive = false;
+    private bool blockedVerbauChoicePending = false;
+    private bool verbauChoiceActive = false;
+    private bool immediateVerbauChoiceActive = false;
+    private bool immediateVerbauChoiceCompletesPostWave = false;
+    private bool supportTilePlacementModeActive = false;
+    private PathBuildOption pendingSupportTilePlacementOption;
+    private BuildTile hoveredSupportPlacementTile;
 
     private PathBuildOption[] currentOptions = new PathBuildOption[3];
 
@@ -200,7 +216,7 @@ public class PathBuildManager : MonoBehaviour
             return;
         }
 
-        if (IsInputLockedByModalUI())
+        if (IsInputLockedByModalUI() && !CanIgnorePathLockForImmediateVerbauChoice())
         {
             CancelChoice();
             return;
@@ -215,15 +231,9 @@ public class PathBuildManager : MonoBehaviour
             return;
         }
 
-        if (IsTowerBuildSelectionActive())
+        if (supportTilePlacementModeActive)
         {
-            CancelChoice();
-            return;
-        }
-
-        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetMouseButtonDown(1))
-        {
-            CancelChoice();
+            HandleSupportTilePlacementMode();
             return;
         }
 
@@ -233,6 +243,23 @@ public class PathBuildManager : MonoBehaviour
             return;
         }
 
+        if (IsTowerBuildSelectionActive())
+        {
+            CancelChoice();
+            return;
+        }
+
+        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetMouseButtonDown(1))
+        {
+            if (immediateVerbauChoiceActive)
+            {
+                CompleteImmediateVerbauChoice();
+                return;
+            }
+
+            CancelChoice();
+            return;
+        }
         if (IsPointerOverUI())
         {
             HideGhostOnly();
@@ -325,8 +352,8 @@ public class PathBuildManager : MonoBehaviour
 
     private bool IsRemovedPathBuildSelectionOption(PathBuildOptionType optionType)
     {
-        return optionType == PathBuildOptionType.SpecialTile ||
-               optionType == PathBuildOptionType.BridgeTile;
+        int rawOptionValue = (int)optionType;
+        return rawOptionValue == 2 || rawOptionValue == 3;
     }
 
     private bool IsInputLockedByModalUI()
@@ -337,6 +364,19 @@ public class PathBuildManager : MonoBehaviour
             return false;
 
         return gameManager.IsPathInputLockedByModalUI();
+    }
+
+    private bool CanIgnorePathLockForImmediateVerbauChoice()
+    {
+        if (!immediateVerbauChoiceActive && !supportTilePlacementModeActive)
+            return false;
+
+        ResolveGameManagerReference();
+
+        if (gameManager == null)
+            return true;
+
+        return !gameManager.IsGameplayInputLockedByModalUI();
     }
 
     private bool IsPointerOverUI()
@@ -623,7 +663,12 @@ public class PathBuildManager : MonoBehaviour
     public void ShowDefaultChoiceDescription()
     {
         if (descriptionText != null)
-            descriptionText.text = "Wähle ein Tile, bevor die nächste Wave startet. Hover zeigt den Effekt.";
+        {
+            if (verbauChoiceActive)
+                descriptionText.text = verbauChoiceDisplayName + ": Waehle ein Nicht-Weg-Tile oder ueberspringe die Auswahl.";
+            else
+                descriptionText.text = "Wähle ein Tile, bevor die nächste Wave startet. Hover zeigt den Effekt.";
+        }
     }
 
     private void HandleBaseRelocationPlacement()
@@ -720,13 +765,18 @@ public class PathBuildManager : MonoBehaviour
         if (!tileManager.CanExtendTo(hoveredGridPosition))
             return;
 
-        if (!ShouldOpenSpecialTileSelection())
+        bool openVerbauChoice = ShouldOpenPendingVerbauChoice();
+        bool openSpecialTileChoice = !openVerbauChoice && ShouldOpenSpecialTileSelection();
+
+        if (!openVerbauChoice && !openSpecialTileChoice)
         {
             BuildNormalPathTileAtHoveredPosition();
             return;
         }
 
         choiceOpen = true;
+        verbauChoiceActive = openVerbauChoice;
+        specialTileChoiceActive = openSpecialTileChoice;
 
         if (!optionsGeneratedForCurrentBuildPhase)
         {
@@ -745,12 +795,149 @@ public class PathBuildManager : MonoBehaviour
 
     private bool ShouldOpenSpecialTileSelection()
     {
-        int interval = Mathf.Max(1, specialTileSelectionWaveInterval);
-
         if (gameManager == null)
             return false;
 
-        return gameManager.waveNumber > 0 && gameManager.waveNumber % interval == 0;
+        if (gameManager.IsDevGameMode())
+            return true;
+
+        return specialTileChoicePending;
+    }
+
+    public bool OpenPostWaveVerbauChoiceForCompletedWave(WaveCompletionResult completedWaveResult)
+    {
+        if (completedWaveResult == null || !completedWaveResult.waveCompleted)
+            return false;
+
+        int interval = Mathf.Max(1, specialTileSelectionWaveInterval);
+        int completedWave = Mathf.Max(0, completedWaveResult.waveNumber);
+
+        if (completedWave <= 0 || completedWave % interval != 0)
+            return false;
+
+        return OpenImmediateVerbauChoice(true, "Verbauauswahl nach Wave " + completedWave + " geoeffnet.");
+    }
+
+    public bool QueueSpecialTileChoiceForCompletedWave(WaveCompletionResult completedWaveResult)
+    {
+        if (completedWaveResult == null || !completedWaveResult.waveCompleted)
+            return false;
+
+        int interval = GetSpecialTileSelectionWaveInterval();
+        int completedWave = Mathf.Max(0, completedWaveResult.waveNumber);
+
+        if (completedWave <= 0 || completedWave % interval != 0)
+            return false;
+
+        specialTileChoicePending = true;
+        specialTileChoiceActive = false;
+        optionsGeneratedForCurrentBuildPhase = false;
+        Debug.Log("Normale Tileauswahl fuer Wave " + completedWave + " vorgemerkt.");
+        return true;
+    }
+
+    public int GetSpecialTileSelectionWaveInterval()
+    {
+        return Mathf.Max(1, specialTileSelectionWaveInterval);
+    }
+
+    public bool OpenTileVorratChoiceForCompletedWave(WaveCompletionResult completedWaveResult)
+    {
+        if (completedWaveResult == null || !completedWaveResult.waveCompleted)
+            return false;
+
+        int completedWave = Mathf.Max(0, completedWaveResult.waveNumber);
+        if (completedWave <= 0)
+            return false;
+
+        return OpenImmediateVerbauChoice(true, "Tile-Vorrat-Auswahl nach Wave " + completedWave + " geoeffnet.");
+    }
+
+    private bool ShouldOpenPendingVerbauChoice()
+    {
+        return enableBlockedVerbauChoice && blockedVerbauChoicePending;
+    }
+
+    public bool CanQueueBlockedVerbauChoice()
+    {
+        return enableBlockedVerbauChoice && HasAvailableVerbauChoiceOption();
+    }
+
+    public bool QueueBlockedVerbauChoice()
+    {
+        if (!CanQueueBlockedVerbauChoice())
+        {
+            Debug.Log(verbauChoiceDisplayName + ": keine freigeschalteten Nicht-Weg-Tiles verfuegbar.");
+            return false;
+        }
+
+        blockedVerbauChoicePending = true;
+        verbauChoiceActive = false;
+        optionsGeneratedForCurrentBuildPhase = false;
+
+        Debug.Log(verbauChoiceDisplayName + " durch Verbau-Event vorbereitet.");
+        return true;
+    }
+
+    public bool OpenBlockedVerbauChoice()
+    {
+        return OpenImmediateVerbauChoice(false, verbauChoiceDisplayName + " durch Verbau-Event geoeffnet.");
+    }
+
+    public void ResetVerbauChoice()
+    {
+        blockedVerbauChoicePending = false;
+        verbauChoiceActive = false;
+        optionsGeneratedForCurrentBuildPhase = false;
+    }
+
+    public void ResetQueuedTileChoices()
+    {
+        specialTileChoicePending = false;
+        specialTileChoiceActive = false;
+        immediateVerbauChoiceActive = false;
+        immediateVerbauChoiceCompletesPostWave = false;
+        supportTilePlacementModeActive = false;
+        pendingSupportTilePlacementOption = null;
+        SetHoveredSupportPlacementTile(null);
+        SetChoiceButtonsInteractable(true);
+
+        if (tileManager != null)
+            tileManager.SetSupportTilePlacementBuildMode(false);
+
+        ResetVerbauChoice();
+    }
+
+    private bool OpenImmediateVerbauChoice(bool completesPostWave, string logMessage)
+    {
+        if (!enableBlockedVerbauChoice)
+            return false;
+
+        if (choiceOpen || supportTilePlacementModeActive)
+            return false;
+
+        choiceOpen = true;
+        verbauChoiceActive = true;
+        immediateVerbauChoiceActive = true;
+        immediateVerbauChoiceCompletesPostWave = completesPostWave;
+        specialTileChoiceActive = false;
+        optionsGeneratedForCurrentBuildPhase = false;
+
+        GenerateCurrentOptions();
+        optionsGeneratedForCurrentBuildPhase = true;
+        UpdateOptionUI();
+        SetChoiceButtonsInteractable(true);
+
+        if (pathTopBar != null)
+            pathTopBar.SetActive(true);
+
+        if (currentGhost != null)
+            currentGhost.SetActive(false);
+
+        if (!string.IsNullOrWhiteSpace(logMessage))
+            Debug.Log(logMessage);
+
+        return true;
     }
 
     private void BuildNormalPathTileAtHoveredPosition()
@@ -785,10 +972,16 @@ public class PathBuildManager : MonoBehaviour
 
     private void GenerateCurrentOptions()
     {
+        if (verbauChoiceActive)
+        {
+            GenerateVerbauChoiceOptions();
+            return;
+        }
+
         currentOptions[0] = new PathBuildOption
         {
             displayName = "Path Tile",
-            description = "Normaler Weg: Base zieht weiter, danach startet die nächste Welle.",
+            description = GetTileChoiceDescription(PathBuildOptionType.PathTile),
             optionType = PathBuildOptionType.PathTile
         };
 
@@ -799,6 +992,25 @@ public class PathBuildManager : MonoBehaviour
 
         currentOptions[1] = DrawRandomOptionFromPool(optionPool);
         currentOptions[2] = DrawRandomOptionFromPool(optionPool);
+    }
+
+    private void GenerateVerbauChoiceOptions()
+    {
+        List<PathBuildOption> optionPool = CreateVerbauChoiceOptionPool();
+
+        if (optionPool.Count <= 0)
+        {
+            currentOptions[0] = CreateNoVerbauOption();
+            currentOptions[1] = CreateNoVerbauOption();
+            currentOptions[2] = CreateNoVerbauOption();
+            return;
+        }
+
+        currentOptions[0] = DrawRandomOptionFromPool(optionPool);
+        currentOptions[1] = optionPool.Count > 0
+            ? DrawRandomOptionFromPool(optionPool)
+            : ClonePathBuildOption(currentOptions[0]);
+        currentOptions[2] = CreateNoVerbauOption();
     }
 
     private List<PathBuildOption> CreateSpecialOptionPool()
@@ -874,6 +1086,59 @@ public class PathBuildManager : MonoBehaviour
         }
 
         return optionPool;
+    }
+
+    private bool HasAvailableVerbauChoiceOption()
+    {
+        return CreateVerbauChoiceOptionPool().Count > 0;
+    }
+
+    private List<PathBuildOption> CreateVerbauChoiceOptionPool()
+    {
+        List<PathBuildOption> optionPool = new List<PathBuildOption>();
+
+        if (randomOptions != null)
+        {
+            foreach (PathBuildOption option in randomOptions)
+            {
+                if (option != null && IsVerbauChoiceOption(option.optionType) && IsPathBuildOptionUnlocked(option.optionType))
+                    AddOptionIfTypeMissing(optionPool, CreateDisplayOption(option));
+            }
+        }
+
+        foreach (PathBuildOption defaultOption in CreateDefaultSpecialOptions())
+        {
+            if (defaultOption == null || IsRemovedPathBuildSelectionOption(defaultOption.optionType))
+                continue;
+
+            if (IsVerbauChoiceOption(defaultOption.optionType) && IsPathBuildOptionUnlocked(defaultOption.optionType))
+                AddOptionIfTypeMissing(optionPool, CreateDisplayOption(defaultOption));
+        }
+
+        if (optionPool.Count < 2)
+            AddMissingDefaultVerbauOptions(optionPool, true);
+
+        return optionPool;
+    }
+
+    private void AddMissingDefaultVerbauOptions(List<PathBuildOption> optionPool, bool ignoreUnlockState)
+    {
+        if (optionPool == null)
+            return;
+
+        foreach (PathBuildOption defaultOption in CreateDefaultSpecialOptions())
+        {
+            if (defaultOption == null || IsRemovedPathBuildSelectionOption(defaultOption.optionType))
+                continue;
+
+            if (!IsVerbauChoiceOption(defaultOption.optionType))
+                continue;
+
+            if (!ignoreUnlockState && !IsPathBuildOptionUnlocked(defaultOption.optionType))
+                continue;
+
+            AddOptionIfTypeMissing(optionPool, CreateDisplayOption(defaultOption));
+        }
     }
 
     private void RemoveOptionTypeFromPool(List<PathBuildOption> optionPool, PathBuildOption selectedOption)
@@ -969,28 +1234,46 @@ public class PathBuildManager : MonoBehaviour
         return new PathBuildOption
         {
             displayName = string.IsNullOrWhiteSpace(option.displayName) ? defaultOption.displayName : option.displayName,
-            description = AddRarityPrefix(ShouldUseDefaultDescription(option.description) ? defaultOption.description : option.description, option.optionType),
+            description = GetTileChoiceDescription(option.optionType),
             optionType = option.optionType
         };
     }
 
-    private string AddRarityPrefix(string description, PathBuildOptionType optionType)
+    private string GetTileChoiceDescription(PathBuildOptionType optionType)
     {
-        string safeDescription = string.IsNullOrWhiteSpace(description) ? "" : description;
-
-        if (safeDescription.Contains("Seltenheit:"))
-            return safeDescription;
-
-        return "Seltenheit: " + GetRarityDisplayName(GetOptionRarity(optionType)) + " | " + safeDescription;
-    }
-
-    private bool ShouldUseDefaultDescription(string description)
-    {
-        if (string.IsNullOrWhiteSpace(description))
-            return true;
-
-        string lowerDescription = description.ToLowerInvariant();
-        return lowerDescription.Contains("platzhalter") || lowerDescription.Contains("später");
+        switch (optionType)
+        {
+            case PathBuildOptionType.NoTile:
+                return "Auswahl ueberspringen.";
+            case PathBuildOptionType.PathTile:
+                return "Weg wird erweitert";
+            case PathBuildOptionType.GoldTile:
+                return "+3% Gold und +10% Gold pro Tower-Kill";
+            case PathBuildOptionType.DamageTile:
+                return "Tower +25% Damage";
+            case PathBuildOptionType.RangeTile:
+                return "Tower +1 Reichweite";
+            case PathBuildOptionType.SlowTile:
+                return "Gegner werden kurz verlangsamt";
+            case PathBuildOptionType.TrapTile:
+                return "Gegner bluten für 20s";
+            case PathBuildOptionType.KnockTile:
+                return "Gegner werden zurückgeworfen";
+            case PathBuildOptionType.WeakpointTile:
+                return "Gegner verlieren kurz Rüstung";
+            case PathBuildOptionType.RateTile:
+                return "Tower +20% Feuerrate";
+            case PathBuildOptionType.XPTile:
+                return "+25% XP pro Tower-Kill";
+            case PathBuildOptionType.HealTile:
+                return "+1 Lebenschance pro Tower-Kill";
+            case PathBuildOptionType.ComboTile:
+                return "Darkness: 20 Schaden alle 3s";
+            case PathBuildOptionType.UpgradeTile:
+                return "Point-Upgrades +1 effektiver";
+            default:
+                return "";
+        }
     }
 
     private PathBuildOption GetDefaultSpecialOption(PathBuildOptionType optionType)
@@ -1028,8 +1311,31 @@ public class PathBuildManager : MonoBehaviour
         return new PathBuildOption
         {
             displayName = "Slow Tile",
-            description = "Seltenheit: Common | Slow-Tile: Weg-Tile. Gegner werden kurz stark verlangsamt.",
+            description = GetTileChoiceDescription(PathBuildOptionType.SlowTile),
             optionType = PathBuildOptionType.SlowTile
+        };
+    }
+
+    private PathBuildOption CreateNoVerbauOption()
+    {
+        return new PathBuildOption
+        {
+            displayName = string.IsNullOrWhiteSpace(noVerbauDisplayName) ? "Kein Tile" : noVerbauDisplayName,
+            description = GetTileChoiceDescription(PathBuildOptionType.NoTile),
+            optionType = PathBuildOptionType.NoTile
+        };
+    }
+
+    private PathBuildOption ClonePathBuildOption(PathBuildOption option)
+    {
+        if (option == null)
+            return CreateNoVerbauOption();
+
+        return new PathBuildOption
+        {
+            displayName = option.displayName,
+            description = option.description,
+            optionType = option.optionType
         };
     }
 
@@ -1070,7 +1376,15 @@ public class PathBuildManager : MonoBehaviour
                option.optionType == PathBuildOptionType.RateTile ||
                option.optionType == PathBuildOptionType.XPTile ||
                option.optionType == PathBuildOptionType.UpgradeTile ||
-               option.optionType == PathBuildOptionType.ComboTile;
+               option.optionType == PathBuildOptionType.ComboTile ||
+               option.optionType == PathBuildOptionType.HealTile ||
+               option.optionType == PathBuildOptionType.WeakpointTile;
+    }
+
+    private bool IsVerbauChoiceOption(PathBuildOptionType optionType)
+    {
+        return optionType == PathBuildOptionType.GoldTile ||
+               IsSupportTileOption(optionType);
     }
 
     private List<PathBuildOption> CreateDefaultSpecialOptions()
@@ -1080,61 +1394,73 @@ public class PathBuildManager : MonoBehaviour
             new PathBuildOption
             {
                 displayName = "Gold Tile",
-                description = "Gold-Tile: kein Weg. +5% Gold-Rewards beim Bau. Tower darauf: +10% Gold pro Kill.",
+                description = GetTileChoiceDescription(PathBuildOptionType.GoldTile),
                 optionType = PathBuildOptionType.GoldTile
             },
             new PathBuildOption
             {
                 displayName = "Trap Tile",
-                description = "Trap-Tile: Weg-Tile. Gegner bluten 20s lang: 2 Schaden alle 3s.",
+                description = GetTileChoiceDescription(PathBuildOptionType.TrapTile),
                 optionType = PathBuildOptionType.TrapTile
             },
             new PathBuildOption
             {
                 displayName = "Slow Tile",
-                description = "Slow-Tile: Weg-Tile. Gegner werden kurz stark verlangsamt.",
+                description = GetTileChoiceDescription(PathBuildOptionType.SlowTile),
                 optionType = PathBuildOptionType.SlowTile
             },
             new PathBuildOption
             {
                 displayName = "Knock Tile",
-                description = "Knock-Tile: Weg-Tile. Wirft normale Gegner zurück; Boss/MiniBoss/Elite immun.",
+                description = GetTileChoiceDescription(PathBuildOptionType.KnockTile),
                 optionType = PathBuildOptionType.KnockTile
             },
             new PathBuildOption
             {
                 displayName = "Range Tile",
-                description = "Range-Tile: kein Weg. Baue einen Tower darauf: +1 Reichweite.",
+                description = GetTileChoiceDescription(PathBuildOptionType.RangeTile),
                 optionType = PathBuildOptionType.RangeTile
             },
             new PathBuildOption
             {
                 displayName = "Damage Tile",
-                description = "Damage-Tile: kein Weg. Baue einen Tower darauf: +20% Schaden.",
+                description = GetTileChoiceDescription(PathBuildOptionType.DamageTile),
                 optionType = PathBuildOptionType.DamageTile
             },
             new PathBuildOption
             {
                 displayName = "Rate Tile",
-                description = "Rate-Tile: kein Weg. Baue einen Tower darauf: +20% Feuerrate.",
+                description = GetTileChoiceDescription(PathBuildOptionType.RateTile),
                 optionType = PathBuildOptionType.RateTile
             },
             new PathBuildOption
             {
                 displayName = "XP Tile",
-                description = "XP-Tile: kein Weg. Baue einen Tower darauf: +25% XP.",
+                description = GetTileChoiceDescription(PathBuildOptionType.XPTile),
                 optionType = PathBuildOptionType.XPTile
             },
             new PathBuildOption
             {
                 displayName = "Upgrade Tile",
-                description = "Upgrade-Tile: kein Weg. Baue einen Tower darauf: Point-Upgrades +1 staerker.",
+                description = GetTileChoiceDescription(PathBuildOptionType.UpgradeTile),
                 optionType = PathBuildOptionType.UpgradeTile
             },
             new PathBuildOption
             {
+                displayName = "Heal Tile",
+                description = GetTileChoiceDescription(PathBuildOptionType.HealTile),
+                optionType = PathBuildOptionType.HealTile
+            },
+            new PathBuildOption
+            {
+                displayName = "Weakpoint Tile",
+                description = GetTileChoiceDescription(PathBuildOptionType.WeakpointTile),
+                optionType = PathBuildOptionType.WeakpointTile
+            },
+            new PathBuildOption
+            {
                 displayName = "Combo Tile",
-                description = "Combo-Tile: Darkness, wenn Gegner Burn, Poison und Bleed gleichzeitig haben.",
+                description = GetTileChoiceDescription(PathBuildOptionType.ComboTile),
                 optionType = PathBuildOptionType.ComboTile
             }
         };
@@ -1145,6 +1471,7 @@ public class PathBuildManager : MonoBehaviour
         switch (optionType)
         {
             case PathBuildOptionType.PathTile:
+            case PathBuildOptionType.NoTile:
             case PathBuildOptionType.GoldTile:
             case PathBuildOptionType.SlowTile:
                 return PathBuildOptionRarity.Common;
@@ -1153,35 +1480,26 @@ public class PathBuildManager : MonoBehaviour
             case PathBuildOptionType.DamageTile:
             case PathBuildOptionType.RateTile:
             case PathBuildOptionType.KnockTile:
+            case PathBuildOptionType.WeakpointTile:
                 return PathBuildOptionRarity.Rare;
             case PathBuildOptionType.XPTile:
             case PathBuildOptionType.UpgradeTile:
             case PathBuildOptionType.ComboTile:
+            case PathBuildOptionType.HealTile:
                 return PathBuildOptionRarity.Legendary;
             default:
                 return PathBuildOptionRarity.Common;
         }
     }
 
-    private string GetRarityDisplayName(PathBuildOptionRarity rarity)
-    {
-        switch (rarity)
-        {
-            case PathBuildOptionRarity.Common:
-                return "Common";
-            case PathBuildOptionRarity.Rare:
-                return "Rare";
-            case PathBuildOptionRarity.Legendary:
-                return "Legendary";
-            default:
-                return rarity.ToString();
-        }
-    }
-
     private bool IsPathBuildOptionUnlocked(PathBuildOptionType optionType)
     {
-        if (optionType == PathBuildOptionType.BridgeTile || optionType == PathBuildOptionType.SpecialTile)
-            return false;
+        if (optionType == PathBuildOptionType.NoTile)
+            return true;
+
+        ResolveGameManagerReference();
+        if (gameManager != null && gameManager.IsDevGameMode())
+            return true;
 
         GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
         return generalMeta == null || generalMeta.IsTileUnlocked(optionType);
@@ -1207,9 +1525,21 @@ public class PathBuildManager : MonoBehaviour
         ShowDefaultChoiceDescription();
     }
 
+    private void SetChoiceButtonsInteractable(bool interactable)
+    {
+        if (optionButton1 != null)
+            optionButton1.interactable = interactable;
+
+        if (optionButton2 != null)
+            optionButton2.interactable = interactable;
+
+        if (optionButton3 != null)
+            optionButton3.interactable = interactable;
+    }
+
     private void HandleHotkeys()
     {
-        if (IsInputLockedByModalUI())
+        if (IsInputLockedByModalUI() && !CanIgnorePathLockForImmediateVerbauChoice())
         {
             CancelChoice();
             return;
@@ -1227,7 +1557,7 @@ public class PathBuildManager : MonoBehaviour
 
     private void ChooseOption(int index)
     {
-        if (IsInputLockedByModalUI())
+        if (IsInputLockedByModalUI() && !CanIgnorePathLockForImmediateVerbauChoice())
         {
             CancelChoice();
             return;
@@ -1243,6 +1573,12 @@ public class PathBuildManager : MonoBehaviour
 
         if (option == null)
             return;
+
+        if (immediateVerbauChoiceActive)
+        {
+            ChooseImmediateVerbauOption(option);
+            return;
+        }
 
         if (!tileManager.CanExtendTo(hoveredGridPosition))
         {
@@ -1263,7 +1599,14 @@ public class PathBuildManager : MonoBehaviour
 
         bool success = false;
 
-        if (option.optionType == PathBuildOptionType.PathTile)
+        if (option.optionType == PathBuildOptionType.NoTile)
+        {
+            success = tileManager.TryExtendPathTo(hoveredGridPosition);
+
+            if (success)
+                Debug.Log(verbauChoiceDisplayName + ": Kein Verbau gewaehlt, Weg normal erweitert.");
+        }
+        else if (option.optionType == PathBuildOptionType.PathTile)
         {
             success = tileManager.TryExtendPathTo(hoveredGridPosition);
         }
@@ -1293,6 +1636,8 @@ public class PathBuildManager : MonoBehaviour
 
         if (success)
         {
+            ConsumeSpecialTileChoiceIfActive();
+            ConsumeVerbauChoiceIfActive();
             optionsGeneratedForCurrentBuildPhase = false;
             CloseChoiceUI();
             return;
@@ -1304,12 +1649,183 @@ public class PathBuildManager : MonoBehaviour
         }
     }
 
+    private void ChooseImmediateVerbauOption(PathBuildOption option)
+    {
+        if (option == null)
+            return;
+
+        if (!IsVerbauChoiceOption(option.optionType) && !IsPathBuildOptionUnlocked(option.optionType))
+        {
+            if (descriptionText != null)
+                descriptionText.text = option.displayName + " ist noch nicht freigeschaltet.";
+
+            return;
+        }
+
+        if (option.optionType == PathBuildOptionType.NoTile)
+        {
+            CompleteImmediateVerbauChoice();
+            return;
+        }
+
+        if (!IsImmediateSupportTileOption(option.optionType))
+        {
+            if (descriptionText != null)
+                descriptionText.text = option.displayName + " kann in dieser Verbauauswahl nicht platziert werden.";
+
+            return;
+        }
+
+        pendingSupportTilePlacementOption = ClonePathBuildOption(option);
+        choiceOpen = false;
+        verbauChoiceActive = false;
+        supportTilePlacementModeActive = true;
+        SetChoiceButtonsInteractable(false);
+
+        if (buildManager != null)
+            buildManager.ClearCurrentSelection();
+
+        if (tileManager != null)
+        {
+            tileManager.SetSupportTilePlacementBuildMode(true);
+            tileManager.SetBuildTilesVisible(true);
+        }
+
+        ShowSupportTilePlacementPrompt();
+    }
+
+    private void HandleSupportTilePlacementMode()
+    {
+        if (pendingSupportTilePlacementOption == null)
+        {
+            CompleteImmediateVerbauChoice();
+            return;
+        }
+
+        if (IsPointerOverUI())
+        {
+            SetHoveredSupportPlacementTile(null);
+            return;
+        }
+
+        BuildTile buildTile = GetBuildTileUnderMouse();
+        SetHoveredSupportPlacementTile(buildTile);
+
+        if (!Input.GetMouseButtonDown(0))
+            return;
+
+        if (buildTile == null)
+        {
+            ShowSupportTilePlacementPrompt("Waehle ein freies Build-Feld.");
+            return;
+        }
+
+        Vector2Int gridPosition = tileManager.WorldToGridPublic(buildTile.transform.position);
+        PathBuildOptionType tileType = pendingSupportTilePlacementOption.optionType;
+
+        if (!tileManager.TryBuildSupportTileOnBuildTile(gridPosition, tileType))
+        {
+            ShowSupportTilePlacementPrompt("Dieses Feld ist nicht gueltig.");
+            return;
+        }
+
+        Debug.Log(verbauChoiceDisplayName + ": " + pendingSupportTilePlacementOption.displayName + " platziert.");
+        CompleteImmediateVerbauChoice();
+    }
+
+    private BuildTile GetBuildTileUnderMouse()
+    {
+        if (mainCamera == null)
+            return null;
+
+        Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
+
+        if (!Physics.Raycast(ray, out RaycastHit hit))
+            return null;
+
+        return hit.collider.GetComponent<BuildTile>();
+    }
+
+    private void SetHoveredSupportPlacementTile(BuildTile buildTile)
+    {
+        if (hoveredSupportPlacementTile == buildTile)
+            return;
+
+        if (hoveredSupportPlacementTile != null)
+            hoveredSupportPlacementTile.SetHovered(false);
+
+        hoveredSupportPlacementTile = buildTile;
+
+        if (hoveredSupportPlacementTile != null)
+            hoveredSupportPlacementTile.SetHovered(true);
+    }
+
+    private void ShowSupportTilePlacementPrompt(string overrideText = "")
+    {
+        if (pathTopBar != null)
+            pathTopBar.SetActive(true);
+
+        string tileName = pendingSupportTilePlacementOption != null ? pendingSupportTilePlacementOption.displayName : "Tile";
+
+        if (optionText1 != null)
+            optionText1.text = tileName;
+
+        if (optionText2 != null)
+            optionText2.text = "Build-Feld waehlen";
+
+        if (optionText3 != null)
+            optionText3.text = "Tile platzieren";
+
+        if (descriptionText != null)
+            descriptionText.text = string.IsNullOrWhiteSpace(overrideText)
+                ? "Platziere " + tileName + " auf einem freien Build-Feld."
+                : overrideText;
+    }
+
+    private void CompleteImmediateVerbauChoice()
+    {
+        bool shouldResumePostWave = immediateVerbauChoiceCompletesPostWave;
+
+        choiceOpen = false;
+        specialTileChoiceActive = false;
+        verbauChoiceActive = false;
+        immediateVerbauChoiceActive = false;
+        immediateVerbauChoiceCompletesPostWave = false;
+        supportTilePlacementModeActive = false;
+        pendingSupportTilePlacementOption = null;
+        blockedVerbauChoicePending = false;
+
+        SetHoveredSupportPlacementTile(null);
+        SetChoiceButtonsInteractable(true);
+
+        if (tileManager != null)
+        {
+            tileManager.SetSupportTilePlacementBuildMode(false);
+            tileManager.SetBuildTilesVisible(false);
+        }
+
+        if (pathTopBar != null)
+            pathTopBar.SetActive(false);
+
+        if (currentGhost != null)
+            currentGhost.SetActive(false);
+
+        if (shouldResumePostWave && gameManager != null)
+            gameManager.FinishPostWaveVerbauChoice();
+    }
+
+    private bool IsImmediateSupportTileOption(PathBuildOptionType optionType)
+    {
+        return optionType == PathBuildOptionType.GoldTile || IsSupportTileOption(optionType);
+    }
+
     private bool IsSpecialPathOption(PathBuildOptionType optionType)
     {
         return optionType == PathBuildOptionType.TrapTile ||
                optionType == PathBuildOptionType.SlowTile ||
                optionType == PathBuildOptionType.KnockTile ||
-               optionType == PathBuildOptionType.ComboTile;
+               optionType == PathBuildOptionType.ComboTile ||
+               optionType == PathBuildOptionType.WeakpointTile;
     }
 
     private bool ShouldPlaceAsV1PathVariant(PathBuildOptionType optionType)
@@ -1326,13 +1842,51 @@ public class PathBuildManager : MonoBehaviour
                optionType == PathBuildOptionType.DamageTile ||
                optionType == PathBuildOptionType.RateTile ||
                optionType == PathBuildOptionType.XPTile ||
-               optionType == PathBuildOptionType.UpgradeTile;
+               optionType == PathBuildOptionType.UpgradeTile ||
+               optionType == PathBuildOptionType.HealTile;
+    }
+
+    private void ConsumeVerbauChoiceIfActive()
+    {
+        if (!verbauChoiceActive)
+            return;
+
+        Debug.Log(verbauChoiceDisplayName + " aus Verbau-Event abgeschlossen.");
+        blockedVerbauChoicePending = false;
+        verbauChoiceActive = false;
+    }
+
+    private void ConsumeSpecialTileChoiceIfActive()
+    {
+        if (!specialTileChoiceActive)
+            return;
+
+        specialTileChoicePending = false;
+        specialTileChoiceActive = false;
     }
 
     public void CancelChoice()
     {
+        bool wasSupportTilePlacementModeActive = supportTilePlacementModeActive;
+
         choiceOpen = false;
         hasValidHover = false;
+        specialTileChoiceActive = false;
+        verbauChoiceActive = false;
+        immediateVerbauChoiceActive = false;
+        immediateVerbauChoiceCompletesPostWave = false;
+        supportTilePlacementModeActive = false;
+        pendingSupportTilePlacementOption = null;
+        SetHoveredSupportPlacementTile(null);
+        SetChoiceButtonsInteractable(true);
+
+        if (tileManager != null)
+        {
+            tileManager.SetSupportTilePlacementBuildMode(false);
+
+            if (wasSupportTilePlacementModeActive)
+                tileManager.SetBuildTilesVisible(false);
+        }
 
         ApplyChoiceUILayoutDefaults();
 
@@ -1355,8 +1909,26 @@ public class PathBuildManager : MonoBehaviour
 
     private void CloseChoiceUI()
     {
+        bool wasSupportTilePlacementModeActive = supportTilePlacementModeActive;
+
         choiceOpen = false;
         hasValidHover = false;
+        specialTileChoiceActive = false;
+        verbauChoiceActive = false;
+        immediateVerbauChoiceActive = false;
+        immediateVerbauChoiceCompletesPostWave = false;
+        supportTilePlacementModeActive = false;
+        pendingSupportTilePlacementOption = null;
+        SetHoveredSupportPlacementTile(null);
+        SetChoiceButtonsInteractable(true);
+
+        if (tileManager != null)
+        {
+            tileManager.SetSupportTilePlacementBuildMode(false);
+
+            if (wasSupportTilePlacementModeActive)
+                tileManager.SetBuildTilesVisible(false);
+        }
 
         ApplyChoiceUILayoutDefaults();
 
@@ -1369,7 +1941,12 @@ public class PathBuildManager : MonoBehaviour
 
     public bool IsChoiceOpen()
     {
-        return choiceOpen;
+        return choiceOpen || supportTilePlacementModeActive;
+    }
+
+    public bool IsImmediateVerbauChoiceOrPlacementActive()
+    {
+        return immediateVerbauChoiceActive || supportTilePlacementModeActive;
     }
 }
 

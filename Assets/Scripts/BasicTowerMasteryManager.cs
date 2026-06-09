@@ -253,6 +253,10 @@ public class BasicTowerMasteryManager : MonoBehaviour
             return;
 
         runFinalized = true;
+
+        if (IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         TowerMasteryManager towerMastery = TowerMasteryManager.GetOrCreate(gameManager);
 
         if (towerMastery != null)
@@ -577,7 +581,7 @@ public class BasicTowerMasteryManager : MonoBehaviour
 
     public void RecordBasicLevelReached(Tower tower, int level)
     {
-        if (!IsBasicTower(tower))
+        if (!IsBasicTower(tower) || IsMetaProgressionSuppressedForCurrentRun())
             return;
 
         int safeLevel = Mathf.Max(1, level);
@@ -721,7 +725,7 @@ public class BasicTowerMasteryManager : MonoBehaviour
 
     public float GetBasicFireRateAdditive()
     {
-        return GetNodeRank(CleanMechanics) * 0.03f + GetNodeRank(FastBolt) * 0.04f;
+        return GetNodeRank(CleanMechanics) * 0.05f + GetNodeRank(FastBolt) * 0.04f;
     }
 
     public float GetBasicFireRateMultiplier(Tower tower)
@@ -751,7 +755,7 @@ public class BasicTowerMasteryManager : MonoBehaviour
 
     public float GetBasicRangeBonus(Tower tower, float currentRange)
     {
-        float bonus = GetNodeRank(MeasuredLine) * 0.10f;
+        float bonus = GetNodeRank(MeasuredLine) * 0.15f;
 
         if (GetNodeRank(StabilizedLine) > 0 && IsTowerNearBase(tower))
             bonus += Mathf.Max(0f, currentRange) * 0.05f;
@@ -895,7 +899,7 @@ public class BasicTowerMasteryManager : MonoBehaviour
 
     private void HandleWaveCompleted(WaveCompletionResult result)
     {
-        if (result == null || !result.waveCompleted)
+        if (result == null || !result.waveCompleted || IsMetaProgressionSuppressedForCurrentRun())
             return;
 
         highestWaveReachedThisRun = Mathf.Max(highestWaveReachedThisRun, result.waveNumber);
@@ -1033,6 +1037,14 @@ public class BasicTowerMasteryManager : MonoBehaviour
             gameManager = FindObjectOfType<GameManager>();
 
         return gameManager != null && gameManager.gameStarted && !runFinalized;
+    }
+
+    private bool IsMetaProgressionSuppressedForCurrentRun()
+    {
+        if (gameManager == null)
+            gameManager = FindObjectOfType<GameManager>();
+
+        return gameManager != null && gameManager.IsMetaProgressionSuppressedForCurrentRun();
     }
 
     private int CalculateMasteryLevelFromXP(int totalMasteryXP)
@@ -1276,8 +1288,8 @@ public class BasicTowerMasteryManager : MonoBehaviour
         definitionById.Clear();
 
         AddDefinition(SolidCore, "Solider Kern", BasicTowerMasteryPath.Trunk, BasicTowerMasteryMilestone.None, 5, "Basic erhaelt +0,5 Basisschaden pro Rang.", 1, 2, 3, 4, 5);
-        AddDefinition(CleanMechanics, "Saubere Mechanik", BasicTowerMasteryPath.Trunk, BasicTowerMasteryMilestone.None, 5, "Basic erhaelt +0,03 Fire Rate pro Rang.", 1, 2, 3, 4, 5);
-        AddDefinition(MeasuredLine, "Vermessene Linie", BasicTowerMasteryPath.Trunk, BasicTowerMasteryMilestone.None, 3, "Basic erhaelt +0,10 Range pro Rang.", 1, 2, 3);
+        AddDefinition(CleanMechanics, "Saubere Mechanik", BasicTowerMasteryPath.Trunk, BasicTowerMasteryMilestone.None, 5, "Basic erhaelt +0,05 Fire Rate pro Rang.", 1, 2, 3, 4, 5);
+        AddDefinition(MeasuredLine, "Vermessene Linie", BasicTowerMasteryPath.Trunk, BasicTowerMasteryMilestone.None, 3, "Basic erhaelt +0,15 Range pro Rang.", 1, 2, 3);
         AddDefinition(RoutineFire, "Routinefeuer", BasicTowerMasteryPath.Trunk, BasicTowerMasteryMilestone.None, 3, "Basic Tower erhalten +3% Tower-XP pro Rang.", 1, 2, 3);
         AddDefinition(BasicTraining, "Grundausbildung", BasicTowerMasteryPath.Trunk, BasicTowerMasteryMilestone.None, 3, "Der erste Basic Tower pro Run startet mit +5 XP pro Rang.", 1, 2, 3);
 
@@ -1385,6 +1397,9 @@ public class BasicTowerMasteryManager : MonoBehaviour
 
     private void SaveProfile()
     {
+        if (IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         EnsureDefinitions();
         EnsureNodeStates();
 

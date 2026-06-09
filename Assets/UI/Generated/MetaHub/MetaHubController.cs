@@ -56,11 +56,13 @@ public class MetaHubController : MonoBehaviour
     private EliteHuntCategory selectedEliteTreeCategory = EliteHuntCategory.Contracts;
     private bool showGeneralLoadoutPicker = false;
     private bool showGeneralLoadoutEditor = false;
+    private string pendingGeneralLoadoutPromptNodeId = "";
     private bool showAllGoalsOverlay = false;
     private bool showAllRisksOverlay = false;
     private float liveRefreshTimer = 0f;
     private readonly Dictionary<string, Sprite> artSprites = new Dictionary<string, Sprite>();
     private readonly Dictionary<string, Sprite> panelSprites = new Dictionary<string, Sprite>();
+    private readonly Dictionary<string, Sprite> donutSprites = new Dictionary<string, Sprite>();
 
     private class TowerMasteryNodeView
     {
@@ -134,7 +136,7 @@ public class MetaHubController : MonoBehaviour
         if (IsOpen && closeWithEscape && Input.GetKeyDown(KeyCode.Escape))
             RequestClose();
 
-        if (IsOpen && useLiveDataWhenAvailable && gameManager != null)
+        if (IsOpen && useLiveDataWhenAvailable && gameManager != null && ShouldAutoRefreshLiveData())
         {
             liveRefreshTimer -= Time.unscaledDeltaTime;
             if (liveRefreshTimer <= 0f)
@@ -143,6 +145,19 @@ public class MetaHubController : MonoBehaviour
                 RefreshData();
             }
         }
+    }
+
+    private bool ShouldAutoRefreshLiveData()
+    {
+        if (!runtimeUnlockInfoMode)
+            return false;
+
+        return !IsPointerPressActive();
+    }
+
+    private bool IsPointerPressActive()
+    {
+        return Input.GetMouseButton(0) || Input.GetMouseButton(1) || Input.GetMouseButton(2) || Input.touchCount > 0;
     }
 
     private void OnDestroy()
@@ -200,6 +215,7 @@ public class MetaHubController : MonoBehaviour
         owningUnlockManager = null;
         mainMenuUnlockMode = false;
         runtimeUnlockInfoMode = false;
+        pendingGeneralLoadoutPromptNodeId = "";
         SetVisible(false);
         SetCanvasFallbackVisible(false);
     }
@@ -207,13 +223,19 @@ public class MetaHubController : MonoBehaviour
     public void SetData(MetaHubData data)
     {
         currentData = data != null ? data : MetaHubMockData.Create();
+        liveRefreshTimer = LiveRefreshInterval;
         ApplyUnlockLayoutMode(currentData);
         ApplySelectedNavigation(currentData);
+
+        if (IsCanvasFallbackActive())
+        {
+            RebuildCanvasFallback(currentData);
+            return;
+        }
+
         EnsureDocument();
         Bind(currentData);
 
-        if (useCanvasFallback && fallbackCanvas != null && fallbackCanvas.gameObject.activeSelf)
-            RebuildCanvasFallback(currentData);
     }
 
     public void RefreshData()
@@ -224,8 +246,47 @@ public class MetaHubController : MonoBehaviour
         SetData(data);
     }
 
+    private void RefreshViewOnly()
+    {
+        currentData = currentData != null ? currentData : MetaHubMockData.Create();
+        liveRefreshTimer = LiveRefreshInterval;
+        ApplySelectedNavigation(currentData);
+
+        if (IsCanvasFallbackActive())
+        {
+            RebuildCanvasFallbackDynamicContent(currentData);
+            return;
+        }
+
+        EnsureDocument();
+        Bind(currentData);
+    }
+
+    private void RefreshMainFrameOnly()
+    {
+        currentData = currentData != null ? currentData : MetaHubMockData.Create();
+        liveRefreshTimer = LiveRefreshInterval;
+        ApplySelectedNavigation(currentData);
+
+        if (IsCanvasFallbackActive())
+        {
+            RebuildCanvasFallbackMainContent(currentData);
+            return;
+        }
+
+        EnsureDocument();
+        Bind(currentData);
+    }
+
+    private bool IsCanvasFallbackActive()
+    {
+        return useCanvasFallback && fallbackCanvas != null && fallbackCanvas.gameObject.activeSelf;
+    }
+
     public void RequestClose()
     {
+        pendingGeneralLoadoutPromptNodeId = "";
+
         if (owningUnlockManager != null)
             owningUnlockManager.CloseUnlocks();
         else
@@ -260,42 +321,26 @@ public class MetaHubController : MonoBehaviour
         showAllGoalsOverlay = true;
         showAllRisksOverlay = false;
         Debug.Log("MetaHub: All goals button requested.");
-
-        if (useLiveDataWhenAvailable)
-            RefreshData();
-        else
-            SetData(currentData);
+        RefreshMainFrameOnly();
     }
 
     private void CloseAllGoalsOverlay()
     {
         showAllGoalsOverlay = false;
-
-        if (useLiveDataWhenAvailable)
-            RefreshData();
-        else
-            SetData(currentData);
+        RefreshMainFrameOnly();
     }
 
     private void RequestAllRisks()
     {
         showAllRisksOverlay = true;
         showAllGoalsOverlay = false;
-
-        if (useLiveDataWhenAvailable)
-            RefreshData();
-        else
-            SetData(currentData);
+        RefreshMainFrameOnly();
     }
 
     private void CloseAllRisksOverlay()
     {
         showAllRisksOverlay = false;
-
-        if (useLiveDataWhenAvailable)
-            RefreshData();
-        else
-            SetData(currentData);
+        RefreshMainFrameOnly();
     }
 
     private void EnsureDocument()
@@ -404,16 +449,17 @@ public class MetaHubController : MonoBehaviour
 
     private void SelectNavigationSection(string navId)
     {
-        selectedNavigationId = string.IsNullOrEmpty(navId) ? "overview" : navId;
+        string nextNavigationId = string.IsNullOrEmpty(navId) ? "overview" : navId;
+        if (selectedNavigationId == nextNavigationId && !showAllGoalsOverlay && !showAllRisksOverlay && !showGeneralLoadoutPicker && !showGeneralLoadoutEditor && string.IsNullOrEmpty(pendingGeneralLoadoutPromptNodeId))
+            return;
+
+        selectedNavigationId = nextNavigationId;
         showAllGoalsOverlay = false;
         showAllRisksOverlay = false;
         showGeneralLoadoutPicker = false;
         showGeneralLoadoutEditor = false;
-
-        if (useLiveDataWhenAvailable)
-            RefreshData();
-        else
-            SetData(currentData);
+        pendingGeneralLoadoutPromptNodeId = "";
+        RefreshViewOnly();
     }
 
     private bool IsUnlockLayoutMode()
@@ -1040,7 +1086,7 @@ public class MetaHubController : MonoBehaviour
         SetText("FooterTip", data.footerTip);
 
         SetText("AccountLevelTop", runtimeUnlockInfoMode ? "Run Welle " + Mathf.Max(0, GetRuntimeWaveNumber()) : "Account Lv. " + data.account.level);
-        SetText("AccountXpTop", runtimeUnlockInfoMode ? "Gold " + MetaHubMockData.FormatNumber(GetRuntimeGold()) + " / Leben " + MetaHubMockData.FormatNumber(GetRuntimeLives()) : MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP");
+        SetText("AccountXpTop", runtimeUnlockInfoMode ? "" : MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP");
         SetText("AccountLevelCenter", runtimeUnlockInfoMode ? Mathf.Max(0, GetRuntimeWaveNumber()).ToString() : data.account.level.ToString());
         SetText("AccountXpBottom", runtimeUnlockInfoMode ? "Tower-XP " + MetaHubMockData.FormatNumber(data.account.currentXP) : MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP");
         SetFillPercent("AccountXpFill", Percent(data.account.currentXP, data.account.requiredXP));
@@ -1427,7 +1473,11 @@ public class MetaHubController : MonoBehaviour
 
         Transform root = fallbackDesignRoot != null ? fallbackDesignRoot.transform : fallbackRoot.transform;
         for (int i = root.childCount - 1; i >= 0; i--)
-            Destroy(root.GetChild(i).gameObject);
+        {
+            GameObject child = root.GetChild(i).gameObject;
+            child.SetActive(false);
+            Destroy(child);
+        }
 
         CreateCanvasPanel(root, "TopBar", new Vector2(800f, -47f), new Vector2(1584f, 64f), new Color32(3, 12, 14, 245), new Color32(129, 83, 25, 255));
         CreateLine(root, "TopLeftOrnament", new Vector2(240f, -23f), new Vector2(465f, 1f), new Color32(116, 77, 24, 210));
@@ -1441,8 +1491,43 @@ public class MetaHubController : MonoBehaviour
 
         CreateCanvasLabel(root, "AccountTop", runtimeUnlockInfoMode ? "Run Welle " + Mathf.Max(0, GetRuntimeWaveNumber()) : "Account Lv. " + data.account.level, new Vector2(1188f, -46f), new Vector2(160f, 24f), 16f, new Color32(244, 226, 186, 255), TextAlignmentOptions.Left, FontStyles.Bold);
         CreateCanvasBar(root, "AccountXP", new Vector2(1312f, -47f), new Vector2(140f, 7f), Percent(data.account.currentXP, data.account.requiredXP), new Color32(150, 126, 255, 255));
-        CreateCanvasLabel(root, "AccountXPText", runtimeUnlockInfoMode ? "G " + MetaHubMockData.FormatNumber(GetRuntimeGold()) + " / L " + MetaHubMockData.FormatNumber(GetRuntimeLives()) : MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP", new Vector2(1443f, -46f), new Vector2(125f, 23f), 14f, new Color32(244, 226, 186, 255), TextAlignmentOptions.Right, FontStyles.Normal);
+        if (!runtimeUnlockInfoMode)
+            CreateCanvasLabel(root, "AccountXPText", MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP", new Vector2(1443f, -46f), new Vector2(125f, 23f), 14f, new Color32(244, 226, 186, 255), TextAlignmentOptions.Right, FontStyles.Normal);
         CreateCanvasButton(root, "CloseTopButton", "X", new Vector2(1570f, -47f), new Vector2(34f, 42f), RequestClose);
+
+        CreateCanvasFallbackDynamicContent(root, data, unlockLayout);
+
+        CreateCanvasLabel(root, "Tip", "<> " + data.footerTip, new Vector2(375f, -907f), new Vector2(720f, 28f), 14f, new Color32(217, 194, 159, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        if (unlockLayout)
+        {
+            if (!runtimeUnlockInfoMode)
+                CreateCanvasButton(root, "OptionsButton", "OPTIONEN", new Vector2(1300f, -942f), new Vector2(170f, 42f), delegate { Debug.Log("MetaHub: Options button requested."); });
+            else
+                CreateCanvasButton(root, "MainMenuButton", "HAUPTMENUE", new Vector2(1325f, -942f), new Vector2(180f, 42f), RequestReturnToMainMenu);
+
+            CreateCanvasButton(root, "BackButton", "< ZURÜCK", new Vector2(1510f, -942f), new Vector2(170f, 42f), RequestClose);
+        }
+        else
+        {
+            CreateCanvasButton(root, "OptionsButton", "OPTIONEN", new Vector2(1135f, -942f), new Vector2(160f, 42f), delegate { Debug.Log("MetaHub: Options button requested."); });
+            CreateCanvasButton(root, "MainMenuButton", "HAUPTMENÜ", new Vector2(1325f, -942f), new Vector2(180f, 42f), RequestReturnToMainMenu);
+            CreateCanvasButton(root, "BackButton", "< ZURÜCK", new Vector2(1512f, -942f), new Vector2(160f, 42f), RequestClose);
+        }
+    }
+
+    private void RebuildCanvasFallbackDynamicContent(MetaHubData data)
+    {
+        EnsureCanvasFallback();
+        Transform root = fallbackDesignRoot != null ? fallbackDesignRoot.transform : fallbackRoot.transform;
+        DestroyCanvasChild(root, "Sidebar");
+        DestroyCanvasChild(root, "MainFrame");
+        CreateCanvasFallbackDynamicContent(root, data, IsUnlockLayoutMode());
+    }
+
+    private void CreateCanvasFallbackDynamicContent(Transform root, MetaHubData data, bool unlockLayout)
+    {
+        if (root == null || data == null)
+            return;
 
         Transform sidebar = CreateOrnatePanel(root, "Sidebar", new Vector2(146f, -473f), new Vector2(274f, 774f), new Color32(5, 17, 18, 246), new Color32(143, 99, 41, 255));
         TextMeshProUGUI sidebarTitle = CreateCanvasLabelTop(sidebar, "SidebarTitle", data.screenSubtitle, new Vector2(0f, -35f), new Vector2(268f, 42f), unlockLayout ? 18f : 21f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Center, FontStyles.Bold);
@@ -1459,6 +1544,22 @@ public class MetaHubController : MonoBehaviour
             for (int i = 0; i < data.activeKeystones.Count && i < 3; i++)
                 CreateReferenceKeystone(sidebar, data.activeKeystones[i], i);
         }
+
+        CreateCanvasFallbackMainContent(root, data, unlockLayout);
+    }
+
+    private void RebuildCanvasFallbackMainContent(MetaHubData data)
+    {
+        EnsureCanvasFallback();
+        Transform root = fallbackDesignRoot != null ? fallbackDesignRoot.transform : fallbackRoot.transform;
+        DestroyCanvasChild(root, "MainFrame");
+        CreateCanvasFallbackMainContent(root, data, IsUnlockLayoutMode());
+    }
+
+    private void CreateCanvasFallbackMainContent(Transform root, MetaHubData data, bool unlockLayout)
+    {
+        if (root == null || data == null)
+            return;
 
         Vector2 mainPosition = unlockLayout ? new Vector2(938.5f, -473f) : new Vector2(885f, -473f);
         Vector2 mainSize = unlockLayout ? new Vector2(1307f, 774f) : new Vector2(1216f, 774f);
@@ -1487,22 +1588,21 @@ public class MetaHubController : MonoBehaviour
 
         if (showAllRisksOverlay)
             CreateAllRisksOverlay(main, data.activeRisks);
+    }
 
-        CreateCanvasLabel(root, "Tip", "<> " + data.footerTip, new Vector2(375f, -907f), new Vector2(720f, 28f), 14f, new Color32(217, 194, 159, 255), TextAlignmentOptions.Left, FontStyles.Normal);
-        if (unlockLayout)
-        {
-            if (!runtimeUnlockInfoMode)
-                CreateCanvasButton(root, "OptionsButton", "OPTIONEN", new Vector2(1300f, -942f), new Vector2(170f, 42f), delegate { Debug.Log("MetaHub: Options button requested."); });
-            else
-                CreateCanvasButton(root, "MainMenuButton", "HAUPTMENUE", new Vector2(1325f, -942f), new Vector2(180f, 42f), RequestReturnToMainMenu);
+    private void DestroyCanvasChild(Transform parent, string childName)
+    {
+        if (parent == null || string.IsNullOrEmpty(childName))
+            return;
 
-            CreateCanvasButton(root, "BackButton", "< ZURÜCK", new Vector2(1510f, -942f), new Vector2(170f, 42f), RequestClose);
-        }
-        else
+        for (int i = parent.childCount - 1; i >= 0; i--)
         {
-            CreateCanvasButton(root, "OptionsButton", "OPTIONEN", new Vector2(1135f, -942f), new Vector2(160f, 42f), delegate { Debug.Log("MetaHub: Options button requested."); });
-            CreateCanvasButton(root, "MainMenuButton", "HAUPTMENÜ", new Vector2(1325f, -942f), new Vector2(180f, 42f), RequestReturnToMainMenu);
-            CreateCanvasButton(root, "BackButton", "< ZURÜCK", new Vector2(1512f, -942f), new Vector2(160f, 42f), RequestClose);
+            Transform child = parent.GetChild(i);
+            if (child == null || child.name != childName)
+                continue;
+
+            child.gameObject.SetActive(false);
+            Destroy(child.gameObject);
         }
     }
 
@@ -1843,8 +1943,8 @@ public class MetaHubController : MonoBehaviour
 
         Transform account = CreateUnlockPanel(main, "GeneralAccount", "ACCOUNT", new Vector2(left + 175f, topY), new Vector2(350f, topPanelHeight), new Color32(126, 98, 51, 255));
         CreateDonutImage(account, "AccountRing", new Vector2(-108f, -13f), 70f, Percent(data.account.currentXP, data.account.requiredXP), new Color32(55, 209, 235, 255), new Color32(55, 46, 29, 210));
-        CreateCanvasLabel(account, "Level", data.account.level.ToString(), new Vector2(-108f, -7f), new Vector2(58f, 28f), 22f, new Color32(255, 255, 255, 255), TextAlignmentOptions.Center, FontStyles.Bold);
-        CreateCanvasLabel(account, "LevelCaption", "ACCOUNT LEVEL", new Vector2(-108f, -34f), new Vector2(104f, 18f), 7.5f, new Color32(242, 191, 75, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        CreateCanvasLabel(account, "Level", data.account.level.ToString(), new Vector2(-108f, -13f), new Vector2(54f, 26f), 19f, new Color32(255, 255, 255, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        CreateCanvasLabel(account, "LevelCaption", "ACCOUNT LEVEL", new Vector2(-108f, -56f), new Vector2(112f, 18f), 8f, new Color32(242, 191, 75, 255), TextAlignmentOptions.Center, FontStyles.Bold);
         CreateCanvasLabel(account, "AccountXP", MetaHubMockData.FormatNumber(data.account.currentXP) + " / " + MetaHubMockData.FormatNumber(data.account.requiredXP) + " XP", new Vector2(66f, 30f), new Vector2(160f, 18f), 11f, new Color32(224, 210, 184, 255), TextAlignmentOptions.Left, FontStyles.Normal);
         CreateCanvasBar(account, "AccountBar", new Vector2(70f, 10f), new Vector2(142f, 6f), Percent(data.account.currentXP, data.account.requiredXP), new Color32(55, 209, 235, 255));
         string accountInfo = runtimeUnlockInfoMode
@@ -1878,7 +1978,9 @@ public class MetaHubController : MonoBehaviour
         CreateGeneralTreeTabs(tree, right - left);
         CreateGeneralFocusedSkillTree(tree, right - left);
 
-        if (showGeneralLoadoutPicker)
+        if (!string.IsNullOrEmpty(pendingGeneralLoadoutPromptNodeId))
+            CreateGeneralLoadoutPromptOverlay(main);
+        else if (showGeneralLoadoutPicker)
             CreateGeneralLoadoutPickerOverlay(main);
         else if (showGeneralLoadoutEditor)
             CreateGeneralLoadoutEditorOverlay(main);
@@ -1937,7 +2039,7 @@ public class MetaHubController : MonoBehaviour
         }
 
         int columns = 5;
-        int maxVisibleNodes = selectedGeneralTreeCategory == "start" ? 20 : 15;
+        int maxVisibleNodes = selectedGeneralTreeCategory == "start" ? 10 : 15;
         int maxVisible = Mathf.Min(nodes.Count, maxVisibleNodes);
         Vector2 cardSize = new Vector2(174f, 82f);
         float gapX = 22f;
@@ -1997,6 +2099,43 @@ public class MetaHubController : MonoBehaviour
             CreateGeneralLoadoutChoiceRow(panel, general, i, 58f - i * 72f);
 
         CreateCanvasButton(panel, "CloseLoadoutPicker", "SCHLIESSEN", new Vector2(0f, -138f), new Vector2(210f, 34f), CloseGeneralLoadoutOverlay);
+    }
+
+    private void CreateGeneralLoadoutPromptOverlay(Transform main)
+    {
+        GeneralMetaProgressionManager general = GetGeneralMetaManager();
+        string nodeId = pendingGeneralLoadoutPromptNodeId;
+        GeneralMetaNodeDefinition definition = general != null ? general.GetDefinition(nodeId) : null;
+        GeneralMetaNodeState state = general != null ? general.GetNodeState(nodeId) : null;
+        if (general == null || definition == null || state == null || !state.purchased || !definition.RequiresLoadoutSlot())
+        {
+            pendingGeneralLoadoutPromptNodeId = "";
+            return;
+        }
+
+        bool canActivate = general.CanActivateNode(nodeId);
+        MetaHubTone tone = GetGeneralNodeDisplayTone(nodeId, MetaHubTone.Gold);
+        Color32 toneColor = ToneColor(tone);
+        float mainWidth = GetPanelWidth(main, 1307f);
+        CreateCanvasPanel(main, "GeneralLoadoutPromptShade", Vector2.zero, new Vector2(mainWidth - 28f, 720f), new Color32(0, 0, 0, 165), new Color32(0, 0, 0, 0));
+        Transform panel = CreateUnlockPanel(main, "GeneralLoadoutPrompt", "LOADOUT", Vector2.zero, new Vector2(620f, 300f), toneColor);
+        CreateArtIcon(panel, "Icon", GetGeneralNodeDisplayArt(nodeId, GetCategoryArtName(definition.category)), new Vector2(-232f, 32f), new Vector2(72f, 72f));
+        CreateCanvasLabel(panel, "Question", "Jetzt ins Loadout einsetzen?", new Vector2(54f, 78f), new Vector2(420f, 28f), 17f, new Color32(244, 196, 88, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(panel, "Name", definition.displayName, new Vector2(54f, 44f), new Vector2(420f, 22f), 13f, new Color32(236, 225, 202, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+
+        string slotText = definition.slotCost + " Slot" + (definition.slotCost == 1 ? "" : "s") + " | frei: " + general.GetAvailableLoadoutSlots();
+        string hint = canActivate
+            ? "Bonus ist gekauft und kann direkt fuer den naechsten Run aktiv werden."
+            : "Nicht genug freie Slots. Oeffne das Loadout und nimm einen anderen Bonus heraus.";
+        CreateCanvasLabel(panel, "SlotInfo", slotText, new Vector2(54f, 14f), new Vector2(420f, 20f), 11f, toneColor, TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(panel, "Hint", hint, new Vector2(54f, -30f), new Vector2(420f, 42f), 11f, new Color32(224, 214, 196, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+
+        if (canActivate)
+            CreateCanvasButton(panel, "ConfirmLoadoutPrompt", "EINSETZEN", new Vector2(-102f, -112f), new Vector2(230f, 34f), ActivatePromptedGeneralLoadoutNode);
+        else
+            CreateCanvasButton(panel, "ConfirmLoadoutPrompt", "LOADOUT OEFFNEN", new Vector2(-102f, -112f), new Vector2(230f, 34f), OpenGeneralLoadoutEditorFromPrompt);
+
+        CreateCanvasButton(panel, "LaterLoadoutPrompt", "SPAETER", new Vector2(150f, -112f), new Vector2(180f, 34f), DismissGeneralLoadoutPrompt);
     }
 
     private void CreateGeneralLoadoutChoiceRow(Transform parent, GeneralMetaProgressionManager general, int loadoutIndex, float y)
@@ -2185,11 +2324,11 @@ public class MetaHubController : MonoBehaviour
         switch (categoryId)
         {
             case "tiles":
-                return new string[] { "general.tile.path", "general.tile.gold", "general.tile.slow", "general.tile.trap", "general.tile.knock", "general.tile.range", "general.tile.xp", "general.tile.damage", "general.tile.rate", "general.tile.upgrade", "general.tile.combo" };
+                return new string[] { "general.tile.path", "general.tile.knock", "general.tile.slow", "general.tile.trap", "general.tile.gold", "general.tile.range", "general.tile.xp", "general.tile.damage", "general.tile.rate", "general.tile.upgrade", "general.tile.heal", "general.tile.weakpoint", "general.tile.combo" };
             case "comfort":
-                return new string[] { "general.qol.speed_fast", "general.qol.preview_roles_1", "general.qol.goal_pin_1", "general.qol.preview_boss", "general.qol.preview_chaos_1", "general.qol.speed_faster", "general.qol.preview_roles_2", "general.qol.goal_pin_2", "general.qol.preview_chaos_wave" };
+                return new string[] { "general.qol.speed_fast", "general.qol.speed_medium", "general.qol.dps_display", "general.qol.goal_pin_1", "general.qol.speed_faster", "general.qol.goal_pin_2" };
             case "start":
-                return new string[] { "general.start.gold_1", "general.start.life_1", "general.start.path_1", "general.loadout.slot_4", "general.start.discount_1", "general.start.gold_2", "general.start.life_2", "general.loadout.slot_5", "general.start.scout_1", "general.start.gold_3", "general.start.life_3", "general.loadout.slot_6", "general.start.gold_4", "general.start.life_4", "general.start.path_2", "general.loadout.slot_7", "general.start.gold_5", "general.start.life_5", "general.loadout.slot_8", "general.loadout.slot_9", "general.loadout.slot_10", "general.loadout.slot_11", "general.loadout.slot_12" };
+                return new string[] { "general.start.gold_1", "general.start.life_1", "general.start.xp_1", "general.loadout.slot_2", "general.start.path_1", "general.start.discount_1", "general.start.protection_1", "general.start.gold_2", "general.start.life_2", "general.start.xp_2", "general.loadout.slot_3", "general.start.discount_2", "general.start.gold_3", "general.start.life_3", "general.start.xp_3", "general.loadout.slot_4", "general.start.discount_3", "general.start.reserve_1", "general.start.gold_4", "general.start.life_4", "general.start.xp_4", "general.start.path_2", "general.loadout.slot_5", "general.start.discount_4", "general.start.gold_5", "general.start.life_5", "general.start.xp_5", "general.loadout.slot_6", "general.start.discount_5", "general.loadout.slot_7", "general.loadout.slot_8", "general.loadout.slot_9", "general.loadout.slot_10", "general.loadout.slot_11", "general.loadout.slot_12" };
             case "tower":
             default:
                 return new string[] { "general.tower.basic", "general.tower.rapid", "general.tower.heavy", "general.tower.slow", "general.tower.fire", "general.tower.poison", "general.tower.sniper", "general.tower.alchemist", "general.tower.lightning", "general.tower.mortar", "general.tower.spike" };
@@ -2250,11 +2389,11 @@ public class MetaHubController : MonoBehaviour
         float topPanelHeight = 180f;
 
         Transform account = CreateUnlockPanel(main, "TowerAccount", TowerMasteryManager.GetTowerDisplayName(selectedRole).ToUpperInvariant(), new Vector2(left + 175f, topY), new Vector2(350f, topPanelHeight), ToneColor(TowerTone(selectedRole)));
-        CreateDonutImage(account, "MasteryRing", new Vector2(-112f, -10f), 76f, Percent(masteryCurrentXP, masteryRequiredXP), ToneColor(TowerTone(selectedRole)), new Color32(55, 46, 29, 210));
-        CreateCanvasLabel(account, "Level", masteryLevel.ToString(), new Vector2(-112f, -4f), new Vector2(60f, 34f), 26f, new Color32(255, 255, 255, 255), TextAlignmentOptions.Center, FontStyles.Bold);
-        CreateCanvasLabel(account, "LevelCaption", "MASTERY", new Vector2(-112f, -38f), new Vector2(100f, 18f), 8f, new Color32(242, 191, 75, 255), TextAlignmentOptions.Center, FontStyles.Bold);
-        CreateCanvasLabel(account, "TowerXPText", MetaHubMockData.FormatNumber(masteryCurrentXP) + " / " + MetaHubMockData.FormatNumber(masteryRequiredXP) + " XP", new Vector2(72f, 32f), new Vector2(170f, 18f), 11f, new Color32(224, 210, 184, 255), TextAlignmentOptions.Left, FontStyles.Normal);
-        CreateCanvasBar(account, "TowerXP", new Vector2(76f, 12f), new Vector2(145f, 6f), Percent(masteryCurrentXP, masteryRequiredXP), ToneColor(TowerTone(selectedRole)));
+        CreateDonutImage(account, "MasteryRing", new Vector2(-108f, -13f), 70f, Percent(masteryCurrentXP, masteryRequiredXP), ToneColor(TowerTone(selectedRole)), new Color32(55, 46, 29, 210));
+        CreateCanvasLabel(account, "Level", masteryLevel.ToString(), new Vector2(-108f, -13f), new Vector2(54f, 26f), 19f, new Color32(255, 255, 255, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        CreateCanvasLabel(account, "LevelCaption", "MASTERY LEVEL", new Vector2(-108f, -56f), new Vector2(112f, 18f), 8f, new Color32(242, 191, 75, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        CreateCanvasLabel(account, "TowerXPText", MetaHubMockData.FormatNumber(masteryCurrentXP) + " / " + MetaHubMockData.FormatNumber(masteryRequiredXP) + " XP", new Vector2(66f, 30f), new Vector2(170f, 18f), 11f, new Color32(224, 210, 184, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        CreateCanvasBar(account, "TowerXP", new Vector2(70f, 10f), new Vector2(145f, 6f), Percent(masteryCurrentXP, masteryRequiredXP), ToneColor(TowerTone(selectedRole)));
         string profileText = "Freie Punkte  " + (selectedProfile != null ? selectedProfile.unspentPoints.ToString() : "0") +
             "\nGesetzt  " + (selectedProfile != null ? selectedProfile.spentPoints.ToString() : "0") +
             "\nBester Lv.  " + (selectedProfile != null ? selectedProfile.bestLevelEver.ToString() : "1");
@@ -2371,7 +2510,7 @@ public class MetaHubController : MonoBehaviour
             string category = categories[i];
             MetaHubTone tone = GetTowerTreeCategoryTone(roleManager, category);
             string label = GetTowerTreeCategoryDisplayName(roleManager, category).ToUpperInvariant();
-            CreateTowerTreeTab(parent, category, Shorten(label, 15), tone, new Vector2(startX + i * (tabWidth + gap), 168f), new Vector2(tabWidth, 36f));
+            CreateTowerTreeTab(parent, category, Shorten(label, 15), tone, new Vector2(startX + i * (tabWidth + gap), 148f), new Vector2(tabWidth, 36f));
         }
     }
 
@@ -2402,9 +2541,9 @@ public class MetaHubController : MonoBehaviour
         string title = selectedTowerTreeCategory == "Keystones" ? "KEYSTONES" : GetTowerTreeCategoryDisplayName(roleManager, selectedTowerTreeCategory).ToUpperInvariant() + "-MASTERY";
 
         float left = -panelWidth * 0.5f + 58f;
-        CreateCanvasLabel(parent, "TowerFocusedTitle", title, new Vector2(left + 96f, 122f), new Vector2(260f, 24f), 14f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
-        CreateCanvasLabel(parent, "TowerFocusedCount", GetUnlockCountText(purchased, total), new Vector2(panelWidth * 0.5f - 82f, 122f), new Vector2(100f, 20f), 10f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
-        CreateLine(parent, "TowerFocusedLine", new Vector2(0f, 98f), new Vector2(panelWidth - 150f, 2f), new Color32(toneColor.r, toneColor.g, toneColor.b, 130));
+        CreateCanvasLabel(parent, "TowerFocusedTitle", title, new Vector2(left + 96f, 114f), new Vector2(260f, 24f), 14f, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(parent, "TowerFocusedCount", GetUnlockCountText(purchased, total), new Vector2(panelWidth * 0.5f - 82f, 114f), new Vector2(100f, 20f), 10f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
+        CreateLine(parent, "TowerFocusedLine", new Vector2(0f, 90f), new Vector2(panelWidth - 150f, 2f), new Color32(toneColor.r, toneColor.g, toneColor.b, 130));
 
         if (nodes.Count == 0)
         {
@@ -2420,7 +2559,7 @@ public class MetaHubController : MonoBehaviour
         float gapY = 18f;
         float gridWidth = columns * cardSize.x + (columns - 1) * gapX;
         float startX = -gridWidth * 0.5f + cardSize.x * 0.5f;
-        float startY = 50f;
+        float startY = 42f;
 
         for (int i = 0; i < maxVisible; i++)
         {
@@ -3126,33 +3265,52 @@ public class MetaHubController : MonoBehaviour
 
     private void SelectTowerRole(TowerRole role)
     {
+        if (selectedTowerRole == role && selectedTowerTreeCategory == "Trunk")
+            return;
+
         selectedTowerRole = role;
         selectedTowerTreeCategory = "Trunk";
-        RefreshData();
+        RefreshMainFrameOnly();
     }
 
     private void SelectTowerTreeCategory(string categoryId)
     {
-        selectedTowerTreeCategory = string.IsNullOrEmpty(categoryId) ? "Trunk" : categoryId;
-        RefreshData();
+        string nextCategoryId = string.IsNullOrEmpty(categoryId) ? "Trunk" : categoryId;
+        if (selectedTowerTreeCategory == nextCategoryId)
+            return;
+
+        selectedTowerTreeCategory = nextCategoryId;
+        RefreshMainFrameOnly();
     }
 
     private void SelectChaosTreeCategory(ChaosResearchCategory category)
     {
-        selectedChaosTreeCategory = category == ChaosResearchCategory.Overview ? ChaosResearchCategory.RiskPool : category;
-        RefreshData();
+        ChaosResearchCategory nextCategory = category == ChaosResearchCategory.Overview ? ChaosResearchCategory.RiskPool : category;
+        if (selectedChaosTreeCategory == nextCategory)
+            return;
+
+        selectedChaosTreeCategory = nextCategory;
+        RefreshMainFrameOnly();
     }
 
     private void SelectPathTreeCategory(PathTechniqueCategory category)
     {
-        selectedPathTreeCategory = category == PathTechniqueCategory.Overview ? PathTechniqueCategory.EventPool : category;
-        RefreshData();
+        PathTechniqueCategory nextCategory = category == PathTechniqueCategory.Overview ? PathTechniqueCategory.EventPool : category;
+        if (selectedPathTreeCategory == nextCategory)
+            return;
+
+        selectedPathTreeCategory = nextCategory;
+        RefreshMainFrameOnly();
     }
 
     private void SelectEliteTreeCategory(EliteHuntCategory category)
     {
-        selectedEliteTreeCategory = category == EliteHuntCategory.Overview ? EliteHuntCategory.Contracts : category;
-        RefreshData();
+        EliteHuntCategory nextCategory = category == EliteHuntCategory.Overview ? EliteHuntCategory.Contracts : category;
+        if (selectedEliteTreeCategory == nextCategory)
+            return;
+
+        selectedEliteTreeCategory = nextCategory;
+        RefreshMainFrameOnly();
     }
 
     private void TrySpendSelectedTowerPoint()
@@ -3167,10 +3325,15 @@ public class MetaHubController : MonoBehaviour
 
     private void SelectGeneralTreeCategory(string categoryId)
     {
-        selectedGeneralTreeCategory = string.IsNullOrEmpty(categoryId) ? "tower" : categoryId;
+        string nextCategoryId = string.IsNullOrEmpty(categoryId) ? "tower" : categoryId;
+        if (selectedGeneralTreeCategory == nextCategoryId && !showGeneralLoadoutPicker && !showGeneralLoadoutEditor && string.IsNullOrEmpty(pendingGeneralLoadoutPromptNodeId))
+            return;
+
+        selectedGeneralTreeCategory = nextCategoryId;
         showGeneralLoadoutPicker = false;
         showGeneralLoadoutEditor = false;
-        RefreshData();
+        pendingGeneralLoadoutPromptNodeId = "";
+        RefreshMainFrameOnly();
     }
 
     private void OpenGeneralLoadoutPicker()
@@ -3178,9 +3341,10 @@ public class MetaHubController : MonoBehaviour
         if (runtimeUnlockInfoMode)
             return;
 
+        pendingGeneralLoadoutPromptNodeId = "";
         showGeneralLoadoutPicker = true;
         showGeneralLoadoutEditor = false;
-        RefreshData();
+        RefreshMainFrameOnly();
     }
 
     private void OpenGeneralLoadoutEditor()
@@ -3188,16 +3352,59 @@ public class MetaHubController : MonoBehaviour
         if (runtimeUnlockInfoMode)
             return;
 
+        pendingGeneralLoadoutPromptNodeId = "";
         showGeneralLoadoutPicker = false;
         showGeneralLoadoutEditor = true;
-        RefreshData();
+        RefreshMainFrameOnly();
     }
 
     private void CloseGeneralLoadoutOverlay()
     {
         showGeneralLoadoutPicker = false;
         showGeneralLoadoutEditor = false;
-        RefreshData();
+        pendingGeneralLoadoutPromptNodeId = "";
+        RefreshMainFrameOnly();
+    }
+
+    private void PromptGeneralLoadoutAfterPurchase(string nodeId)
+    {
+        pendingGeneralLoadoutPromptNodeId = string.IsNullOrEmpty(nodeId) ? "" : nodeId;
+        showGeneralLoadoutPicker = false;
+        showGeneralLoadoutEditor = false;
+    }
+
+    private void ActivatePromptedGeneralLoadoutNode()
+    {
+        if (runtimeUnlockInfoMode)
+            return;
+
+        string nodeId = pendingGeneralLoadoutPromptNodeId;
+        GeneralMetaProgressionManager general = GetGeneralMetaManager();
+        if (general != null && general.TryActivateNode(nodeId))
+        {
+            pendingGeneralLoadoutPromptNodeId = "";
+            RefreshMainFrameOnly();
+            return;
+        }
+
+        OpenGeneralLoadoutEditorFromPrompt();
+    }
+
+    private void OpenGeneralLoadoutEditorFromPrompt()
+    {
+        if (runtimeUnlockInfoMode)
+            return;
+
+        pendingGeneralLoadoutPromptNodeId = "";
+        showGeneralLoadoutPicker = false;
+        showGeneralLoadoutEditor = true;
+        RefreshMainFrameOnly();
+    }
+
+    private void DismissGeneralLoadoutPrompt()
+    {
+        pendingGeneralLoadoutPromptNodeId = "";
+        RefreshMainFrameOnly();
     }
 
     private void SelectGeneralLoadout(int loadoutIndex)
@@ -3211,7 +3418,7 @@ public class MetaHubController : MonoBehaviour
 
         showGeneralLoadoutPicker = false;
         showGeneralLoadoutEditor = true;
-        RefreshData();
+        RefreshMainFrameOnly();
     }
 
     private void ToggleGeneralLoadoutNode(string nodeId)
@@ -3227,7 +3434,7 @@ public class MetaHubController : MonoBehaviour
 
         bool changed = state.active ? general.TryDeactivateNode(nodeId) : general.TryActivateNode(nodeId);
         if (changed)
-            RefreshData();
+            RefreshMainFrameOnly();
     }
 
     private void HandleGeneralNodeClick(string nodeId)
@@ -3242,15 +3449,26 @@ public class MetaHubController : MonoBehaviour
             return;
 
         bool changed;
+        bool purchasedNode = false;
+        bool boughtLoadoutStartBonus = false;
         if (definition.RequiresLoadoutSlot() && state.purchased && state.active)
             changed = general.TryDeactivateNode(nodeId);
         else if (general.CanActivateNode(nodeId))
             changed = general.TryActivateNode(nodeId);
         else
+        {
             changed = general.TryPurchaseNode(nodeId);
+            purchasedNode = changed;
+            boughtLoadoutStartBonus = changed && definition.category == GeneralMetaCategory.StartOption && definition.RequiresLoadoutSlot();
+        }
 
-        if (changed)
+        if (boughtLoadoutStartBonus)
+            PromptGeneralLoadoutAfterPurchase(nodeId);
+
+        if (changed && purchasedNode)
             RefreshData();
+        else if (changed)
+            RefreshMainFrameOnly();
     }
 
     private void HandleChaosNodeClick(string nodeId)
@@ -3265,15 +3483,21 @@ public class MetaHubController : MonoBehaviour
             return;
 
         bool changed;
+        bool purchasedNode = false;
         if (definition.RequiresLoadoutSlot() && state.purchased && state.active)
             changed = chaos.TryDeactivateNode(nodeId);
         else if (chaos.CanActivateNode(nodeId))
             changed = chaos.TryActivateNode(nodeId);
         else
+        {
             changed = chaos.TryPurchaseNode(nodeId);
+            purchasedNode = changed;
+        }
 
-        if (changed)
+        if (changed && purchasedNode)
             RefreshData();
+        else if (changed)
+            RefreshMainFrameOnly();
     }
 
     private void HandlePathNodeClick(string nodeId)
@@ -3288,15 +3512,21 @@ public class MetaHubController : MonoBehaviour
             return;
 
         bool changed;
+        bool purchasedNode = false;
         if (definition.RequiresLoadoutSlot() && state.purchased && state.active)
             changed = path.TryDeactivateNode(nodeId);
         else if (path.CanActivateNode(nodeId))
             changed = path.TryActivateNode(nodeId);
         else
+        {
             changed = path.TryPurchaseNode(nodeId);
+            purchasedNode = changed;
+        }
 
-        if (changed)
+        if (changed && purchasedNode)
             RefreshData();
+        else if (changed)
+            RefreshMainFrameOnly();
     }
 
     private void HandleEliteNodeClick(string nodeId)
@@ -3311,6 +3541,7 @@ public class MetaHubController : MonoBehaviour
             return;
 
         bool changed;
+        bool purchasedNode = false;
         if (elite.IsHuntModeNode(nodeId) && elite.IsNodeActive(nodeId))
             changed = elite.TryDeactivateHuntMode();
         else if (elite.CanActivateHuntModeNode(nodeId))
@@ -3320,10 +3551,15 @@ public class MetaHubController : MonoBehaviour
         else if (elite.CanActivateNode(nodeId))
             changed = elite.TryActivateNode(nodeId);
         else
+        {
             changed = elite.TryPurchaseNode(nodeId);
+            purchasedNode = changed;
+        }
 
-        if (changed)
+        if (changed && purchasedNode)
             RefreshData();
+        else if (changed)
+            RefreshMainFrameOnly();
     }
 
     private string GetNextGeneralNodeId(GeneralMetaCategory category, string fallbackNodeId)
@@ -4489,8 +4725,83 @@ public class MetaHubController : MonoBehaviour
 
         if (runtimeUnlockInfoMode)
             ordered = FilterUnlockedGeneralNodes(ordered, general);
+        else if (IsGeneralStartBranch(categories))
+            ordered = FilterProgressiveStartGeneralNodes(ordered, general);
 
         return CreateNodeWindow(ordered, maxNodes, delegate(GeneralMetaNodeDefinition definition) { return definition != null ? definition.nodeId : ""; }, delegate(string nodeId) { return general.IsNodePurchased(nodeId); });
+    }
+
+    private bool IsGeneralStartBranch(GeneralMetaCategory[] categories)
+    {
+        if (categories == null || categories.Length != 2)
+            return false;
+
+        bool hasStart = false;
+        bool hasLoadout = false;
+        for (int i = 0; i < categories.Length; i++)
+        {
+            if (categories[i] == GeneralMetaCategory.StartOption)
+                hasStart = true;
+            else if (categories[i] == GeneralMetaCategory.MetaLoadout)
+                hasLoadout = true;
+        }
+
+        return hasStart && hasLoadout;
+    }
+
+    private List<GeneralMetaNodeDefinition> FilterProgressiveStartGeneralNodes(List<GeneralMetaNodeDefinition> nodes, GeneralMetaProgressionManager general)
+    {
+        List<GeneralMetaNodeDefinition> result = new List<GeneralMetaNodeDefinition>();
+        if (nodes == null || general == null)
+            return result;
+
+        AddNextGeneralChainNode(nodes, result, general, "general.start.gold_1", "general.start.gold_2", "general.start.gold_3", "general.start.gold_4", "general.start.gold_5");
+        AddNextGeneralChainNode(nodes, result, general, "general.start.life_1", "general.start.life_2", "general.start.life_3", "general.start.life_4", "general.start.life_5");
+        AddNextGeneralChainNode(nodes, result, general, "general.start.xp_1", "general.start.xp_2", "general.start.xp_3", "general.start.xp_4", "general.start.xp_5");
+        AddNextGeneralChainNode(nodes, result, general, "general.start.path_1", "general.start.path_2");
+        AddNextGeneralChainNode(nodes, result, general, "general.start.protection_1");
+        AddNextGeneralChainNode(nodes, result, general, "general.start.reserve_1");
+        AddNextGeneralChainNode(nodes, result, general, "general.loadout.slot_2", "general.loadout.slot_3", "general.loadout.slot_4", "general.loadout.slot_5", "general.loadout.slot_6", "general.loadout.slot_7", "general.loadout.slot_8", "general.loadout.slot_9", "general.loadout.slot_10", "general.loadout.slot_11", "general.loadout.slot_12");
+        AddNextGeneralChainNode(nodes, result, general, "general.start.discount_1", "general.start.discount_2", "general.start.discount_3", "general.start.discount_4", "general.start.discount_5");
+        return result;
+    }
+
+    private void AddNextGeneralChainNode(List<GeneralMetaNodeDefinition> source, List<GeneralMetaNodeDefinition> result, GeneralMetaProgressionManager general, params string[] nodeIds)
+    {
+        if (source == null || result == null || general == null || nodeIds == null)
+            return;
+
+        for (int i = 0; i < nodeIds.Length; i++)
+        {
+            string nodeId = nodeIds[i];
+            if (string.IsNullOrEmpty(nodeId) || general.IsNodePurchased(nodeId))
+                continue;
+
+            AddGeneralNodeIfPresent(source, result, nodeId);
+            return;
+        }
+    }
+
+    private void AddUnpurchasedGeneralNode(List<GeneralMetaNodeDefinition> source, List<GeneralMetaNodeDefinition> result, GeneralMetaProgressionManager general, string nodeId)
+    {
+        if (general != null && !general.IsNodePurchased(nodeId))
+            AddGeneralNodeIfPresent(source, result, nodeId);
+    }
+
+    private void AddGeneralNodeIfPresent(List<GeneralMetaNodeDefinition> source, List<GeneralMetaNodeDefinition> result, string nodeId)
+    {
+        if (source == null || result == null || string.IsNullOrEmpty(nodeId) || ContainsGeneralNode(result, nodeId))
+            return;
+
+        for (int i = 0; i < source.Count; i++)
+        {
+            GeneralMetaNodeDefinition definition = source[i];
+            if (definition != null && definition.nodeId == nodeId)
+            {
+                result.Add(definition);
+                return;
+            }
+        }
     }
 
     private List<GeneralMetaNodeDefinition> FilterUnlockedGeneralNodes(List<GeneralMetaNodeDefinition> nodes, GeneralMetaProgressionManager general)
@@ -4819,6 +5130,8 @@ public class MetaHubController : MonoBehaviour
     {
         Transform panel = CreateOrnatePanel(parent, name, position, size, new Color32(5, 18, 18, 240), border);
         float titleFontSize = size.x < 280f ? 14f : 16f;
+        if (runtimeUnlockInfoMode)
+            titleFontSize += 2f;
         CreateCanvasLabel(panel, "Title", title, new Vector2(0f, size.y * 0.5f - 26f), new Vector2(size.x - 36f, 28f), titleFontSize, new Color32(234, 178, 67, 255), TextAlignmentOptions.Left, FontStyles.Bold);
         return panel;
     }
@@ -4826,15 +5139,17 @@ public class MetaHubController : MonoBehaviour
     private void CreateUnlockStatCard(Transform parent, string name, string title, string value, string caption, string artName, MetaHubTone tone, Vector2 position, Vector2 size)
     {
         Transform card = CreateOrnatePanel(parent, name, position, size, new Color32(7, 18, 20, 240), ToneColor(tone));
-        CreateCanvasLabel(card, "Title", title, new Vector2(0f, size.y * 0.5f - 28f), new Vector2(size.x - 38f, 24f), 14f, new Color32(246, 236, 211, 255), TextAlignmentOptions.Center, FontStyles.Bold);
+        CreateCanvasLabel(card, "Title", title, new Vector2(0f, size.y * 0.5f - 28f), new Vector2(size.x - 38f, 24f), runtimeUnlockInfoMode ? 15.5f : 14f, new Color32(246, 236, 211, 255), TextAlignmentOptions.Center, FontStyles.Bold);
         CreateArtIcon(card, "Icon", artName, new Vector2(-size.x * 0.25f, 0f), new Vector2(68f, 68f));
         float valueWidth = Mathf.Clamp(size.x * 0.42f, 112f, 180f);
         float valueFontSize = !string.IsNullOrEmpty(value) && value.Length > 7 ? 23f : !string.IsNullOrEmpty(value) && value.Length > 4 ? 25f : 28f;
+        if (runtimeUnlockInfoMode)
+            valueFontSize += 1.5f;
         TextMeshProUGUI valueLabel = CreateCanvasLabel(card, "Value", value, new Vector2(34f, 12f), new Vector2(valueWidth, 34f), valueFontSize, new Color32(245, 195, 92, 255), TextAlignmentOptions.Left, FontStyles.Bold);
         valueLabel.enableAutoSizing = true;
         valueLabel.fontSizeMin = 18f;
         valueLabel.fontSizeMax = valueFontSize;
-        CreateCanvasLabel(card, "Caption", caption, new Vector2(42f, -22f), new Vector2(valueWidth + 10f, 22f), 11f, new Color32(225, 209, 184, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        CreateCanvasLabel(card, "Caption", caption, new Vector2(42f, -22f), new Vector2(valueWidth + 10f, 22f), runtimeUnlockInfoMode ? 12.5f : 11f, new Color32(225, 209, 184, 255), TextAlignmentOptions.Left, FontStyles.Normal);
     }
 
     private void CreateTowerListRow(Transform parent, string name, string title, string caption, bool selected, float y, MetaHubTone tone, UnityEngine.Events.UnityAction onClick)
@@ -4886,10 +5201,13 @@ public class MetaHubController : MonoBehaviour
         float textRightPadding = string.IsNullOrEmpty(value) ? 12f : valueWidth + 16f;
         float textWidth = Mathf.Max(54f, width - textLeft - textRightPadding);
         float textX = -width * 0.5f + textLeft + textWidth * 0.5f;
-        CreateCanvasLabel(row, "Title", Shorten(title, Mathf.RoundToInt(textWidth / 7f)), new Vector2(textX, 8f), new Vector2(textWidth, 18f), 9f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
-        CreateCanvasLabel(row, "Description", Shorten(description, Mathf.RoundToInt(textWidth / 6f)), new Vector2(textX, -10f), new Vector2(textWidth, 18f), 7.5f, new Color32(188, 178, 155, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        float titleFontSize = runtimeUnlockInfoMode ? 10.8f : 9f;
+        float descriptionFontSize = runtimeUnlockInfoMode ? 8.8f : 7.5f;
+        float valueFontSize = runtimeUnlockInfoMode ? 10.4f : 9f;
+        CreateCanvasLabel(row, "Title", Shorten(title, Mathf.RoundToInt(textWidth / 7f)), new Vector2(textX, 8.5f), new Vector2(textWidth, 20f), titleFontSize, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(row, "Description", Shorten(description, Mathf.RoundToInt(textWidth / 6f)), new Vector2(textX, -10.5f), new Vector2(textWidth, 18f), descriptionFontSize, new Color32(188, 178, 155, 255), TextAlignmentOptions.Left, FontStyles.Normal);
         if (!string.IsNullOrEmpty(value))
-            CreateCanvasLabel(row, "Value", Shorten(value, Mathf.RoundToInt(valueWidth / 6f)), new Vector2(width * 0.5f - valueWidth * 0.5f - 10f, 0f), new Vector2(valueWidth, 22f), 9f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
+            CreateCanvasLabel(row, "Value", Shorten(value, Mathf.RoundToInt(valueWidth / 6f)), new Vector2(width * 0.5f - valueWidth * 0.5f - 10f, 0f), new Vector2(valueWidth, 22f), valueFontSize, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
         MakeCanvasClickable(row, onClick, fill, toneColor);
     }
 
@@ -4904,10 +5222,13 @@ public class MetaHubController : MonoBehaviour
         float textRightPadding = string.IsNullOrEmpty(value) ? 12f : valueWidth + 16f;
         float textWidth = Mathf.Max(54f, width - textLeft - textRightPadding);
         float textX = -width * 0.5f + textLeft + textWidth * 0.5f;
-        CreateCanvasLabel(row, "Title", Shorten(title, Mathf.RoundToInt(textWidth / 7f)), new Vector2(textX, 6f), new Vector2(textWidth, 16f), 8.4f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
-        CreateCanvasLabel(row, "Description", Shorten(description, Mathf.RoundToInt(textWidth / 6f)), new Vector2(textX, -8f), new Vector2(textWidth, 14f), 6.8f, new Color32(188, 178, 155, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        float titleFontSize = runtimeUnlockInfoMode ? 10.2f : 8.4f;
+        float descriptionFontSize = runtimeUnlockInfoMode ? 8.4f : 6.8f;
+        float valueFontSize = runtimeUnlockInfoMode ? 9.8f : 8.2f;
+        CreateCanvasLabel(row, "Title", Shorten(title, Mathf.RoundToInt(textWidth / 7f)), new Vector2(textX, 7.5f), new Vector2(textWidth, 18f), titleFontSize, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(row, "Description", Shorten(description, Mathf.RoundToInt(textWidth / 6f)), new Vector2(textX, -9.5f), new Vector2(textWidth, 16f), descriptionFontSize, new Color32(188, 178, 155, 255), TextAlignmentOptions.Left, FontStyles.Normal);
         if (!string.IsNullOrEmpty(value))
-            CreateCanvasLabel(row, "Value", Shorten(value, Mathf.RoundToInt(valueWidth / 6f)), new Vector2(width * 0.5f - valueWidth * 0.5f - 10f, 0f), new Vector2(valueWidth, 18f), 8.2f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
+            CreateCanvasLabel(row, "Value", Shorten(value, Mathf.RoundToInt(valueWidth / 6f)), new Vector2(width * 0.5f - valueWidth * 0.5f - 10f, 0f), new Vector2(valueWidth, 18f), valueFontSize, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
         MakeCanvasClickable(row, onClick, fill, toneColor);
     }
 
@@ -5030,7 +5351,7 @@ public class MetaHubController : MonoBehaviour
     private void CreateRuntimeRuleRow(Transform parent, string name, string artName, string title, string description, string value, MetaHubTone tone, float y, float width)
     {
         Color32 toneColor = ToneColor(tone);
-        Transform row = CreateCanvasPanel(parent, name, new Vector2(0f, y), new Vector2(width, 29f), new Color32(7, 18, 20, 220), new Color32(toneColor.r, toneColor.g, toneColor.b, 150));
+        Transform row = CreateCanvasPanel(parent, name, new Vector2(0f, y), new Vector2(width, 32f), new Color32(7, 18, 20, 220), new Color32(toneColor.r, toneColor.g, toneColor.b, 150));
         CreateArtIcon(row, "Icon", artName, new Vector2(-width * 0.5f + 21f, 0f), new Vector2(24f, 24f));
 
         float valueWidth = 72f;
@@ -5038,9 +5359,9 @@ public class MetaHubController : MonoBehaviour
         float textRight = valueWidth + 12f;
         float textWidth = Mathf.Max(120f, width - textLeft - textRight);
         float textX = -width * 0.5f + textLeft + textWidth * 0.5f;
-        CreateCanvasLabel(row, "Title", Shorten(title, Mathf.RoundToInt(textWidth / 7f)), new Vector2(textX, 5f), new Vector2(textWidth, 15f), 8.8f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
-        CreateCanvasLabel(row, "Description", Shorten(description, Mathf.RoundToInt(textWidth / 6f)), new Vector2(textX, -8f), new Vector2(textWidth, 13f), 6.6f, new Color32(188, 178, 155, 255), TextAlignmentOptions.Left, FontStyles.Normal);
-        CreateCanvasLabel(row, "Value", Shorten(value, 10), new Vector2(width * 0.5f - valueWidth * 0.5f - 10f, 0f), new Vector2(valueWidth, 18f), 8.2f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
+        CreateCanvasLabel(row, "Title", Shorten(title, Mathf.RoundToInt(textWidth / 7f)), new Vector2(textX, 6.5f), new Vector2(textWidth, 16f), 10.2f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(row, "Description", Shorten(description, Mathf.RoundToInt(textWidth / 6f)), new Vector2(textX, -8.5f), new Vector2(textWidth, 14f), 7.8f, new Color32(188, 178, 155, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        CreateCanvasLabel(row, "Value", Shorten(value, 10), new Vector2(width * 0.5f - valueWidth * 0.5f - 10f, 0f), new Vector2(valueWidth, 20f), 9.8f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
     }
 
     private void CreateRuntimeSummaryPanel(Transform parent, string name, string title, Vector2 position, Vector2 size, params RuntimeSummaryItem[] items)
@@ -5068,20 +5389,20 @@ public class MetaHubController : MonoBehaviour
             float textRight = valueWidth + 14f;
             float textWidth = Mathf.Max(64f, tileWidth - textLeft - textRight);
             float textX = -tileWidth * 0.5f + textLeft + textWidth * 0.5f;
-            TextMeshProUGUI label = CreateCanvasLabel(tile, "Label", Shorten(item.label, Mathf.RoundToInt(textWidth / 7f)), new Vector2(textX, 9f), new Vector2(textWidth, 18f), 9f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+            TextMeshProUGUI label = CreateCanvasLabel(tile, "Label", Shorten(item.label, Mathf.RoundToInt(textWidth / 7f)), new Vector2(textX, 10f), new Vector2(textWidth, 19f), 10.6f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
             label.enableAutoSizing = true;
-            label.fontSizeMin = 7f;
-            label.fontSizeMax = 9f;
+            label.fontSizeMin = 8f;
+            label.fontSizeMax = 10.6f;
 
-            TextMeshProUGUI caption = CreateCanvasLabel(tile, "Caption", Shorten(item.caption, Mathf.RoundToInt(textWidth / 6f)), new Vector2(textX, -9f), new Vector2(textWidth, 16f), 7.2f, new Color32(188, 178, 155, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+            TextMeshProUGUI caption = CreateCanvasLabel(tile, "Caption", Shorten(item.caption, Mathf.RoundToInt(textWidth / 6f)), new Vector2(textX, -9f), new Vector2(textWidth, 17f), 8.5f, new Color32(188, 178, 155, 255), TextAlignmentOptions.Left, FontStyles.Normal);
             caption.enableAutoSizing = true;
-            caption.fontSizeMin = 5.8f;
-            caption.fontSizeMax = 7.2f;
+            caption.fontSizeMin = 6.8f;
+            caption.fontSizeMax = 8.5f;
 
-            TextMeshProUGUI value = CreateCanvasLabel(tile, "Value", Shorten(item.value, Mathf.RoundToInt(valueWidth / 6f)), new Vector2(tileWidth * 0.5f - valueWidth * 0.5f - 10f, 0f), new Vector2(valueWidth, 22f), 9.2f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
+            TextMeshProUGUI value = CreateCanvasLabel(tile, "Value", Shorten(item.value, Mathf.RoundToInt(valueWidth / 6f)), new Vector2(tileWidth * 0.5f - valueWidth * 0.5f - 10f, 0f), new Vector2(valueWidth, 22f), 10.6f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
             value.enableAutoSizing = true;
-            value.fontSizeMin = 6.8f;
-            value.fontSizeMax = 9.2f;
+            value.fontSizeMin = 8f;
+            value.fontSizeMax = 10.6f;
         }
     }
 
@@ -5182,8 +5503,11 @@ public class MetaHubController : MonoBehaviour
             MetaHubGoalData goal = goals[i];
             float y = rowStart - i * rowSpacing;
             CreateArtIcon(panel, "GoalIcon_" + i, GetGoalArtName(goal), new Vector2(iconX, y), new Vector2(34f, 34f));
-            CreateCanvasLabel(panel, "GoalTitle_" + i, Shorten(goal.title, Mathf.RoundToInt(titleWidth / 7f)), new Vector2(titleX, y), new Vector2(titleWidth, 24f), size.x < 280f ? 10f : 12f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
-            CreateCanvasLabel(panel, "GoalValue_" + i, goal.current + " / " + goal.required, new Vector2(valueX, y), new Vector2(valueWidth, 24f), size.x < 280f ? 10f : 12f, new Color32(232, 220, 198, 255), TextAlignmentOptions.Right, FontStyles.Bold);
+            float goalFontSize = size.x < 280f ? 10f : 12f;
+            if (runtimeUnlockInfoMode)
+                goalFontSize += 1.5f;
+            CreateCanvasLabel(panel, "GoalTitle_" + i, Shorten(goal.title, Mathf.RoundToInt(titleWidth / 7f)), new Vector2(titleX, y), new Vector2(titleWidth, 24f), goalFontSize, new Color32(232, 220, 198, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+            CreateCanvasLabel(panel, "GoalValue_" + i, goal.current + " / " + goal.required, new Vector2(valueX, y), new Vector2(valueWidth, 24f), goalFontSize, new Color32(232, 220, 198, 255), TextAlignmentOptions.Right, FontStyles.Bold);
             if (i < maxGoalRows - 1)
                 CreateLine(panel, "GoalDivider_" + i, new Vector2(0f, y - rowSpacing * 0.55f), new Vector2(size.x - 62f, 1f), new Color32(45, 54, 50, 210));
         }
@@ -5264,8 +5588,9 @@ public class MetaHubController : MonoBehaviour
             CreateArtIcon(panel, "EffectIcon_" + i, GetEffectArtName(effect), new Vector2(-size.x * 0.5f + 55f, y), new Vector2(43f, 43f));
             string effectText = string.IsNullOrEmpty(effect.description) ? effect.title : effect.title + "\n" + effect.description;
             float textWidth = Mathf.Max(190f, size.x - 250f);
-            CreateCanvasLabel(panel, "EffectText_" + i, effectText, new Vector2(-size.x * 0.5f + 78f + textWidth * 0.5f, y), new Vector2(textWidth, 45f), 12f, new Color32(226, 236, 215, 255), TextAlignmentOptions.Left, FontStyles.Bold);
-            CreateCanvasLabel(panel, "EffectDuration_" + i, effect.durationText, new Vector2(size.x * 0.5f - 80f, y), new Vector2(90f, 24f), 12f, new Color32(239, 219, 184, 255), TextAlignmentOptions.Right, FontStyles.Normal);
+            float effectFontSize = runtimeUnlockInfoMode ? 13.5f : 12f;
+            CreateCanvasLabel(panel, "EffectText_" + i, effectText, new Vector2(-size.x * 0.5f + 78f + textWidth * 0.5f, y), new Vector2(textWidth, 45f), effectFontSize, new Color32(226, 236, 215, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+            CreateCanvasLabel(panel, "EffectDuration_" + i, effect.durationText, new Vector2(size.x * 0.5f - 80f, y), new Vector2(90f, 24f), effectFontSize, new Color32(239, 219, 184, 255), TextAlignmentOptions.Right, FontStyles.Normal);
             if (i == 0)
                 CreateLine(panel, "EffectDivider", new Vector2(20f, 5f), new Vector2(size.x - 48f, 1f), new Color32(border.r, border.g, border.b, 120));
         }
@@ -5325,9 +5650,9 @@ public class MetaHubController : MonoBehaviour
         float textRight = valueWidth + 28f;
         float textWidth = Mathf.Max(86f, size.x - textLeft - textRight);
         float textX = -size.x * 0.5f + textLeft + textWidth * 0.5f;
-        CreateCanvasLabel(card, "Label", stat.label, new Vector2(textX, 12f), new Vector2(textWidth, 20f), 11f, new Color32(220, 211, 195, 255), TextAlignmentOptions.Left, FontStyles.Bold);
-        CreateCanvasLabel(card, "Caption", runtimeUnlockInfoMode ? "Aktueller Run" : "Letzter Run", new Vector2(textX, -10f), new Vector2(textWidth, 18f), 8f, new Color32(166, 174, 168, 255), TextAlignmentOptions.Left, FontStyles.Normal);
-        CreateCanvasLabel(card, "Value", stat.valueText, new Vector2(size.x * 0.5f - valueWidth * 0.5f - 12f, 0f), new Vector2(valueWidth, 22f), 11f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
+        CreateCanvasLabel(card, "Label", stat.label, new Vector2(textX, 12f), new Vector2(textWidth, 20f), runtimeUnlockInfoMode ? 12.5f : 11f, new Color32(220, 211, 195, 255), TextAlignmentOptions.Left, FontStyles.Bold);
+        CreateCanvasLabel(card, "Caption", runtimeUnlockInfoMode ? "Aktueller Run" : "Letzter Run", new Vector2(textX, -10f), new Vector2(textWidth, 18f), runtimeUnlockInfoMode ? 9.4f : 8f, new Color32(166, 174, 168, 255), TextAlignmentOptions.Left, FontStyles.Normal);
+        CreateCanvasLabel(card, "Value", stat.valueText, new Vector2(size.x * 0.5f - valueWidth * 0.5f - 12f, 0f), new Vector2(valueWidth, 22f), runtimeUnlockInfoMode ? 12.5f : 11f, toneColor, TextAlignmentOptions.Right, FontStyles.Bold);
     }
 
     private string GetRunStatArtName(string id)
@@ -5457,11 +5782,18 @@ public class MetaHubController : MonoBehaviour
 
     private Sprite CreateDonutSprite(float percent, Color32 fillColor, Color32 trackColor)
     {
+        int percentKey = Mathf.RoundToInt(Mathf.Clamp01(percent) * 256f);
+        string key = percentKey + "_" + fillColor.r + "_" + fillColor.g + "_" + fillColor.b + "_" + fillColor.a + "_" + trackColor.r + "_" + trackColor.g + "_" + trackColor.b + "_" + trackColor.a;
+        Sprite cachedSprite;
+        if (donutSprites.TryGetValue(key, out cachedSprite))
+            return cachedSprite;
+
         const int textureSize = 128;
         Texture2D texture = new Texture2D(textureSize, textureSize, TextureFormat.RGBA32, false);
         texture.name = "MetaHubRuntimeDonut";
         texture.wrapMode = TextureWrapMode.Clamp;
         texture.filterMode = FilterMode.Bilinear;
+        float cachedPercent = percentKey / 256f;
 
         Vector2 center = new Vector2((textureSize - 1) * 0.5f, (textureSize - 1) * 0.5f);
         float outer = textureSize * 0.47f;
@@ -5484,12 +5816,14 @@ public class MetaHubController : MonoBehaviour
                 if (angle < 0f)
                     angle += 360f;
 
-                texture.SetPixel(x, y, angle <= percent * 360f ? fillColor : trackColor);
+                texture.SetPixel(x, y, angle <= cachedPercent * 360f ? fillColor : trackColor);
             }
         }
 
         texture.Apply();
-        return Sprite.Create(texture, new Rect(0f, 0f, textureSize, textureSize), new Vector2(0.5f, 0.5f), textureSize);
+        Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, textureSize, textureSize), new Vector2(0.5f, 0.5f), textureSize);
+        donutSprites[key] = sprite;
+        return sprite;
     }
 
     private string ToReferenceNavLabel(string label)
@@ -5989,12 +6323,18 @@ public class MetaHubController : MonoBehaviour
         if (image != null)
             button.targetGraphic = image;
 
+        button.transition = UnityEngine.UI.Selectable.Transition.ColorTint;
+        UnityEngine.UI.Navigation navigation = button.navigation;
+        navigation.mode = UnityEngine.UI.Navigation.Mode.None;
+        button.navigation = navigation;
+
         ColorBlock colors = button.colors;
         colors.normalColor = Color.white;
         colors.highlightedColor = Color.Lerp(Color.white, highlightColor, 0.22f);
         colors.pressedColor = Color.Lerp(baseColor, highlightColor, 0.45f);
         colors.selectedColor = Color.Lerp(Color.white, highlightColor, 0.18f);
         colors.disabledColor = new Color(baseColor.r, baseColor.g, baseColor.b, 0.45f);
+        colors.fadeDuration = 0.04f;
         button.colors = colors;
     }
 

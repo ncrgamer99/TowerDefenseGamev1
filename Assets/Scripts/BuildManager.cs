@@ -338,6 +338,14 @@ public class BuildManager : MonoBehaviour
         if (supportTile == null)
             return;
 
+        if (!supportTile.IsAvailableForBuild())
+        {
+            if (supportTileBuildUI != null)
+                supportTileBuildUI.Hide();
+
+            return;
+        }
+
         selectedBuildOption = null;
         buildTilesCurrentlyVisible = false;
         ClearHoveredBuildTile();

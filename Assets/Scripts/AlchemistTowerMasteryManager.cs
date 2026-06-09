@@ -510,7 +510,7 @@ public class AlchemistTowerMasteryManager : MonoBehaviour
 
     public float GetAlchemistRangeBonus()
     {
-        return GetNodeRank(LabRange) * 0.08f;
+        return GetNodeRank(LabRange) * 0.12f;
     }
 
     public float GetAlchemistFireRateAdditive()
@@ -790,7 +790,7 @@ public class AlchemistTowerMasteryManager : MonoBehaviour
         AddDefinition(CleanMixture, "Saubere Mischung", AlchemistTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+0,20 direkter Alchemist Damage pro Rang.", 1, 2, 3, 4, 5);
         AddDefinition(BitterPoison, "Bitteres Gift", AlchemistTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+0,20 Poison Damage pro Rang.", 1, 2, 3, 4, 5);
         AddDefinition(HeavyVapors, "Schwere Daempfe", AlchemistTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 5, "+0,10s Slow Duration pro Rang.", 1, 2, 3, 4, 5);
-        AddDefinition(LabRange, "Laborreichweite", AlchemistTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,08 Range pro Rang.", 1, 2, 3);
+        AddDefinition(LabRange, "Laborreichweite", AlchemistTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "+0,12 Range pro Rang.", 1, 2, 3);
         AddDefinition(AnalysisProtocol, "Analyseprotokoll", AlchemistTowerMasteryPath.Trunk, TowerMasteryMilestone.None, 3, "Alchemist Tower erhalten +3% Tower-XP pro Rang.", 1, 2, 3);
 
         AddDefinition(ReactionTheory, "Reaktionslehre", AlchemistTowerMasteryPath.Catalysis, TowerMasteryMilestone.I, 5, "Gegner mit 2+ Status-Effekten nehmen +1% Alchemist-Schaden pro Rang.", 1, 2, 3, 4, 5);
@@ -1178,6 +1178,10 @@ public class AlchemistTowerMasteryManager : MonoBehaviour
 
     private void SaveProfile()
     {
+        TowerMasteryManager towerMastery = GetTowerMasteryManager();
+        if (towerMastery != null && towerMastery.IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         foreach (AlchemistTowerMasteryNodeDefinition definition in definitions)
             PlayerPrefs.SetInt(PlayerPrefsPrefix + "Node_" + definition.nodeId, GetNodeRank(definition.nodeId));
 

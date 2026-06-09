@@ -228,6 +228,9 @@ public class ChaosResearchProgressionManager : MonoBehaviour
 
         runFinalized = true;
 
+        if (IsMetaProgressionSuppressedForCurrentRun())
+            return;
+
         ChaosJusticeManager chaosJustice = GetChaosJusticeManager();
         int chaosChoicesThisRun = chaosJustice != null ? Mathf.Max(0, chaosJustice.GetChaosChoiceCount() - baselineChaosChoiceCount) : 0;
         int justiceChoicesThisRun = chaosJustice != null ? Mathf.Max(0, chaosJustice.GetJusticeChoiceCount() - baselineJusticeChoiceCount) : 0;
@@ -611,7 +614,7 @@ public class ChaosResearchProgressionManager : MonoBehaviour
 
     private void HandleWaveCompleted(WaveCompletionResult result)
     {
-        if (result == null || !result.waveCompleted || runFinalized)
+        if (result == null || !result.waveCompleted || runFinalized || IsMetaProgressionSuppressedForCurrentRun())
             return;
 
         int knownHighest = Mathf.Max(highestChaosLevelEver, GetHighestChaosLevelInCurrentHistoryBefore(result));
@@ -1406,6 +1409,12 @@ public class ChaosResearchProgressionManager : MonoBehaviour
             gameManager = FindObjectOfType<GameManager>();
 
         return gameManager;
+    }
+
+    private bool IsMetaProgressionSuppressedForCurrentRun()
+    {
+        GameManager currentGameManager = GetGameManager();
+        return currentGameManager != null && currentGameManager.IsMetaProgressionSuppressedForCurrentRun();
     }
 
     private void LoadProfile()

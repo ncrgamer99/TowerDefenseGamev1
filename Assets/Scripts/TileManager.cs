@@ -23,14 +23,14 @@ public class TileManager : MonoBehaviour
     public GameObject slowTilePrefab;
     public GameObject knockTilePrefab;
     public GameObject comboTilePrefab;
-    public GameObject specialTilePrefab;
-    public GameObject bridgeTilePrefab;
     public GameObject goldTilePrefab;
     public GameObject rangeTilePrefab;
     public GameObject damageTilePrefab;
     public GameObject rateTilePrefab;
     public GameObject xpTilePrefab;
     public GameObject upgradeTilePrefab;
+    public GameObject healTilePrefab;
+    public GameObject weakpointTilePrefab;
     public GameObject blockedTilePrefab;
 
     [Header("Managers")]
@@ -58,7 +58,7 @@ public class TileManager : MonoBehaviour
     public float pathRailingThickness = 0.055f;
     public Color pathRailingColor = new Color32(58, 68, 82, 255);
 
-    [Header("Special Tile Visuals V1")]
+    [Header("Tile Visuals V1")]
     public Color trapTileColor = new Color32(150, 25, 25, 255);
     public Color slowTileColor = new Color32(70, 180, 255, 255);
     public Color knockTileColor = new Color32(255, 170, 45, 255);
@@ -69,6 +69,8 @@ public class TileManager : MonoBehaviour
     public Color rateTileColor = new Color32(75, 235, 130, 255);
     public Color xpTileColor = new Color32(155, 105, 255, 255);
     public Color upgradeTileColor = new Color32(255, 245, 120, 255);
+    public Color healTileColor = new Color32(95, 225, 135, 255);
+    public Color weakpointTileColor = new Color(0.1f, 0.17f, 0.25f, 1f);
 
     [Header("Blocked Event Base Tools V1")]
     public Color relocationGhostValidColor = new Color32(80, 220, 140, 190);
@@ -96,6 +98,7 @@ public class TileManager : MonoBehaviour
     private bool hasReservedPathExtension = false;
     private Vector2Int reservedPathExtensionPosition;
     private float reservedPathExtensionWarningTimer = 0f;
+    private bool supportTilePlacementBuildModeActive = false;
 
     private bool baseRelocationModeActive = false;
     private bool worldVisualScaleApplied = false;
@@ -175,13 +178,14 @@ public class TileManager : MonoBehaviour
         AssignGeneratedPrefabIfAvailable(ref slowTilePrefab, generatedTilePrefabSet.slowTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref knockTilePrefab, generatedTilePrefabSet.knockTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref comboTilePrefab, generatedTilePrefabSet.comboTilePrefab);
-        AssignGeneratedPrefabIfAvailable(ref specialTilePrefab, generatedTilePrefabSet.specialTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref goldTilePrefab, generatedTilePrefabSet.goldTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref rangeTilePrefab, generatedTilePrefabSet.rangeTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref damageTilePrefab, generatedTilePrefabSet.damageTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref rateTilePrefab, generatedTilePrefabSet.rateTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref xpTilePrefab, generatedTilePrefabSet.xpTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref upgradeTilePrefab, generatedTilePrefabSet.upgradeTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref healTilePrefab, generatedTilePrefabSet.healTilePrefab);
+        AssignGeneratedPrefabIfAvailable(ref weakpointTilePrefab, generatedTilePrefabSet.weakpointTilePrefab);
         AssignGeneratedPrefabIfAvailable(ref blockedTilePrefab, generatedTilePrefabSet.blockedTilePrefab);
     }
 
@@ -519,21 +523,21 @@ public class TileManager : MonoBehaviour
     private bool IsSpecialPathTileType(PathBuildOptionType specialTileType)
     {
         return specialTileType == PathBuildOptionType.TrapTile ||
-               specialTileType == PathBuildOptionType.SpecialTile ||
                specialTileType == PathBuildOptionType.SlowTile ||
                specialTileType == PathBuildOptionType.KnockTile ||
-               specialTileType == PathBuildOptionType.ComboTile;
+               specialTileType == PathBuildOptionType.ComboTile ||
+               specialTileType == PathBuildOptionType.WeakpointTile;
     }
 
     private bool IsPathVariantTileType(PathBuildOptionType tileType)
     {
         return tileType == PathBuildOptionType.PathTile ||
                tileType == PathBuildOptionType.TrapTile ||
-               tileType == PathBuildOptionType.SpecialTile ||
                tileType == PathBuildOptionType.GoldTile ||
                tileType == PathBuildOptionType.SlowTile ||
                tileType == PathBuildOptionType.KnockTile ||
-               tileType == PathBuildOptionType.ComboTile;
+               tileType == PathBuildOptionType.ComboTile ||
+               tileType == PathBuildOptionType.WeakpointTile;
     }
 
     public bool TryBuildGoldTileAt(Vector2Int goldTilePosition)
@@ -616,6 +620,44 @@ public class TileManager : MonoBehaviour
         return true;
     }
 
+    public bool CanBuildSupportTileOnBuildTile(Vector2Int supportTilePosition, PathBuildOptionType supportTileType)
+    {
+        if (!IsTowerSupportTileType(supportTileType))
+            return false;
+
+        if (!pathInitialized || !canBuild)
+            return false;
+
+        if (!buildTilePositions.Contains(supportTilePosition))
+            return false;
+
+        if (IsPositionBlocked(supportTilePosition))
+            return false;
+
+        if (IsReservedPathExtensionPosition(supportTilePosition) && !supportTilePlacementBuildModeActive)
+            return false;
+
+        return true;
+    }
+
+    public bool TryBuildSupportTileOnBuildTile(Vector2Int supportTilePosition, PathBuildOptionType supportTileType)
+    {
+        if (!CanBuildSupportTileOnBuildTile(supportTilePosition, supportTileType))
+        {
+            ShowBuildWarning("Dieses Feld kann kein Verbau-Tile aufnehmen.");
+            return false;
+        }
+
+        specialBlockedPositions.Add(supportTilePosition);
+        CreateSupportTile(supportTilePosition, supportTileType);
+
+        if (supportTileType == PathBuildOptionType.GoldTile && gameManager != null)
+            gameManager.RegisterGoldTileBuilt();
+
+        RefreshBuildTiles();
+        return true;
+    }
+
     private bool IsTowerSupportTileType(PathBuildOptionType tileType)
     {
         return tileType == PathBuildOptionType.RangeTile ||
@@ -623,7 +665,8 @@ public class TileManager : MonoBehaviour
                tileType == PathBuildOptionType.RateTile ||
                tileType == PathBuildOptionType.XPTile ||
                tileType == PathBuildOptionType.UpgradeTile ||
-               tileType == PathBuildOptionType.GoldTile;
+               tileType == PathBuildOptionType.GoldTile ||
+               tileType == PathBuildOptionType.HealTile;
     }
 
     private bool TryExtendPathTo(Vector2Int newBasePosition, PathBuildOptionType pathTileType)
@@ -1107,8 +1150,6 @@ public class TileManager : MonoBehaviour
                 return knockTilePrefab;
             case PathBuildOptionType.ComboTile:
                 return comboTilePrefab;
-            case PathBuildOptionType.SpecialTile:
-                return specialTilePrefab;
             case PathBuildOptionType.GoldTile:
                 return goldTilePrefab;
             case PathBuildOptionType.RangeTile:
@@ -1121,6 +1162,10 @@ public class TileManager : MonoBehaviour
                 return xpTilePrefab;
             case PathBuildOptionType.UpgradeTile:
                 return upgradeTilePrefab;
+            case PathBuildOptionType.HealTile:
+                return healTilePrefab;
+            case PathBuildOptionType.WeakpointTile:
+                return weakpointTilePrefab;
             default:
                 return null;
         }
@@ -1187,15 +1232,16 @@ public class TileManager : MonoBehaviour
             if (!hasDedicatedGeneratedVisual)
                 ColorTile(pathTileObject, comboTileColor);
         }
+        else if (pathTileType == PathBuildOptionType.WeakpointTile)
+        {
+            ColorWeakpointTile(pathTileObject);
+            UpdatePathTileFlowMarker(gridPosition, pathTileObject);
+        }
         else if (pathTileType == PathBuildOptionType.GoldTile)
         {
             if (!hasDedicatedGeneratedVisual)
                 ColorTile(pathTileObject, goldTileColor);
 
-            return;
-        }
-        else if (pathTileType == PathBuildOptionType.SpecialTile)
-        {
             return;
         }
         else
@@ -1226,10 +1272,10 @@ public class TileManager : MonoBehaviour
                 return knockTilePrefab != null;
             case PathBuildOptionType.ComboTile:
                 return comboTilePrefab != null;
-            case PathBuildOptionType.SpecialTile:
-                return specialTilePrefab != null;
             case PathBuildOptionType.GoldTile:
                 return goldTilePrefab != null;
+            case PathBuildOptionType.WeakpointTile:
+                return weakpointTilePrefab != null;
             default:
                 return false;
         }
@@ -1242,7 +1288,53 @@ public class TileManager : MonoBehaviour
         foreach (Renderer tileRenderer in renderers)
         {
             if (tileRenderer != null && tileRenderer.material != null)
-                tileRenderer.material.color = color;
+                ApplyTileMaterialColor(tileRenderer.material, color);
+        }
+    }
+
+    private void ApplyTileMaterialColor(Material material, Color color)
+    {
+        if (material == null)
+            return;
+
+        material.color = color;
+
+        if (material.HasProperty("_BaseColor"))
+            material.SetColor("_BaseColor", color);
+
+        if (material.HasProperty("_Color"))
+            material.SetColor("_Color", color);
+    }
+
+    private void ColorWeakpointTile(GameObject tileObject)
+    {
+        Renderer[] renderers = tileObject.GetComponentsInChildren<Renderer>();
+
+        foreach (Renderer tileRenderer in renderers)
+        {
+            if (tileRenderer == null || tileRenderer.material == null)
+                continue;
+
+            string rendererName = tileRenderer.gameObject.name;
+            string marker = (rendererName + " " + tileRenderer.material.name).ToLowerInvariant();
+
+            if (rendererName.StartsWith("TD_PathTile_") || marker.Contains("td_mat_tile_"))
+                continue;
+
+            if (rendererName.Contains("Path_Line") || rendererName.Contains("PathLine") || rendererName.Contains("Flow_"))
+                ApplyTileMaterialColor(tileRenderer.material, new Color(0f, 0.88f, 1f, 1f));
+            else if (rendererName.Contains("Edge") || rendererName.Contains("Rail") || marker.Contains("edge"))
+                ApplyTileMaterialColor(tileRenderer.material, new Color(0.36f, 0.39f, 0.42f, 1f));
+            else if (marker.Contains("red"))
+                ApplyTileMaterialColor(tileRenderer.material, new Color32(235, 70, 70, 255));
+            else if (marker.Contains("orange"))
+                ApplyTileMaterialColor(tileRenderer.material, new Color(0.36f, 0.39f, 0.42f, 1f));
+            else if (rendererName.Contains("Surface") || marker.Contains("surface"))
+                ApplyTileMaterialColor(tileRenderer.material, new Color(0.1f, 0.17f, 0.25f, 1f));
+            else if (rendererName.Contains("Base") || rendererName.Contains("Road") || marker.Contains("road"))
+                ApplyTileMaterialColor(tileRenderer.material, new Color(0.1f, 0.12f, 0.15f, 1f));
+            else
+                ApplyTileMaterialColor(tileRenderer.material, weakpointTileColor);
         }
     }
 
@@ -1297,6 +1389,9 @@ public class TileManager : MonoBehaviour
             NormalizeGeneratedTileVisual(generatedSupportTile);
             HideGeneratedTileRailsAndCorners(generatedSupportTile);
 
+            if (supportTileType == PathBuildOptionType.HealTile)
+                ConfigureHealTileVisual(generatedSupportTile);
+
             TowerSupportTileEffect generatedEffect = generatedSupportTile.GetComponent<TowerSupportTileEffect>();
             if (generatedEffect == null)
                 generatedEffect = generatedSupportTile.AddComponent<TowerSupportTileEffect>();
@@ -1342,6 +1437,38 @@ public class TileManager : MonoBehaviour
         specialTileObjects.Add(tileObject);
     }
 
+    private void ConfigureHealTileVisual(GameObject tileObject)
+    {
+        if (tileObject == null)
+            return;
+
+        ColorHealTile(tileObject);
+    }
+
+    private void ColorHealTile(GameObject tileObject)
+    {
+        Renderer[] renderers = tileObject.GetComponentsInChildren<Renderer>();
+
+        foreach (Renderer tileRenderer in renderers)
+        {
+            if (tileRenderer == null || tileRenderer.material == null)
+                continue;
+
+            string marker = (tileRenderer.gameObject.name + " " + tileRenderer.material.name).ToLowerInvariant();
+
+            if (marker.Contains("cross") || marker.Contains("white"))
+                ApplyTileMaterialColor(tileRenderer.material, new Color32(80, 245, 135, 255));
+            else if (marker.Contains("energy") || marker.Contains("glow") || marker.Contains("node") || marker.Contains("heal_green"))
+                ApplyTileMaterialColor(tileRenderer.material, new Color32(45, 125, 85, 255));
+            else if (marker.Contains("edge"))
+                ApplyTileMaterialColor(tileRenderer.material, new Color32(82, 92, 104, 255));
+            else if (marker.Contains("base") || marker.Contains("tile") || marker.Contains("dark") || marker.Contains("surface"))
+                ApplyTileMaterialColor(tileRenderer.material, new Color32(82, 92, 104, 255));
+            else
+                ApplyTileMaterialColor(tileRenderer.material, healTileColor);
+        }
+    }
+
     private Color GetSupportTileColor(PathBuildOptionType supportTileType)
     {
         switch (supportTileType)
@@ -1358,6 +1485,8 @@ public class TileManager : MonoBehaviour
                 return upgradeTileColor;
             case PathBuildOptionType.GoldTile:
                 return goldTileColor;
+            case PathBuildOptionType.HealTile:
+                return healTileColor;
             default:
                 return Color.white;
         }
@@ -1615,6 +1744,7 @@ public class TileManager : MonoBehaviour
             return;
 
         bool foundDirectionalMarker = SetFlowMarkerVisibility(tileObject, direction);
+        SetKnockTileVisualDirection(tileObject, GetKnockTileVisualDirection(position, direction));
 
         if (foundDirectionalMarker)
             return;
@@ -1634,6 +1764,12 @@ public class TileManager : MonoBehaviour
 
         if (centerLine == null)
             centerLine = FindChildByNameContains(tileObject.transform, "CenterLine");
+
+        if (centerLine == null)
+            centerLine = FindChildByNameContains(tileObject.transform, "Path_Line");
+
+        if (centerLine == null)
+            centerLine = FindChildByNameContains(tileObject.transform, "PathLine");
 
         if (centerLine == null)
             return false;
@@ -1673,6 +1809,49 @@ public class TileManager : MonoBehaviour
         return true;
     }
 
+    private Vector2Int GetKnockTileVisualDirection(Vector2Int position, Vector2Int fallbackForwardDirection)
+    {
+        Vector2Int pushDirection = Vector2Int.zero;
+
+        if (pathPositions != null)
+        {
+            int pathIndex = pathPositions.IndexOf(position);
+            if (pathIndex > 0)
+                pushDirection = NormalizeCardinalDirection(pathPositions[pathIndex - 1] - position);
+        }
+
+        if (pushDirection == Vector2Int.zero)
+            pushDirection = NormalizeCardinalDirection(new Vector2Int(-fallbackForwardDirection.x, -fallbackForwardDirection.y));
+
+        return NormalizeCardinalDirection(new Vector2Int(-pushDirection.x, -pushDirection.y));
+    }
+
+    private void SetKnockTileVisualDirection(GameObject tileObject, Vector2Int knockDirection)
+    {
+        if (tileObject == null || knockDirection == Vector2Int.zero)
+            return;
+
+        bool hasKnockVisual =
+            HasChildByExactNameOrPrefix(tileObject.transform, "Knock_North", "Knock_North_") ||
+            HasChildByExactNameOrPrefix(tileObject.transform, "Knock_East", "Knock_East_") ||
+            HasChildByExactNameOrPrefix(tileObject.transform, "Knock_South", "Knock_South_") ||
+            HasChildByExactNameOrPrefix(tileObject.transform, "Knock_West", "Knock_West_");
+
+        if (!hasKnockVisual)
+            return;
+
+        knockDirection = NormalizeCardinalDirection(knockDirection);
+
+        SetKnockVisualDirectionActive(tileObject.transform, "Knock_North", "Knock_North_", knockDirection == Vector2Int.up);
+        SetKnockVisualDirectionActive(tileObject.transform, "Knock_East", "Knock_East_", knockDirection == Vector2Int.right);
+        SetKnockVisualDirectionActive(tileObject.transform, "Knock_South", "Knock_South_", knockDirection == Vector2Int.down);
+        SetKnockVisualDirectionActive(tileObject.transform, "Knock_West", "Knock_West_", knockDirection == Vector2Int.left);
+
+        KnockTileVisualAnimator animator = tileObject.GetComponent<KnockTileVisualAnimator>();
+        if (animator != null)
+            animator.SetDirection(knockDirection);
+    }
+
     private Vector2Int GetPathTileForwardDirection(Vector2Int position)
     {
         if (pathPositions == null || pathPositions.Count == 0)
@@ -1695,6 +1874,71 @@ public class TileManager : MonoBehaviour
         }
 
         return NormalizeCardinalDirection(currentDirection);
+    }
+
+    private Transform FindChildByExactName(Transform root, string exactName)
+    {
+        if (root == null || string.IsNullOrEmpty(exactName))
+            return null;
+
+        if (root.name == exactName)
+            return root;
+
+        for (int i = 0; i < root.childCount; i++)
+        {
+            Transform result = FindChildByExactName(root.GetChild(i), exactName);
+
+            if (result != null)
+                return result;
+        }
+
+        return null;
+    }
+
+    private bool HasChildByExactNameOrPrefix(Transform root, string exactName, string prefix)
+    {
+        return FindChildByExactName(root, exactName) != null ||
+               FindChildByNamePrefix(root, prefix) != null;
+    }
+
+    private void SetKnockVisualDirectionActive(Transform root, string exactName, string prefix, bool active)
+    {
+        Transform group = FindChildByExactName(root, exactName);
+        if (group != null)
+            group.gameObject.SetActive(active);
+
+        SetChildrenActiveByNamePrefix(root, prefix, active);
+    }
+
+    private void SetChildrenActiveByNamePrefix(Transform root, string prefix, bool active)
+    {
+        if (root == null || string.IsNullOrEmpty(prefix))
+            return;
+
+        if (root.name.StartsWith(prefix))
+            root.gameObject.SetActive(active);
+
+        for (int i = 0; i < root.childCount; i++)
+            SetChildrenActiveByNamePrefix(root.GetChild(i), prefix, active);
+    }
+
+    private Transform FindChildByNamePrefix(Transform root, string prefix)
+    {
+        if (root == null || string.IsNullOrEmpty(prefix))
+            return null;
+
+        if (root.name.StartsWith(prefix))
+            return root;
+
+        for (int i = 0; i < root.childCount; i++)
+        {
+            Transform result = FindChildByNamePrefix(root.GetChild(i), prefix);
+
+            if (result != null)
+                return result;
+        }
+
+        return null;
     }
 
     private Vector2Int NormalizeCardinalDirection(Vector2Int direction)
@@ -1848,13 +2092,22 @@ public class TileManager : MonoBehaviour
         if (IsPositionBlocked(position))
             return false;
 
-        if (IsReservedPathExtensionPosition(position))
+        if (IsReservedPathExtensionPosition(position) && !supportTilePlacementBuildModeActive)
             return false;
 
         if (buildTilePositions.Contains(position))
             return false;
 
         return true;
+    }
+
+    public void SetSupportTilePlacementBuildMode(bool active)
+    {
+        if (supportTilePlacementBuildModeActive == active)
+            return;
+
+        supportTilePlacementBuildModeActive = active;
+        RefreshBuildTiles();
     }
 
     public void SetBuildTilesVisible(bool visible)

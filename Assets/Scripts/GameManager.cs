@@ -15,7 +15,8 @@ public enum GamePhase
 public enum GameStartMode
 {
     Normal,
-    Balancing
+    Balancing,
+    Dev
 }
 
 public class GameManager : MonoBehaviour
@@ -121,6 +122,12 @@ public class GameManager : MonoBehaviour
     [Header("Modal / Choice State Debug")]
     public bool postBossChoicePending = false;
     public bool postEliteRewardChoicePending = false;
+    public bool enableAutomaticPostWaveVerbauChoice = false;
+    public bool tileVorratActive = false;
+    public int tileVorratWaveInterval = 5;
+    private int postWaveVerbauChoiceHandledWave = 0;
+    private int postWaveSpecialTileChoiceHandledWave = 0;
+    private int nextTileVorratChoiceWave = 0;
 
     [Header("Elite V1")]
     public int eliteLeakLifeDamage = 5;
@@ -158,7 +165,7 @@ public class GameManager : MonoBehaviour
     public int pendingEvolutionTowerBoosts = 0;
 
     [Header("Gold Tile Rewards")]
-    public float goldTileRewardBonusPerTile = 0.05f;
+    public float goldTileRewardBonusPerTile = 0.03f;
     public int goldTileRewardBonusStacks = 0;
 
     private float goldRewardModifierRemainder = 0f;
@@ -344,6 +351,18 @@ public class GameManager : MonoBehaviour
         RefreshWaveScenarioDebug();
         RefreshWaveDataDebug();
 
+        if (tileManager != null)
+            tileManager.SetCanBuild(true);
+
+        TryQueueNormalPostWaveTileChoiceIfNeeded();
+
+        if (TryOpenPostWaveVerbauChoiceIfNeeded())
+        {
+            RaiseBuildPhaseStartedEvent();
+            Debug.Log("Wave finished. Verbauauswahl geoeffnet.");
+            return;
+        }
+
         if (tileManager != null && !tileManager.HasAnyValidExtension())
         {
             HandleBaseBlocked();
@@ -354,11 +373,145 @@ public class GameManager : MonoBehaviour
         isTimedBlockedBuildPhase = false;
         blockedEventChosenForCurrentPosition = false;
 
+        RaiseBuildPhaseStartedEvent();
+        Debug.Log("Wave finished. Build phase started.");
+    }
+
+    private bool TryOpenPostWaveVerbauChoiceIfNeeded()
+    {
+        if (TryOpenTileVorratChoiceIfNeeded())
+            return true;
+
+        if (!enableAutomaticPostWaveVerbauChoice)
+            return false;
+
+        ResolveOptionalInteractionReferences();
+
+        if (pathBuildManager == null || lastCompletedWaveResult == null)
+            return false;
+
+        int completedWave = Mathf.Max(0, lastCompletedWaveResult.waveNumber);
+        if (completedWave <= 0 || completedWave == postWaveVerbauChoiceHandledWave)
+            return false;
+
+        bool opened = pathBuildManager.OpenPostWaveVerbauChoiceForCompletedWave(lastCompletedWaveResult);
+
+        if (opened)
+            postWaveVerbauChoiceHandledWave = completedWave;
+
+        return opened;
+    }
+
+    private bool TryOpenTileVorratChoiceIfNeeded()
+    {
+        if (!tileVorratActive)
+            return false;
+
+        ResolveOptionalInteractionReferences();
+
+        if (pathBuildManager == null || lastCompletedWaveResult == null)
+            return false;
+
+        int completedWave = Mathf.Max(0, lastCompletedWaveResult.waveNumber);
+        if (completedWave <= 0)
+            return false;
+
+        int interval = GetTileVorratWaveInterval();
+        if (nextTileVorratChoiceWave <= 0)
+            nextTileVorratChoiceWave = GetNextTileVorratChoiceWaveAfter(completedWave - 1, interval);
+
+        if (completedWave < nextTileVorratChoiceWave)
+            return false;
+
+        if (completedWave > nextTileVorratChoiceWave)
+        {
+            nextTileVorratChoiceWave = GetNextTileVorratChoiceWaveAfter(completedWave, interval);
+            return false;
+        }
+
+        bool opened = pathBuildManager.OpenTileVorratChoiceForCompletedWave(lastCompletedWaveResult);
+
+        if (opened)
+            nextTileVorratChoiceWave = GetNextTileVorratChoiceWaveAfter(completedWave, interval);
+
+        return opened;
+    }
+
+    public void ActivateTileVorrat()
+    {
+        tileVorratActive = true;
+
+        int completedWave = lastCompletedWaveResult != null
+            ? Mathf.Max(0, lastCompletedWaveResult.waveNumber)
+            : Mathf.Max(0, waveNumber);
+
+        nextTileVorratChoiceWave = GetNextTileVorratChoiceWaveAfter(completedWave, GetTileVorratWaveInterval());
+    }
+
+    public bool IsTileVorratActive()
+    {
+        return tileVorratActive;
+    }
+
+    private int GetTileVorratWaveInterval()
+    {
+        return Mathf.Max(5, tileVorratWaveInterval);
+    }
+
+    private int GetNextTileVorratChoiceWaveAfter(int completedWave, int interval)
+    {
+        int safeInterval = Mathf.Max(1, interval);
+        int safeCompletedWave = Mathf.Max(0, completedWave);
+        return ((safeCompletedWave / safeInterval) + 1) * safeInterval;
+    }
+
+    private void ResetQueuedTileChoices()
+    {
+        ResolveOptionalInteractionReferences();
+
+        if (pathBuildManager != null)
+            pathBuildManager.ResetQueuedTileChoices();
+    }
+
+    private bool TryQueueNormalPostWaveTileChoiceIfNeeded()
+    {
+        ResolveOptionalInteractionReferences();
+
+        if (pathBuildManager == null || lastCompletedWaveResult == null)
+            return false;
+
+        int completedWave = Mathf.Max(0, lastCompletedWaveResult.waveNumber);
+        if (completedWave <= 0 || completedWave == postWaveSpecialTileChoiceHandledWave)
+            return false;
+
+        bool queued = pathBuildManager.QueueSpecialTileChoiceForCompletedWave(lastCompletedWaveResult);
+
+        if (queued)
+            postWaveSpecialTileChoiceHandledWave = completedWave;
+
+        return queued;
+    }
+
+    public void FinishPostWaveVerbauChoice()
+    {
+        if (!gameStarted || isGameOver)
+            return;
+
+        currentPhase = GamePhase.Build;
+
         if (tileManager != null)
             tileManager.SetCanBuild(true);
 
+        if (tileManager != null && !tileManager.HasAnyValidExtension())
+        {
+            HandleBaseBlocked();
+            return;
+        }
+
+        isBaseBlocked = false;
+        isTimedBlockedBuildPhase = false;
+        blockedEventChosenForCurrentPosition = false;
         RaiseBuildPhaseStartedEvent();
-        Debug.Log("Wave finished. Build phase started.");
     }
 
     public void ResumeBuildPhaseAfterChaosJusticeChoice()
@@ -413,7 +566,17 @@ public class GameManager : MonoBehaviour
 
     public bool IsBalancingGameMode()
     {
-        return currentStartMode == GameStartMode.Balancing;
+        return currentStartMode == GameStartMode.Balancing || currentStartMode == GameStartMode.Dev;
+    }
+
+    public bool IsDevGameMode()
+    {
+        return currentStartMode == GameStartMode.Dev;
+    }
+
+    public bool IsMetaProgressionSuppressedForCurrentRun()
+    {
+        return gameStarted && currentStartMode == GameStartMode.Dev;
     }
 
     public void OpenStartMenu()
@@ -443,7 +606,7 @@ public class GameManager : MonoBehaviour
 
     public void StartBalancingGame()
     {
-        StartSelectedGame(GameStartMode.Balancing);
+        StartSelectedGame(GameStartMode.Dev);
     }
 
     private void StartSelectedGame(GameStartMode mode)
@@ -456,6 +619,10 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 1f;
         postBossChoicePending = false;
         postEliteRewardChoicePending = false;
+        tileVorratActive = false;
+        postWaveVerbauChoiceHandledWave = 0;
+        postWaveSpecialTileChoiceHandledWave = 0;
+        nextTileVorratChoiceWave = 0;
         blockedEventRewardBonusStacks = 0;
         blockedEventRewardBonusGrowthStacks = 0;
         goldTileRewardBonusStacks = 0;
@@ -463,6 +630,7 @@ public class GameManager : MonoBehaviour
         xpRewardModifierRemainder = 0f;
         towerBuildCountByRole.Clear();
         pendingEvolutionTowerBoosts = 0;
+        ResetQueuedTileChoices();
         ApplyStartModeResources(mode);
 
         TowerMasteryManager towerMasteryManager = GetTowerMasteryManager();
@@ -553,15 +721,18 @@ public class GameManager : MonoBehaviour
         RefreshWaveDataDebug();
         RaiseBuildPhaseStartedEvent();
 
-        Debug.Log(mode == GameStartMode.Balancing
-            ? "Balancing Game gestartet: feste Enemy-Typ-Waves aktiv."
-            : "Spiel gestartet.");
+        Debug.Log(mode == GameStartMode.Dev
+            ? "Dev Game gestartet: alle Tower/Tiles frei, Meta-Progression deaktiviert."
+            : mode == GameStartMode.Balancing
+                ? "Balancing Game gestartet: feste Enemy-Typ-Waves aktiv."
+                : "Spiel gestartet.");
     }
 
     private void ApplyStartModeResources(GameStartMode mode)
     {
-        gold = mode == GameStartMode.Balancing ? balancingStartGold : normalStartGold;
-        lives = mode == GameStartMode.Balancing ? balancingStartLives : normalStartLives;
+        bool devResources = mode == GameStartMode.Balancing || mode == GameStartMode.Dev;
+        gold = devResources ? balancingStartGold : normalStartGold;
+        lives = devResources ? balancingStartLives : normalStartLives;
 
         if (mode == GameStartMode.Normal)
         {
@@ -1083,7 +1254,7 @@ public class GameManager : MonoBehaviour
     {
         int safeWave = Mathf.Max(1, targetWaveNumber);
 
-        if (currentStartMode == GameStartMode.Balancing)
+        if (IsBalancingGameMode())
             return GetBalancingBaseEnemyCountForWave(safeWave);
 
         int baseCount = Mathf.Max(10, baseEnemyCount);
@@ -1151,7 +1322,7 @@ public class GameManager : MonoBehaviour
         if (enemySpawner == null)
             return WaveScenario.Mixed;
 
-        if (currentStartMode == GameStartMode.Balancing)
+        if (IsBalancingGameMode())
             return enemySpawner.GetBalancingWaveScenario(targetWaveNumber);
 
         return enemySpawner.GetWaveScenario(targetWaveNumber);
@@ -1172,7 +1343,7 @@ public class GameManager : MonoBehaviour
         if (enemySpawner == null)
             return currentWaveScenario.ToString();
 
-        if (currentStartMode == GameStartMode.Balancing)
+        if (IsBalancingGameMode())
             return enemySpawner.GetBalancingScenarioNameForWave(Mathf.Max(1, waveNumber));
 
         return enemySpawner.GetScenarioNameForWave(Mathf.Max(1, waveNumber));
@@ -1183,7 +1354,7 @@ public class GameManager : MonoBehaviour
         if (enemySpawner == null)
             return GetNextWaveScenario().ToString();
 
-        if (currentStartMode == GameStartMode.Balancing)
+        if (IsBalancingGameMode())
             return enemySpawner.GetBalancingScenarioNameForWave(waveNumber + 1);
 
         return enemySpawner.GetScenarioNameForWave(waveNumber + 1);
@@ -1197,7 +1368,7 @@ public class GameManager : MonoBehaviour
         int safeWave = Mathf.Max(1, targetWaveNumber);
         int enemyCount = CalculateEnemyCountForWave(safeWave);
 
-        if (currentStartMode == GameStartMode.Balancing)
+        if (IsBalancingGameMode())
             return enemySpawner.BuildBalancingWaveDataForWave(safeWave);
 
         return enemySpawner.BuildWaveDataForWave(safeWave, enemyCount);
@@ -1291,7 +1462,6 @@ public class GameManager : MonoBehaviour
             "\n\n" + enemyPreview;
 
         previewText += BuildMetaPreviewDetails(data, generalMeta);
-        previewText += BuildStartScoutPreview(data.waveNumber, generalMeta);
 
         return previewText;
     }
@@ -1326,31 +1496,6 @@ public class GameManager : MonoBehaviour
 
         if (generalMeta.HasChaosWavePreview() && data.hasChaosWaveBlocks)
             builder.AppendLine("Chaos-Wave: " + data.GetChaosWaveDetailsText());
-
-        if (builder.Length <= 0)
-            return "";
-
-        return "\n\n" + builder.ToString().TrimEnd();
-    }
-
-    private string BuildStartScoutPreview(int nextWaveNumber, GeneralMetaProgressionManager generalMeta)
-    {
-        if (generalMeta == null || !generalMeta.IsStartScoutActive() || nextWaveNumber >= 3)
-            return "";
-
-        StringBuilder builder = new StringBuilder();
-
-        for (int wave = nextWaveNumber + 1; wave <= 3; wave++)
-        {
-            WaveData scoutData = BuildWaveDataForGameWave(wave);
-            if (scoutData == null)
-                continue;
-
-            if (builder.Length == 0)
-                builder.AppendLine("Start-Scout:");
-
-            builder.AppendLine("Wave " + scoutData.waveNumber + " - " + scoutData.scenarioName + " | " + scoutData.totalSpawnCount + " Gegner");
-        }
 
         if (builder.Length <= 0)
             return "";
@@ -1717,6 +1862,12 @@ public class GameManager : MonoBehaviour
             if (isGameOver)
                 yield break;
 
+            if (IsTileVorratChoiceBlockingTimedBuildPhase())
+            {
+                yield return null;
+                continue;
+            }
+
             blockedBuildTimeRemaining -= Time.deltaTime;
             yield return null;
         }
@@ -1725,6 +1876,14 @@ public class GameManager : MonoBehaviour
         isTimedBlockedBuildPhase = false;
         blockedBuildTimerCoroutine = null;
         StartNextWave();
+    }
+
+    private bool IsTileVorratChoiceBlockingTimedBuildPhase()
+    {
+        if (pathBuildManager == null)
+            ResolveOptionalInteractionReferences();
+
+        return pathBuildManager != null && pathBuildManager.IsImmediateVerbauChoiceOrPlacementActive();
     }
 
     private void StopBlockedBuildTimer()
@@ -2027,7 +2186,7 @@ public class GameManager : MonoBehaviour
 
     public int GetCurrentMaxLives()
     {
-        if (currentStartMode == GameStartMode.Balancing)
+        if (IsBalancingGameMode())
             return Mathf.Max(1, balancingStartLives);
 
         GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
@@ -2236,6 +2395,9 @@ public class GameManager : MonoBehaviour
         if (lowerName.Contains("lightning")) { role = TowerRole.Lightning; return true; }
         if (lowerName.Contains("mortar")) { role = TowerRole.Mortar; return true; }
         if (lowerName.Contains("spike")) { role = TowerRole.Spike; return true; }
+        if (lowerName.Contains("beam")) { role = TowerRole.Beam; return true; }
+        if (lowerName.Contains("support")) { role = TowerRole.Support; return true; }
+        if (lowerName.Contains("frost")) { role = TowerRole.Frost; return true; }
 
         role = TowerRole.Basic;
         return false;
@@ -2272,6 +2434,9 @@ public class GameManager : MonoBehaviour
             return;
 
         int safeAmount = Mathf.Max(0, amount);
+        GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
+        if (generalMeta != null)
+            safeAmount = generalMeta.ApplyStartProtectionToLifeLoss(safeAmount);
 
         if (safeAmount > 0)
         {
@@ -2290,6 +2455,10 @@ public class GameManager : MonoBehaviour
         {
             lives = 0;
             GameOver();
+        }
+        else if (generalMeta != null)
+        {
+            generalMeta.TryTriggerEmergencyReserve(this, lives);
         }
 
         Debug.Log("Lives: " + lives);
@@ -2616,6 +2785,10 @@ public class GameManager : MonoBehaviour
     public void RegisterTowerBuilt(Tower tower, int cost, Vector2Int gridPosition, Vector3 worldPosition, GameObject towerPrefab, string displayName)
     {
         RegisterTowerTypePurchase(tower, towerPrefab, displayName);
+
+        GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
+        if (generalMeta != null)
+            generalMeta.TryGrantStartXPToFirstTower(tower);
 
         RunStatisticsTracker stats = GetRunStatisticsTracker();
 

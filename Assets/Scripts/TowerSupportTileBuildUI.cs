@@ -59,8 +59,11 @@ public class TowerSupportTileBuildUI : MonoBehaviour
 
     public void Show(TowerSupportTileEffect tile)
     {
-        if (tile == null || !tile.IsTowerSupportTile())
+        if (tile == null || !tile.IsTowerSupportTile() || !tile.IsAvailableForBuild())
+        {
+            Hide();
             return;
+        }
 
         ResolveReferences();
         EnsureUI();
@@ -79,16 +82,21 @@ public class TowerSupportTileBuildUI : MonoBehaviour
         if (currentTile == null)
             return;
 
+        bool available = currentTile.IsAvailableForBuild();
+        if (!available)
+        {
+            Hide();
+            return;
+        }
+
         if (titleText != null)
             titleText.text = TowerSupportTileEffect.GetDisplayName(currentTile.tileType);
 
         if (descriptionText != null)
             descriptionText.text = TowerSupportTileEffect.GetEffectDescription(currentTile.tileType);
 
-        bool available = currentTile.IsAvailableForBuild();
-
         if (statusText != null)
-            statusText.text = available ? "Frei" : "Belegt";
+            statusText.text = "Frei";
 
         if (buildButton != null)
             buildButton.interactable = available && buildSelectionUI != null && tileManager != null && tileManager.IsBuildAllowed();
@@ -106,6 +114,12 @@ public class TowerSupportTileBuildUI : MonoBehaviour
     {
         if (currentTile == null)
             return;
+
+        if (!currentTile.IsAvailableForBuild())
+        {
+            Hide();
+            return;
+        }
 
         ResolveReferences();
 

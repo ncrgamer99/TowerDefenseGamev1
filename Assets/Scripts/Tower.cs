@@ -26,7 +26,10 @@ public enum TowerRole
     Alchemist,
     Lightning,
     Mortar,
-    Spike
+    Spike,
+    Beam,
+    Support,
+    Frost
 }
 
 public class Tower : MonoBehaviour
@@ -173,11 +176,24 @@ public class Tower : MonoBehaviour
     public float slowAmount = 0.5f;
     public float slowDuration = 2f;
 
+    [Header("Beam Tower")]
+    public float beamDamagePerSecondMultiplier = 1f;
+    public float beamTickInterval = 0.15f;
+    public Color beamLineColor = new Color32(90, 235, 255, 220);
+    public float beamLineWidth = 0.045f;
+
+    [Header("Support Tower")]
+    public float supportAuraRange = 2.6f;
+    public float supportAuraDamageBonus = 0.08f;
+    public float supportAuraFireRateBonus = 0.05f;
+
     [Header("Projectile")]
     public GameObject projectilePrefab;
     public Transform firePoint;
 
     private float fireCooldown = 0f;
+    private LineRenderer beamLineRenderer;
+    private float beamTickTimer = 0f;
     [SerializeField, HideInInspector] private int pointDamageBonusPurchased = 0;
     [SerializeField, HideInInspector] private float pointRangeBonusPurchased = 0f;
     [SerializeField, HideInInspector] private float pointFireRateBonusPurchased = 0f;
@@ -290,6 +306,13 @@ public class Tower : MonoBehaviour
         slowAmount = Mathf.Clamp01(slowAmount);
         slowDuration = Mathf.Max(0f, slowDuration);
 
+        beamDamagePerSecondMultiplier = Mathf.Max(0f, beamDamagePerSecondMultiplier);
+        beamTickInterval = Mathf.Max(0.03f, beamTickInterval);
+        beamLineWidth = Mathf.Clamp(beamLineWidth, 0.005f, 0.2f);
+        supportAuraRange = Mathf.Max(0f, supportAuraRange);
+        supportAuraDamageBonus = Mathf.Max(0f, supportAuraDamageBonus);
+        supportAuraFireRateBonus = Mathf.Max(0f, supportAuraFireRateBonus);
+
         RefreshProgressionValues();
     }
 
@@ -318,6 +341,12 @@ public class Tower : MonoBehaviour
 
         Enemy target = FindTarget();
         SetCurrentTarget(target);
+
+        if (towerRole == TowerRole.Beam)
+        {
+            UpdateBeamTower(target);
+            return;
+        }
 
         int shotsThisFrame = 0;
         int maxShotsPerFrame = 5;
@@ -348,6 +377,81 @@ public class Tower : MonoBehaviour
         {
             fireCooldown = Mathf.Max(fireCooldown, 0f);
         }
+    }
+
+    private void UpdateBeamTower(Enemy target)
+    {
+        if (target == null)
+        {
+            SetBeamLineActive(false);
+            return;
+        }
+
+        EnsureBeamLineRenderer();
+        SetBeamLineActive(true);
+        UpdateBeamLinePositions(target);
+
+        beamTickTimer -= Time.deltaTime;
+        if (beamTickTimer > 0f)
+            return;
+
+        float safeInterval = Mathf.Max(0.03f, beamTickInterval);
+        beamTickTimer += safeInterval;
+
+        if (beamTickTimer < 0f)
+            beamTickTimer = safeInterval;
+
+        float damagePerSecond = GetBeamDamagePerSecond();
+        float tickDamage = Mathf.Max(0f, damagePerSecond * safeInterval);
+        if (tickDamage > 0f)
+            target.TakeDamage(tickDamage, this);
+    }
+
+    public float GetBeamDamagePerSecond()
+    {
+        return Mathf.Max(0f, GetEffectiveDamage() * GetEffectiveFireRate() * Mathf.Max(0f, beamDamagePerSecondMultiplier));
+    }
+
+    private void EnsureBeamLineRenderer()
+    {
+        if (beamLineRenderer != null)
+            return;
+
+        GameObject lineObject = new GameObject("BeamLine");
+        lineObject.transform.SetParent(transform, false);
+        beamLineRenderer = lineObject.AddComponent<LineRenderer>();
+        beamLineRenderer.positionCount = 2;
+        beamLineRenderer.useWorldSpace = true;
+        beamLineRenderer.startWidth = beamLineWidth;
+        beamLineRenderer.endWidth = beamLineWidth;
+        beamLineRenderer.numCapVertices = 4;
+        Material material = new Material(Shader.Find("Sprites/Default"));
+        material.color = beamLineColor;
+        beamLineRenderer.material = material;
+        beamLineRenderer.startColor = beamLineColor;
+        beamLineRenderer.endColor = beamLineColor;
+        beamLineRenderer.enabled = false;
+    }
+
+    private void SetBeamLineActive(bool active)
+    {
+        if (beamLineRenderer != null)
+            beamLineRenderer.enabled = active;
+    }
+
+    private void UpdateBeamLinePositions(Enemy target)
+    {
+        if (beamLineRenderer == null || target == null)
+            return;
+
+        Vector3 start = firePoint != null ? firePoint.position : transform.position + Vector3.up * 0.75f;
+        Vector3 end = target.transform.position + Vector3.up * 0.35f;
+        beamLineRenderer.startWidth = beamLineWidth;
+        beamLineRenderer.endWidth = beamLineWidth;
+        beamLineRenderer.startColor = beamLineColor;
+        beamLineRenderer.endColor = beamLineColor;
+        beamLineRenderer.SetPosition(0, start);
+        beamLineRenderer.SetPosition(1, end);
     }
 
     private void SetCurrentTarget(Enemy target)
@@ -382,6 +486,15 @@ public class Tower : MonoBehaviour
 
         if (lowerName.Contains("spike"))
             return TowerRole.Spike;
+
+        if (lowerName.Contains("beam"))
+            return TowerRole.Beam;
+
+        if (lowerName.Contains("support"))
+            return TowerRole.Support;
+
+        if (lowerName.Contains("frost"))
+            return TowerRole.Frost;
 
         if (lowerName.Contains("rapid"))
             return TowerRole.Rapid;
@@ -424,6 +537,12 @@ public class Tower : MonoBehaviour
 
         upgradePointCostPerUpgrade = 1;
         pointUpgradePowerMultiplier = 3;
+        beamDamagePerSecondMultiplier = 1f;
+        beamTickInterval = 0.15f;
+        beamLineColor = new Color32(90, 235, 255, 220);
+        supportAuraRange = 2.6f;
+        supportAuraDamageBonus = 0.08f;
+        supportAuraFireRateBonus = 0.05f;
 
         switch (role)
         {
@@ -675,6 +794,76 @@ public class Tower : MonoBehaviour
                 poisonDamageIncreasePerGoldUpgrade = 2;
                 effectDurationIncreasePerGoldUpgrade = 0.45f;
                 break;
+
+            case TowerRole.Beam:
+                towerName = "Beam Tower";
+                damage = 6;
+                range = 3.2f;
+                fireRate = 1.0f;
+                targetMode = TowerTargetMode.First;
+                beamDamagePerSecondMultiplier = 1.0f;
+                beamTickInterval = 0.12f;
+
+                damageUpgradeCost = 85;
+                rangeUpgradeCost = 75;
+                fireRateUpgradeCost = 85;
+                effectUpgradeCost = 90;
+                goldUpgradeCostIncrease = 30;
+                goldUpgradeCostMultiplier = 1.35f;
+
+                damageIncreasePerGoldUpgrade = 1;
+                rangeIncreasePerGoldUpgrade = 0.20f;
+                fireRateIncreasePerGoldUpgrade = 0.12f;
+                effectDurationIncreasePerGoldUpgrade = 0.08f;
+                break;
+
+            case TowerRole.Support:
+                towerName = "Support Tower";
+                damage = 1;
+                range = 2.5f;
+                fireRate = 0.55f;
+                targetMode = TowerTargetMode.First;
+                supportAuraRange = 2.75f;
+                supportAuraDamageBonus = 0.08f;
+                supportAuraFireRateBonus = 0.05f;
+
+                damageUpgradeCost = 65;
+                rangeUpgradeCost = 70;
+                fireRateUpgradeCost = 80;
+                effectUpgradeCost = 90;
+                goldUpgradeCostIncrease = 25;
+                goldUpgradeCostMultiplier = 1.25f;
+
+                damageIncreasePerGoldUpgrade = 1;
+                rangeIncreasePerGoldUpgrade = 0.20f;
+                fireRateIncreasePerGoldUpgrade = 0.12f;
+                effectDurationIncreasePerGoldUpgrade = 0.03f;
+                break;
+
+            case TowerRole.Frost:
+                towerName = "Frost Tower";
+                damage = 3;
+                range = 2.9f;
+                fireRate = 0.75f;
+                targetMode = TowerTargetMode.NoSlow;
+
+                appliesSlow = true;
+                slowAmount = 0.42f;
+                slowDuration = 1.65f;
+
+                damageUpgradeCost = 70;
+                rangeUpgradeCost = 65;
+                fireRateUpgradeCost = 85;
+                effectUpgradeCost = 85;
+                goldUpgradeCostIncrease = 25;
+                goldUpgradeCostMultiplier = 1.30f;
+
+                damageIncreasePerGoldUpgrade = 1;
+                rangeIncreasePerGoldUpgrade = 0.20f;
+                fireRateIncreasePerGoldUpgrade = 0.16f;
+                slowAmountIncreasePerGoldUpgrade = 0.012f;
+                slowDurationIncreasePerGoldUpgrade = 0.18f;
+                break;
         }
     }
 
@@ -873,7 +1062,16 @@ public class Tower : MonoBehaviour
 
     private bool ShouldGainMetaProgressionPoint(int reachedLevel)
     {
+        if (IsMetaProgressionSuppressedForCurrentRun())
+            return false;
+
         return reachedLevel % metaProgressionLevelInterval == 0;
+    }
+
+    private bool IsMetaProgressionSuppressedForCurrentRun()
+    {
+        GameManager manager = ResolveGameManagerForRunStats();
+        return manager != null && manager.IsMetaProgressionSuppressedForCurrentRun();
     }
 
     private Enemy FindTarget()
@@ -1334,6 +1532,7 @@ public class Tower : MonoBehaviour
         switch (towerRole)
         {
             case TowerRole.Mortar:
+            case TowerRole.Frost:
                 return 8f;
             case TowerRole.Spike:
                 return 24f;
@@ -1351,6 +1550,7 @@ public class Tower : MonoBehaviour
             case TowerRole.Lightning:
                 return ProjectileBehavior.LightningChain;
             case TowerRole.Mortar:
+            case TowerRole.Frost:
                 return ProjectileBehavior.MortarAOE;
             case TowerRole.Spike:
                 return ProjectileBehavior.SpikeTrap;
@@ -1374,6 +1574,13 @@ public class Tower : MonoBehaviour
         else if (towerRole == TowerRole.Mortar)
         {
             projectile.mortarRadius = 0.85f;
+
+            if (target != null)
+                projectile.SetMortarImpactPosition(target.transform.position);
+        }
+        else if (towerRole == TowerRole.Frost)
+        {
+            projectile.mortarRadius = 0.72f;
 
             if (target != null)
                 projectile.SetMortarImpactPosition(target.transform.position);
@@ -1625,11 +1832,14 @@ public class Tower : MonoBehaviour
         RefreshUpgradePointAvailableVisual();
         RecordTowerLevelUpForRunStats(gainedUpgradePoint, gainedMetaPoint, gainedVisualTier);
 
-        if (TowerMasteryManager.TryGetActive(out TowerMasteryManager towerMasteryManager))
-            towerMasteryManager.RecordTowerLevelReached(this, level);
+        if (!IsMetaProgressionSuppressedForCurrentRun())
+        {
+            if (TowerMasteryManager.TryGetActive(out TowerMasteryManager towerMasteryManager))
+                towerMasteryManager.RecordTowerLevelReached(this, level);
 
-        if (towerRole == TowerRole.Basic && BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager masteryManager))
-            masteryManager.RecordBasicLevelReached(this, level);
+            if (towerRole == TowerRole.Basic && BasicTowerMasteryManager.TryGetActive(out BasicTowerMasteryManager masteryManager))
+                masteryManager.RecordBasicLevelReached(this, level);
+        }
 
         Debug.Log(message);
     }
@@ -1887,6 +2097,22 @@ public class Tower : MonoBehaviour
                 pointSpikeBleedDurationBonusPurchased += GetPointSpikeBleedDurationIncreasePreview();
             }
 
+            return;
+        }
+
+        if (towerRole == TowerRole.Beam)
+        {
+            float increase = Mathf.Max(0f, effectDurationIncreasePerGoldUpgrade * safeMultiplier);
+            beamDamagePerSecondMultiplier += scaleImprovement ? ScaleFloatUpgrade(increase) : increase;
+            return;
+        }
+
+        if (towerRole == TowerRole.Support)
+        {
+            float increase = Mathf.Max(0f, effectDurationIncreasePerGoldUpgrade * safeMultiplier);
+            float appliedIncrease = scaleImprovement ? ScaleFloatUpgrade(increase) : increase;
+            supportAuraDamageBonus += appliedIncrease;
+            supportAuraFireRateBonus += appliedIncrease * 0.5f;
             return;
         }
 
@@ -2206,7 +2432,7 @@ public class Tower : MonoBehaviour
 
     public bool HasAnyEffect()
     {
-        return appliesBurn || appliesPoison || appliesSlow || towerRole == TowerRole.Spike;
+        return appliesBurn || appliesPoison || appliesSlow || towerRole == TowerRole.Spike || towerRole == TowerRole.Beam || towerRole == TowerRole.Support;
     }
 
     public float GetEffectiveRange()
@@ -2283,7 +2509,7 @@ public class Tower : MonoBehaviour
         if (towerRole == TowerRole.Slow && SlowTowerMasteryManager.TryGetActive(out SlowTowerMasteryManager slowMasteryManager))
             baseFireRate = (baseFireRate + slowMasteryManager.GetSlowFireRateAdditive()) * slowMasteryManager.GetSlowFireRateMultiplier(this);
 
-        return Mathf.Max(0.01f, baseFireRate * TowerSupportTileEffect.GetFireRateMultiplier(this));
+        return Mathf.Max(0.01f, baseFireRate * TowerSupportTileEffect.GetFireRateMultiplier(this) * GetSupportAuraFireRateMultiplier(this));
     }
 
     public int GetEffectiveDamage()
@@ -2317,7 +2543,43 @@ public class Tower : MonoBehaviour
         if (towerRole == TowerRole.Alchemist && AlchemistTowerMasteryManager.TryGetActive(out AlchemistTowerMasteryManager alchemistMasteryManager))
             baseDamage += alchemistMasteryManager.GetAlchemistDamageBaseBonus();
 
-        return Mathf.Max(0, Mathf.RoundToInt(baseDamage * TowerSupportTileEffect.GetDamageMultiplier(this)));
+        return Mathf.Max(0, Mathf.RoundToInt(baseDamage * TowerSupportTileEffect.GetDamageMultiplier(this) * GetSupportAuraDamageMultiplier(this)));
+    }
+
+    private static float GetSupportAuraDamageMultiplier(Tower tower)
+    {
+        return 1f + GetSupportAuraBonus(tower, true);
+    }
+
+    private static float GetSupportAuraFireRateMultiplier(Tower tower)
+    {
+        return 1f + GetSupportAuraBonus(tower, false);
+    }
+
+    private static float GetSupportAuraBonus(Tower tower, bool damageBonus)
+    {
+        if (tower == null)
+            return 0f;
+
+        Tower[] towers = Object.FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        float totalBonus = 0f;
+
+        foreach (Tower source in towers)
+        {
+            if (source == null || source == tower || source.towerRole != TowerRole.Support)
+                continue;
+
+            float range = Mathf.Max(0f, source.supportAuraRange + TowerSupportTileEffect.GetRangeBonus(source));
+            if (range <= 0f)
+                continue;
+
+            if (Vector3.Distance(source.transform.position, tower.transform.position) > range)
+                continue;
+
+            totalBonus += damageBonus ? source.supportAuraDamageBonus : source.supportAuraFireRateBonus;
+        }
+
+        return Mathf.Clamp(totalBonus, 0f, damageBonus ? 0.35f : 0.30f);
     }
 
     private int GetEffectivePointUpgradePowerMultiplier()
@@ -2386,6 +2648,21 @@ public class Tower : MonoBehaviour
         return 1f;
     }
 
+    public float GetGoldBeamDamageMultiplierIncreasePreview()
+    {
+        return Mathf.Max(0f, effectDurationIncreasePerGoldUpgrade);
+    }
+
+    public float GetGoldSupportAuraDamageIncreasePreview()
+    {
+        return Mathf.Max(0f, effectDurationIncreasePerGoldUpgrade);
+    }
+
+    public float GetGoldSupportAuraFireRateIncreasePreview()
+    {
+        return Mathf.Max(0f, effectDurationIncreasePerGoldUpgrade * 0.5f);
+    }
+
     public int GetPointDamageIncreasePreview()
     {
         return ScaleIntegerUpgrade(damageIncreasePerGoldUpgrade * GetEffectivePointUpgradePowerMultiplier());
@@ -2424,6 +2701,21 @@ public class Tower : MonoBehaviour
     public float GetPointSlowDurationIncreasePreview()
     {
         return ScaleFloatUpgrade(slowDurationIncreasePerGoldUpgrade * GetEffectivePointUpgradePowerMultiplier());
+    }
+
+    public float GetPointBeamDamageMultiplierIncreasePreview()
+    {
+        return GetPointEffectDurationIncreasePreview();
+    }
+
+    public float GetPointSupportAuraDamageIncreasePreview()
+    {
+        return GetPointEffectDurationIncreasePreview();
+    }
+
+    public float GetPointSupportAuraFireRateIncreasePreview()
+    {
+        return GetPointEffectDurationIncreasePreview() * 0.5f;
     }
 
     public int GetUpgradePointCost()
