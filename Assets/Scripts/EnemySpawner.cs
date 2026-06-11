@@ -43,6 +43,10 @@ public class EnemySpawner : MonoBehaviour
     [Header("Spawn Settings")]
     public float spawnDelay = 0.4f;
 
+    [Header("Enemy Pooling")]
+    public bool useEnemyPooling = true;
+    public int maxPooledEnemiesPerPrefab = 96;
+
     [Header("Spawn Delay Scaling")]
     public bool scaleSpawnDelayByWave = true;
     public int spawnDelayScalingStartWave = 11;
@@ -113,15 +117,18 @@ public class EnemySpawner : MonoBehaviour
     private int aliveEnemies = 0;
     private Action onWaveFinished;
     private Coroutine activeSpawnCoroutine;
+    private readonly Dictionary<GameObject, Stack<Enemy>> enemyPools = new Dictionary<GameObject, Stack<Enemy>>();
 
     private void Awake()
     {
         ClampEliteWaveSettings();
+        maxPooledEnemiesPerPrefab = Mathf.Max(0, maxPooledEnemiesPerPrefab);
     }
 
     private void OnValidate()
     {
         ClampEliteWaveSettings();
+        maxPooledEnemiesPerPrefab = Mathf.Max(0, maxPooledEnemiesPerPrefab);
     }
 
     public void StartWave(int enemyCount, Action finishedCallback)
@@ -2161,13 +2168,11 @@ public class EnemySpawner : MonoBehaviour
             return;
         }
 
-        GameObject enemyObject = Instantiate(enemyPrefab);
-        Enemy enemy = enemyObject.GetComponent<Enemy>();
+        Enemy enemy = GetEnemyFromPool(enemyPrefab);
 
         if (enemy == null)
         {
             Debug.LogError("Enemy Script fehlt auf Enemy Prefab!");
-            Destroy(enemyObject);
             HandleEnemyFinished(null);
             return;
         }
@@ -2179,6 +2184,72 @@ public class EnemySpawner : MonoBehaviour
 
         if ((role == EnemyRole.Elite || enemy.isElite) && gameManager != null)
             gameManager.OpenEliteSpawnWarning(enemy);
+    }
+
+    private Enemy GetEnemyFromPool(GameObject enemyPrefab)
+    {
+        Enemy enemy = GetPooledEnemy(enemyPrefab);
+
+        if (enemy == null)
+        {
+            GameObject enemyObject = Instantiate(enemyPrefab);
+            enemy = enemyObject.GetComponent<Enemy>();
+
+            if (enemy == null)
+            {
+                Destroy(enemyObject);
+                return null;
+            }
+        }
+
+        enemy.PrepareForPoolReuse(this, enemyPrefab);
+        return enemy;
+    }
+
+    private Enemy GetPooledEnemy(GameObject enemyPrefab)
+    {
+        if (!useEnemyPooling || enemyPrefab == null)
+            return null;
+
+        if (!enemyPools.TryGetValue(enemyPrefab, out Stack<Enemy> pool))
+            return null;
+
+        while (pool.Count > 0)
+        {
+            Enemy enemy = pool.Pop();
+
+            if (enemy != null)
+                return enemy;
+        }
+
+        return null;
+    }
+
+    public void ReleaseEnemyToPool(Enemy enemy, GameObject enemyPrefab)
+    {
+        if (enemy == null)
+            return;
+
+        if (!useEnemyPooling || enemyPrefab == null || maxPooledEnemiesPerPrefab <= 0)
+        {
+            Destroy(enemy.gameObject);
+            return;
+        }
+
+        if (!enemyPools.TryGetValue(enemyPrefab, out Stack<Enemy> pool))
+        {
+            pool = new Stack<Enemy>();
+            enemyPools.Add(enemyPrefab, pool);
+        }
+
+        if (pool.Count >= maxPooledEnemiesPerPrefab)
+        {
+            Destroy(enemy.gameObject);
+            return;
+        }
+
+        enemy.PrepareForPoolStorage();
+        pool.Push(enemy);
     }
 
     private GameObject GetEnemyPrefabForRole(EnemyRole role, EnemyVariantType variantType)

@@ -24,6 +24,29 @@ public enum EnemyVariantType
     Chaos
 }
 
+public static class EnemyRegistry
+{
+    private static readonly List<Enemy> activeEnemies = new List<Enemy>();
+
+    public static IReadOnlyList<Enemy> ActiveEnemies => activeEnemies;
+
+    public static void Register(Enemy enemy)
+    {
+        if (enemy == null || activeEnemies.Contains(enemy))
+            return;
+
+        activeEnemies.Add(enemy);
+    }
+
+    public static void Unregister(Enemy enemy)
+    {
+        if (enemy == null)
+            return;
+
+        activeEnemies.Remove(enemy);
+    }
+}
+
 public class Enemy : MonoBehaviour
 {
     [Header("Enemy Role")]
@@ -186,6 +209,9 @@ public class Enemy : MonoBehaviour
     public GameManager gameManager;
     public System.Action<Enemy> OnEnemyFinished;
 
+    private EnemySpawner poolOwner;
+    private GameObject poolPrefab;
+    private bool returnedToPool = false;
     private TileManager cachedTileManager;
     private int currentPathIndex = 0;
     private float distanceTravelled = 0f;
@@ -255,6 +281,7 @@ public class Enemy : MonoBehaviour
     public float DistanceTravelled => distanceTravelled;
     public int CurrentPathIndex => currentPathIndex;
     public float HealthPercent => maxHealth <= 0f ? 0f : currentHealth / maxHealth;
+    public bool IsActiveTarget => isActiveAndEnabled && !isDead && !reachedBase && currentHealth > 0f;
     public bool IsBurning => isBurning;
     public int ActiveBurnStacks => activeBurnStacks;
     public bool IsPoisoned => isPoisoned;
@@ -273,6 +300,125 @@ public class Enemy : MonoBehaviour
             DisableLegacyHealthTexts();
 
         EnsureHealthBar();
+    }
+
+    private void OnEnable()
+    {
+        EnemyRegistry.Register(this);
+    }
+
+    private void OnDisable()
+    {
+        EnemyRegistry.Unregister(this);
+    }
+
+    public void PrepareForPoolReuse(EnemySpawner owner, GameObject sourcePrefab)
+    {
+        poolOwner = owner;
+        poolPrefab = sourcePrefab;
+        returnedToPool = false;
+        OnEnemyFinished = null;
+        ResetRuntimeStateForReuse();
+        gameObject.SetActive(true);
+    }
+
+    public void PrepareForPoolStorage()
+    {
+        StopAllCoroutines();
+        ResetRuntimeStateForReuse();
+        OnEnemyFinished = null;
+        gameObject.SetActive(false);
+    }
+
+    private void FinishEnemyLifecycle()
+    {
+        if (returnedToPool)
+            return;
+
+        returnedToPool = true;
+
+        if (poolOwner != null)
+        {
+            poolOwner.ReleaseEnemyToPool(this, poolPrefab);
+            return;
+        }
+
+        Destroy(gameObject);
+    }
+
+    private void ResetRuntimeStateForReuse()
+    {
+        StopAllCoroutines();
+        pathPoints.Clear();
+        contributingTowers.Clear();
+        currentPathIndex = 0;
+        distanceTravelled = 0f;
+        waveScalingAppliedForWave = -1;
+        chaosScalingAppliedForWave = -1;
+        chaosScalingAppliedForLevel = -1;
+        roleStatsApplied = false;
+        variantStatsApplied = false;
+        visualEffectColorWasApplied = false;
+        weakpointVisualWasActive = false;
+        isDead = false;
+        reachedBase = false;
+        isBurning = false;
+        isPoisoned = false;
+        activeBurnStacks = 0;
+        isBleeding = false;
+        isDarkened = false;
+        isSlowed = false;
+        isTowerSlowed = false;
+        isTileSlowed = false;
+        isBeingKnockedBack = false;
+        basicAnchorMarkedUntil = -1f;
+        rapidEscapeMarkedUntil = -1f;
+        rapidNeedleMarksExpireAt = -1f;
+        rapidNeedleMarks = 0;
+        heavyArmorBreakMarkedUntil = -1f;
+        heavyArmorWeakenedUntil = -1f;
+        weakpointArmorBreakUntil = -1f;
+        weakpointArmorReductionPercent = 0f;
+        weakpointArmorReductionFlat = 0;
+        weakpointArmorMaxCap = int.MaxValue;
+        heavyImpactStaggerUntil = -1f;
+        sniperHeadshotMarkedUntil = -1f;
+        sniperHeadshotSourceTower = null;
+        sniperBossMarkedUntil = -1f;
+        sniperBossMarkSourceTower = null;
+        slowMasterySlowedUntil = -1f;
+        slowMasterySourceTower = null;
+        poisonMasteryPoisonedUntil = -1f;
+        poisonMasterySourceTower = null;
+        poisonCorrosionUntil = -1f;
+        poisonCorrosionSourceTower = null;
+        alchemistDebuffUntil = -1f;
+        alchemistDebuffSourceTower = null;
+        alchemistUnstableUntil = -1f;
+        alchemistUnstableSourceTower = null;
+        lightningShockUntil = -1f;
+        lightningShockMultiplier = 1f;
+        lightningShockSourceTower = null;
+        mortarCraterStaggerUntil = -1f;
+        mortarCraterStaggerMultiplier = 1f;
+        mortarCraterSourceTower = null;
+        slowControlWindowUntil = -1f;
+        slowControlWindowSourceTower = null;
+        healthBarEffectMode = EnemyHealthBarEffectMode.None;
+        currentSlowMultiplier = 1f;
+        towerSlowMultiplier = 1f;
+        tileSlowMultiplier = 1f;
+        temporarySpeedMultiplier = 1f;
+        nextTeleportTime = 0f;
+        burnRoutine = null;
+        poisonRoutine = null;
+        bleedRoutine = null;
+        darknessRoutine = null;
+        towerSlowRoutine = null;
+        tileSlowRoutine = null;
+        knockBackRoutine = null;
+        teleportExhaustRoutine = null;
+        ResetVariantRuntimeStats();
     }
 
     private void Start()
@@ -1447,7 +1593,7 @@ public class Enemy : MonoBehaviour
         GiveGlobalXPReward();
         EnemyWaveDebugWindow.MarkEnemyFinished(this, "Getötet");
         OnEnemyFinished?.Invoke(this);
-        Destroy(gameObject);
+        FinishEnemyLifecycle();
     }
 
     private void NotifyGameManagerEnemyKilled()
@@ -1550,7 +1696,7 @@ public class Enemy : MonoBehaviour
         TryDamageBase();
         EnemyWaveDebugWindow.MarkEnemyFinished(this, "Base erreicht");
         OnEnemyFinished?.Invoke(this);
-        Destroy(gameObject);
+        FinishEnemyLifecycle();
     }
 
     private void TryDamageBase()

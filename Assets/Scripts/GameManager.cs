@@ -257,6 +257,13 @@ public class GameManager : MonoBehaviour
             tileManager.SetCanBuild(false);
 
         yield return new WaitForSeconds(delayBeforeWave);
+
+        while (!isGameOver && IsGameplayInputLockedByModalUI())
+            yield return null;
+
+        if (isGameOver)
+            yield break;
+
         StartNextWave();
     }
 
@@ -1862,7 +1869,7 @@ public class GameManager : MonoBehaviour
             if (isGameOver)
                 yield break;
 
-            if (IsTileVorratChoiceBlockingTimedBuildPhase())
+            if (IsBlockedBuildTimerPausedByModalUI())
             {
                 yield return null;
                 continue;
@@ -1878,12 +1885,15 @@ public class GameManager : MonoBehaviour
         StartNextWave();
     }
 
-    private bool IsTileVorratChoiceBlockingTimedBuildPhase()
+    private bool IsBlockedBuildTimerPausedByModalUI()
     {
         if (pathBuildManager == null)
             ResolveOptionalInteractionReferences();
 
-        return pathBuildManager != null && pathBuildManager.IsImmediateVerbauChoiceOrPlacementActive();
+        if (pathBuildManager != null && pathBuildManager.IsImmediateVerbauChoiceOrPlacementActive())
+            return true;
+
+        return IsGameplayInputLockedByModalUI();
     }
 
     private void StopBlockedBuildTimer()
@@ -2644,7 +2654,16 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return false;
 
-        return startMenuOpen || blockedBaseRelocationPending || IsEliteSpawnWarningOpen() || IsChaosJusticeChoiceOpen() || IsEliteRewardChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen() || IsMainMenuLexiconOpen() || IsMainMenuStatisticsOpen();
+        return IsModalUIOpen(false);
+    }
+
+    public bool IsTowerBuildInputLockedByModalUI()
+    {
+        if (isGameOver)
+            return false;
+
+        bool blockedWithoutTimedBuildPhase = isBaseBlocked && !isTimedBlockedBuildPhase;
+        return IsModalUIOpen(true) || blockedWithoutTimedBuildPhase;
     }
 
     public bool CanOpenAuxiliaryModalUI()
@@ -2652,7 +2671,23 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return false;
 
-        return !startMenuOpen && !blockedBaseRelocationPending && !IsEliteSpawnWarningOpen() && !IsChaosJusticeChoiceOpen() && !IsEliteRewardChoiceOpen() && !IsBlockedEventSelectionOpen() && !IsChaosLexiconOpen() && !IsChaosUnlockOpen() && !IsMainMenuLexiconOpen() && !IsMainMenuStatisticsOpen();
+        return !IsModalUIOpen(false);
+    }
+
+    public bool CanOpenBlockedEventSelection()
+    {
+        if (isGameOver)
+            return false;
+
+        return !startMenuOpen &&
+               !blockedBaseRelocationPending &&
+               !IsEliteSpawnWarningOpen() &&
+               !IsChaosJusticeChoiceOpen() &&
+               !IsEliteRewardChoiceOpen() &&
+               !IsChaosLexiconOpen() &&
+               !IsChaosUnlockOpen() &&
+               !IsMainMenuLexiconOpen() &&
+               !IsMainMenuStatisticsOpen();
     }
 
     public bool IsPathInputLockedByModalUI()
@@ -2660,7 +2695,27 @@ public class GameManager : MonoBehaviour
         if (isGameOver)
             return true;
 
-        return startMenuOpen || blockedBaseRelocationPending || isBaseBlocked || isTimedBlockedBuildPhase || IsEliteSpawnWarningOpen() || IsChaosJusticeChoiceOpen() || IsEliteRewardChoiceOpen() || IsBlockedEventSelectionOpen() || IsChaosLexiconOpen() || IsChaosUnlockOpen() || IsMainMenuLexiconOpen() || IsMainMenuStatisticsOpen();
+        return startMenuOpen || blockedBaseRelocationPending || isBaseBlocked || isTimedBlockedBuildPhase || IsCoreModalUIOpen();
+    }
+
+    private bool IsModalUIOpen(bool includePathBuildChoice)
+    {
+        return startMenuOpen ||
+               blockedBaseRelocationPending ||
+               IsCoreModalUIOpen() ||
+               (includePathBuildChoice && IsPathBuildChoiceOpen());
+    }
+
+    private bool IsCoreModalUIOpen()
+    {
+        return IsEliteSpawnWarningOpen() ||
+               IsChaosJusticeChoiceOpen() ||
+               IsEliteRewardChoiceOpen() ||
+               IsBlockedEventSelectionOpen() ||
+               IsChaosLexiconOpen() ||
+               IsChaosUnlockOpen() ||
+               IsMainMenuLexiconOpen() ||
+               IsMainMenuStatisticsOpen();
     }
 
     public void ClosePathAndBuildSelectionsForModal()
@@ -2675,6 +2730,9 @@ public class GameManager : MonoBehaviour
 
         if (buildManager != null)
             buildManager.ClearCurrentSelection();
+
+        if (towerUI != null)
+            towerUI.Close();
     }
 
     public void CloseTowerUIForModal()
@@ -3176,7 +3234,7 @@ public class GameManager : MonoBehaviour
         RunStatisticsTracker stats = GetRunStatisticsTracker();
 
         if (stats != null)
-            stats.RecordBlockedEventChoice(eventName, eventType, goldGained, livesGained, buildPhaseDuration);
+            stats.RecordBlockedEventChoice(eventName, eventType, goldGained, livesGained, buildPhaseDuration, waveNumber);
 
         PathTechniqueProgressionManager pathTechnique = GetPathTechniqueProgressionManager();
 

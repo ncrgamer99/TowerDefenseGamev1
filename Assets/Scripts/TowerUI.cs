@@ -112,16 +112,21 @@ public class TowerUI : MonoBehaviour
     public float upgradeButtonFontSizeMax = 16f;
     public float upgradeButtonFontSizeMin = 10f;
 
+    [Header("Performance")]
+    public float liveRefreshInterval = 0.15f;
+
     private Tower selectedTower;
     private TowerUIMenu currentMenu = TowerUIMenu.GoldUpgrades;
+    private float nextLiveRefreshTime = 0f;
+    private bool staticThemeApplied;
+    private bool upgradeButtonLayoutPrepared;
 
     private void Start()
     {
         CreateSellButtonIfNeeded();
         CreateTotalStatsTextIfNeeded();
         SetupButtons();
-        ApplyUpgradeButtonLayoutDefaults();
-        ApplyStaticTheme();
+        ApplyStaticTheme(true);
 
         if (panel != null)
             panel.SetActive(false);
@@ -137,9 +142,22 @@ public class TowerUI : MonoBehaviour
 
         if (selectedTower != null)
         {
-            UpdateUI();
-            selectedTower.RefreshRangeIndicatorIfVisible();
+            bool refreshed = false;
+
+            if (Time.unscaledTime >= nextLiveRefreshTime)
+            {
+                UpdateUI();
+                refreshed = true;
+            }
+
+            if (!refreshed)
+                selectedTower.RefreshRangeIndicatorIfVisible();
         }
+    }
+
+    private void ScheduleNextLiveRefresh()
+    {
+        nextLiveRefreshTime = Time.unscaledTime + Mathf.Max(0.03f, liveRefreshInterval);
     }
 
     private void SetupButtons()
@@ -241,16 +259,16 @@ public class TowerUI : MonoBehaviour
         if (gameManager != null)
             gameManager.TryApplyPendingEvolutionToTower(selectedTower);
 
+        currentMenu = TowerUIMenu.GoldUpgrades;
+        ApplyCurrentMenuVisibility();
+        ApplyStaticTheme();
+        UpdateUI();
+
         if (panel != null)
         {
             panel.transform.SetSiblingIndex(Mathf.Max(0, towerPanelSiblingIndexWhenOpen));
             panel.SetActive(true);
         }
-
-        currentMenu = TowerUIMenu.GoldUpgrades;
-        ApplyCurrentMenuVisibility();
-        ApplyStaticTheme();
-        UpdateUI();
 
         if (selectedTower != null)
             selectedTower.SetRangeIndicatorVisible(true);
@@ -290,9 +308,12 @@ public class TowerUI : MonoBehaviour
             pointUpgradePanel.SetActive(currentMenu == TowerUIMenu.PointUpgrades);
     }
 
-    private void ApplyStaticTheme()
+    private void ApplyStaticTheme(bool force = false)
     {
-        ApplyUpgradeButtonLayoutDefaults();
+        if (staticThemeApplied && !force)
+            return;
+
+        ApplyUpgradeButtonLayoutDefaults(force);
 
         SetImageColor(panelBackground, panelColor);
         SetImageColor(headerBackground, headerColor);
@@ -317,6 +338,7 @@ public class TowerUI : MonoBehaviour
             xpFillImage.color = new Color32(70, 220, 120, 255);
 
         ApplySellButtonVisualStyle();
+        staticThemeApplied = true;
     }
 
     private void UpdateUI()
@@ -333,6 +355,7 @@ public class TowerUI : MonoBehaviour
         UpdateDynamicTheme();
         UpdateButtonStates();
         selectedTower.RefreshRangeIndicatorIfVisible();
+        ScheduleNextLiveRefresh();
     }
 
     private void UpdateHeaderUI()
@@ -659,9 +682,12 @@ public class TowerUI : MonoBehaviour
             label.color = interactable ? Color.white : new Color32(165, 174, 190, 255);
     }
 
-    private void ApplyUpgradeButtonLayoutDefaults()
+    private void ApplyUpgradeButtonLayoutDefaults(bool force = false)
     {
         if (!applyUpgradeButtonLayoutDefaults)
+            return;
+
+        if (upgradeButtonLayoutPrepared && !force)
             return;
 
         ConfigureUpgradeGrid(goldDamageButton);
@@ -675,6 +701,7 @@ public class TowerUI : MonoBehaviour
         StyleUpgradeButton(pointRangeButton, pointRangeButtonText);
         StyleUpgradeButton(pointFireRateButton, pointFireRateButtonText);
         StyleUpgradeButton(pointEffectButton, pointEffectButtonText);
+        upgradeButtonLayoutPrepared = true;
     }
 
     private void ConfigureUpgradeGrid(Button sampleButton)

@@ -70,11 +70,15 @@ public class TowerSupportTileBuildUI : MonoBehaviour
 
         currentTile = tile;
 
+        Refresh();
+
+        if (currentTile == null)
+            return;
+
+        PositionNearTile(tile);
+
         if (panel != null)
             panel.SetActive(true);
-
-        Refresh();
-        PositionNearTile(tile);
     }
 
     public void Refresh()

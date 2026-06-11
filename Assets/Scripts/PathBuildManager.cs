@@ -17,6 +17,20 @@ public class PathBuildManager : MonoBehaviour
 {
     private const float GeneratedGhostVisualBottomLocalY = -0.05f;
 
+    private enum PathBuildDirection
+    {
+        Forward = 0,
+        Left = 1,
+        Right = 2
+    }
+
+    private enum PathBuildInputSource
+    {
+        Mouse,
+        Hotkey,
+        UI
+    }
+
     [Header("References")]
     public Camera mainCamera;
     public TileManager tileManager;
@@ -65,6 +79,12 @@ public class PathBuildManager : MonoBehaviour
 
     [Header("Tile Choice Timing")]
     public int specialTileSelectionWaveInterval = 5;
+
+    [Header("Path Direction Hotkeys")]
+    public bool enablePathDirectionHotkeys = true;
+    public KeyCode forwardPathBuildKey = KeyCode.Alpha1;
+    public KeyCode leftPathBuildKey = KeyCode.Alpha2;
+    public KeyCode rightPathBuildKey = KeyCode.Alpha3;
 
     [Header("Verbau Choice")]
     [FormerlySerializedAs("enablePostWaveVerbauChoice")]
@@ -266,6 +286,9 @@ public class PathBuildManager : MonoBehaviour
             return;
         }
 
+        if (HandleDirectionHotkeys())
+            return;
+
         UpdateGhost();
 
         if (hasValidHover && Input.GetMouseButtonDown(0))
@@ -274,6 +297,31 @@ public class PathBuildManager : MonoBehaviour
         }
     }
 
+    public void RequestForwardPathBuildFromUI()
+    {
+        RequestPathBuildDirectionFromUI((int)PathBuildDirection.Forward);
+    }
+
+    public void RequestLeftPathBuildFromUI()
+    {
+        RequestPathBuildDirectionFromUI((int)PathBuildDirection.Left);
+    }
+
+    public void RequestRightPathBuildFromUI()
+    {
+        RequestPathBuildDirectionFromUI((int)PathBuildDirection.Right);
+    }
+
+    public void RequestPathBuildDirectionFromUI(int directionIndex)
+    {
+        if (directionIndex < (int)PathBuildDirection.Forward || directionIndex > (int)PathBuildDirection.Right)
+        {
+            ShowPathBuildRequestFailure("Unbekannte Wegbau-Richtung.");
+            return;
+        }
+
+        TryRequestPathBuildDirection((PathBuildDirection)directionIndex, PathBuildInputSource.UI);
+    }
 
     private void ResolveGameManagerReference()
     {
@@ -391,6 +439,9 @@ public class PathBuildManager : MonoBehaviour
     {
         if (buildManager == null)
             return false;
+
+        if (buildManager.buildSelectionUI != null && buildManager.buildSelectionUI.IsSelectionOpen())
+            return true;
 
         if (buildManager.selectedBuildOption == null)
             return false;
@@ -742,7 +793,7 @@ public class PathBuildManager : MonoBehaviour
 
         Vector2Int gridPos = tileManager.WorldToGridPublic(hit.point);
 
-        if (!tileManager.CanExtendTo(gridPos))
+        if (!TryValidatePathBuildTarget(gridPos, out string unusedFailureReason))
         {
             currentGhost.SetActive(false);
             return;
@@ -756,24 +807,141 @@ public class PathBuildManager : MonoBehaviour
 
     private void OpenTileChoice()
     {
-        if (IsInputLockedByModalUI())
-            return;
-
         if (!hasValidHover)
             return;
 
-        if (!tileManager.CanExtendTo(hoveredGridPosition))
-            return;
+        TryRequestPathBuildAt(hoveredGridPosition, PathBuildInputSource.Mouse);
+    }
+
+    private bool HandleDirectionHotkeys()
+    {
+        if (!enablePathDirectionHotkeys)
+            return false;
+
+        if (WasPathDirectionKeyPressed(forwardPathBuildKey))
+        {
+            TryRequestPathBuildDirection(PathBuildDirection.Forward, PathBuildInputSource.Hotkey);
+            return true;
+        }
+
+        if (WasPathDirectionKeyPressed(leftPathBuildKey))
+        {
+            TryRequestPathBuildDirection(PathBuildDirection.Left, PathBuildInputSource.Hotkey);
+            return true;
+        }
+
+        if (WasPathDirectionKeyPressed(rightPathBuildKey))
+        {
+            TryRequestPathBuildDirection(PathBuildDirection.Right, PathBuildInputSource.Hotkey);
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool WasPathDirectionKeyPressed(KeyCode key)
+    {
+        return key != KeyCode.None && Input.GetKeyDown(key);
+    }
+
+    private bool TryRequestPathBuildDirection(PathBuildDirection direction, PathBuildInputSource source)
+    {
+        if (!TryGetPathBuildDirectionPosition(direction, out Vector2Int targetPosition))
+        {
+            ShowPathBuildRequestFailure("Keine Wegbau-Richtung verfuegbar.");
+            return false;
+        }
+
+        return TryRequestPathBuildAt(targetPosition, source);
+    }
+
+    private bool TryGetPathBuildDirectionPosition(PathBuildDirection direction, out Vector2Int targetPosition)
+    {
+        targetPosition = Vector2Int.zero;
+
+        if (tileManager == null)
+            return false;
+
+        Vector2Int[] positions = tileManager.GetPossibleExtensionPositions();
+        int index = (int)direction;
+
+        if (positions == null || index < 0 || index >= positions.Length)
+            return false;
+
+        targetPosition = positions[index];
+        return true;
+    }
+
+    private bool TryRequestPathBuildAt(Vector2Int targetPosition, PathBuildInputSource source)
+    {
+        if (!CanHandlePathBuildRequest(source))
+            return false;
+
+        if (!TryValidatePathBuildTarget(targetPosition, out string failureReason))
+        {
+            ShowPathBuildRequestFailure(failureReason);
+            return false;
+        }
+
+        hoveredGridPosition = targetPosition;
+        hasValidHover = true;
 
         bool openVerbauChoice = ShouldOpenPendingVerbauChoice();
         bool openSpecialTileChoice = !openVerbauChoice && ShouldOpenSpecialTileSelection();
 
         if (!openVerbauChoice && !openSpecialTileChoice)
+            return BuildNormalPathTileAtHoveredPosition();
+
+        return OpenTileChoiceAtCurrentTarget(openVerbauChoice, openSpecialTileChoice);
+    }
+
+    private bool CanHandlePathBuildRequest(PathBuildInputSource source)
+    {
+        if (source != PathBuildInputSource.Hotkey)
+            ResolveGameManagerReference();
+
+        if (IsInputLockedByModalUI())
+            return false;
+
+        if (tileManager == null || !tileManager.IsBuildAllowed())
+            return false;
+
+        if (choiceOpen || supportTilePlacementModeActive)
+            return false;
+
+        if (IsTowerBuildSelectionActive())
+            return false;
+
+        return true;
+    }
+
+    private bool TryValidatePathBuildTarget(Vector2Int targetPosition, out string failureReason)
+    {
+        failureReason = "";
+
+        if (tileManager == null)
         {
-            BuildNormalPathTileAtHoveredPosition();
-            return;
+            failureReason = "TileManager fehlt.";
+            return false;
         }
 
+        if (!tileManager.IsBuildAllowed())
+        {
+            failureReason = "Wegbau ist aktuell gesperrt.";
+            return false;
+        }
+
+        if (!tileManager.CanExtendTo(targetPosition))
+        {
+            failureReason = "Diese Wegbau-Richtung ist nicht gueltig.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool OpenTileChoiceAtCurrentTarget(bool openVerbauChoice, bool openSpecialTileChoice)
+    {
         choiceOpen = true;
         verbauChoiceActive = openVerbauChoice;
         specialTileChoiceActive = openSpecialTileChoice;
@@ -790,7 +958,19 @@ public class PathBuildManager : MonoBehaviour
             pathTopBar.SetActive(true);
 
         if (currentGhost != null)
-            currentGhost.SetActive(true);
+            ShowCurrentGhostAt(hoveredGridPosition);
+
+        return true;
+    }
+
+    private void ShowPathBuildRequestFailure(string message)
+    {
+        string safeMessage = string.IsNullOrWhiteSpace(message) ? "Wegbau ist hier nicht moeglich." : message;
+
+        if (descriptionText != null && choiceOpen)
+            descriptionText.text = safeMessage;
+
+        Debug.Log(safeMessage);
     }
 
     private bool ShouldOpenSpecialTileSelection()
@@ -940,22 +1120,89 @@ public class PathBuildManager : MonoBehaviour
         return true;
     }
 
-    private void BuildNormalPathTileAtHoveredPosition()
+    private bool BuildNormalPathTileAtHoveredPosition()
     {
-        if (!tileManager.CanExtendTo(hoveredGridPosition))
+        return TryApplyPathBuildOptionAtTarget(CreatePathTileOption(), hoveredGridPosition, true);
+    }
+
+    private bool TryApplyPathBuildOptionAtTarget(PathBuildOption option, Vector2Int targetPosition, bool cancelWhenTargetInvalid)
+    {
+        if (option == null)
+            return false;
+
+        if (!TryValidatePathBuildTarget(targetPosition, out string failureReason))
         {
-            Debug.Log("Gewählte Position ist nicht mehr gültig.");
-            CancelChoice();
-            return;
+            ShowPathBuildRequestFailure(failureReason);
+
+            if (cancelWhenTargetInvalid)
+                CancelChoice();
+
+            return false;
         }
 
-        bool success = tileManager.TryExtendPathTo(hoveredGridPosition);
+        hoveredGridPosition = targetPosition;
+        hasValidHover = true;
+
+        if (!IsPathBuildOptionUnlocked(option.optionType))
+        {
+            Debug.Log(option.displayName + " ist noch nicht freigeschaltet.");
+
+            if (descriptionText != null)
+                descriptionText.text = option.displayName + " ist noch nicht freigeschaltet.";
+
+            return false;
+        }
+
+        bool success = false;
+
+        if (option.optionType == PathBuildOptionType.NoTile)
+        {
+            success = tileManager.TryExtendPathTo(targetPosition);
+
+            if (success)
+                Debug.Log(verbauChoiceDisplayName + ": Kein Verbau gewaehlt, Weg normal erweitert.");
+        }
+        else if (option.optionType == PathBuildOptionType.PathTile)
+        {
+            success = tileManager.TryExtendPathTo(targetPosition);
+        }
+        else if (ShouldPlaceAsV1PathVariant(option.optionType))
+        {
+            success = tileManager.TryExtendPathToWithOption(targetPosition, option);
+
+            if (success)
+                Debug.Log(option.optionType + " platziert als V1 Path-Variante.");
+        }
+        else if (IsSpecialPathOption(option.optionType))
+        {
+            success = tileManager.TryExtendSpecialPathTo(targetPosition, option.optionType);
+        }
+        else if (option.optionType == PathBuildOptionType.GoldTile)
+        {
+            success = tileManager.TryBuildGoldTileAt(targetPosition);
+        }
+        else if (IsSupportTileOption(option.optionType))
+        {
+            success = tileManager.TryBuildSupportTileAt(targetPosition, option.optionType);
+        }
+        else
+        {
+            Debug.Log(option.displayName + " gewaehlt. Funktion kommt spaeter.");
+        }
 
         if (success)
         {
+            ConsumeSpecialTileChoiceIfActive();
+            ConsumeVerbauChoiceIfActive();
             optionsGeneratedForCurrentBuildPhase = false;
             CloseChoiceUI();
+            return true;
         }
+
+        if (descriptionText != null)
+            descriptionText.text = option.displayName + " konnte hier nicht gebaut werden.";
+
+        return false;
     }
 
     public void AddEliteTileQualityBoosts(int amount)
@@ -978,12 +1225,7 @@ public class PathBuildManager : MonoBehaviour
             return;
         }
 
-        currentOptions[0] = new PathBuildOption
-        {
-            displayName = "Path Tile",
-            description = GetTileChoiceDescription(PathBuildOptionType.PathTile),
-            optionType = PathBuildOptionType.PathTile
-        };
+        currentOptions[0] = CreatePathTileOption();
 
         List<PathBuildOption> optionPool = CreateSpecialOptionPool();
 
@@ -992,6 +1234,16 @@ public class PathBuildManager : MonoBehaviour
 
         currentOptions[1] = DrawRandomOptionFromPool(optionPool);
         currentOptions[2] = DrawRandomOptionFromPool(optionPool);
+    }
+
+    private PathBuildOption CreatePathTileOption()
+    {
+        return new PathBuildOption
+        {
+            displayName = "Path Tile",
+            description = GetTileChoiceDescription(PathBuildOptionType.PathTile),
+            optionType = PathBuildOptionType.PathTile
+        };
     }
 
     private void GenerateVerbauChoiceOptions()
@@ -1580,73 +1832,7 @@ public class PathBuildManager : MonoBehaviour
             return;
         }
 
-        if (!tileManager.CanExtendTo(hoveredGridPosition))
-        {
-            Debug.Log("Gewählte Position ist nicht mehr gültig.");
-            CancelChoice();
-            return;
-        }
-
-        if (!IsPathBuildOptionUnlocked(option.optionType))
-        {
-            Debug.Log(option.displayName + " ist noch nicht freigeschaltet.");
-
-            if (descriptionText != null)
-                descriptionText.text = option.displayName + " ist noch nicht freigeschaltet.";
-
-            return;
-        }
-
-        bool success = false;
-
-        if (option.optionType == PathBuildOptionType.NoTile)
-        {
-            success = tileManager.TryExtendPathTo(hoveredGridPosition);
-
-            if (success)
-                Debug.Log(verbauChoiceDisplayName + ": Kein Verbau gewaehlt, Weg normal erweitert.");
-        }
-        else if (option.optionType == PathBuildOptionType.PathTile)
-        {
-            success = tileManager.TryExtendPathTo(hoveredGridPosition);
-        }
-        else if (ShouldPlaceAsV1PathVariant(option.optionType))
-        {
-            success = tileManager.TryExtendPathToWithOption(hoveredGridPosition, option);
-
-            if (success)
-                Debug.Log(option.optionType + " platziert als V1 Path-Variante.");
-        }
-        else if (IsSpecialPathOption(option.optionType))
-        {
-            success = tileManager.TryExtendSpecialPathTo(hoveredGridPosition, option.optionType);
-        }
-        else if (option.optionType == PathBuildOptionType.GoldTile)
-        {
-            success = tileManager.TryBuildGoldTileAt(hoveredGridPosition);
-        }
-        else if (IsSupportTileOption(option.optionType))
-        {
-            success = tileManager.TryBuildSupportTileAt(hoveredGridPosition, option.optionType);
-        }
-        else
-        {
-            Debug.Log(option.displayName + " gewählt. Funktion kommt später.");
-        }
-
-        if (success)
-        {
-            ConsumeSpecialTileChoiceIfActive();
-            ConsumeVerbauChoiceIfActive();
-            optionsGeneratedForCurrentBuildPhase = false;
-            CloseChoiceUI();
-            return;
-        }
-
-        if (descriptionText != null)
-        {
-            descriptionText.text = option.displayName + " konnte hier nicht gebaut werden.";
-        }
+        TryApplyPathBuildOptionAtTarget(option, hoveredGridPosition, true);
     }
 
     private void ChooseImmediateVerbauOption(PathBuildOption option)
@@ -1762,9 +1948,6 @@ public class PathBuildManager : MonoBehaviour
 
     private void ShowSupportTilePlacementPrompt(string overrideText = "")
     {
-        if (pathTopBar != null)
-            pathTopBar.SetActive(true);
-
         string tileName = pendingSupportTilePlacementOption != null ? pendingSupportTilePlacementOption.displayName : "Tile";
 
         if (optionText1 != null)
@@ -1780,6 +1963,9 @@ public class PathBuildManager : MonoBehaviour
             descriptionText.text = string.IsNullOrWhiteSpace(overrideText)
                 ? "Platziere " + tileName + " auf einem freien Build-Feld."
                 : overrideText;
+
+        if (pathTopBar != null)
+            pathTopBar.SetActive(true);
     }
 
     private void CompleteImmediateVerbauChoice()

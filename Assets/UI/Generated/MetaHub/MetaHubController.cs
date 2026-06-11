@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -14,6 +15,7 @@ public class MetaHubController : MonoBehaviour
     private const string VisualTreeResourcePath = "MetaHubScreen";
     private const string StyleSheetResourcePath = "MetaHubScreen";
     private const float LiveRefreshInterval = 0.5f;
+    private static readonly MetaHubTone[] ReusableToneClasses = (MetaHubTone[])Enum.GetValues(typeof(MetaHubTone));
 
     [Header("References")]
     public GameManager gameManager;
@@ -47,6 +49,7 @@ public class MetaHubController : MonoBehaviour
     private Canvas fallbackCanvas;
     private GameObject fallbackRoot;
     private GameObject fallbackDesignRoot;
+    private string lastCanvasFallbackSignature = "";
     private string selectedNavigationId = "overview";
     private TowerRole selectedTowerRole = TowerRole.Basic;
     private string selectedGeneralTreeCategory = "tower";
@@ -88,6 +91,64 @@ public class MetaHubController : MonoBehaviour
         public string caption;
         public string value;
         public MetaHubTone tone;
+    }
+
+    private class ResourceChipView
+    {
+        public Label icon;
+        public Label value;
+    }
+
+    private class NavigationRowView
+    {
+        public Label icon;
+        public Label label;
+    }
+
+    private class MetricCardView
+    {
+        public Label title;
+        public Label icon;
+        public Label value;
+        public Label caption;
+        public VisualElement progressTrack;
+        public VisualElement progressFill;
+    }
+
+    private class SideStatRowView
+    {
+        public Label label;
+        public Label value;
+        public Label icon;
+    }
+
+    private class GoalRowView
+    {
+        public Label icon;
+        public Label title;
+        public Label progress;
+    }
+
+    private class EffectRowView
+    {
+        public Label icon;
+        public Label title;
+        public Label description;
+        public Label duration;
+    }
+
+    private class KeystoneItemView
+    {
+        public Label icon;
+        public Label level;
+        public VisualElement progressTrack;
+        public VisualElement progressFill;
+    }
+
+    private class RunStatRowView
+    {
+        public Label label;
+        public Label value;
     }
 
     public bool IsOpen
@@ -190,8 +251,34 @@ public class MetaHubController : MonoBehaviour
             gameManager = sourceGameManager;
 
         EnsureDocument();
-        SetVisible(true);
         liveRefreshTimer = 0f;
+
+        if (useCanvasFallback)
+        {
+            SetVisible(false);
+
+            try
+            {
+                ResolveGameManager();
+                currentData = useLiveDataWhenAvailable && gameManager != null ? MetaHubMockData.CreateFromGame(gameManager) : MetaHubMockData.Create();
+                liveRefreshTimer = LiveRefreshInterval;
+                ApplyUnlockLayoutMode(currentData);
+                ApplySelectedNavigation(currentData);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError("MetaHubController: Live-Daten konnten nicht vorbereitet werden. MockData wird verwendet.\n" + exception);
+                currentData = MetaHubMockData.Create();
+                liveRefreshTimer = LiveRefreshInterval;
+                ApplyUnlockLayoutMode(currentData);
+                ApplySelectedNavigation(currentData);
+            }
+
+            ShowCanvasFallback(currentData);
+            return;
+        }
+
+        SetVisible(true);
 
         try
         {
@@ -201,12 +288,6 @@ public class MetaHubController : MonoBehaviour
         {
             Debug.LogError("MetaHubController: Live-Daten konnten nicht gebunden werden. MockData wird verwendet.\n" + exception);
             SetData(MetaHubMockData.Create());
-        }
-
-        if (useCanvasFallback)
-        {
-            SetVisible(false);
-            ShowCanvasFallback(currentData);
         }
     }
 
@@ -555,7 +636,42 @@ public class MetaHubController : MonoBehaviour
         AddDataRunStat(data, "wave", "Wellen beendet", MetaHubMockData.FormatNumber(completedWaves));
         AddDataRunStat(data, "kills", "Kills", MetaHubMockData.FormatNumber(totalKills));
         AddDataRunStat(data, "leaks", "Leaks/Base", MetaHubMockData.FormatNumber(totalLeaks) + "/" + MetaHubMockData.FormatNumber(baseDamage));
+        AddDataRunStat(data, "blocked_events", "Verbau-Events", runStats != null ? MetaHubMockData.FormatNumber(runStats.blockedEventsChosen) : "0");
+        AddDataRunStat(data, "blocked_top", "Top-Verbau", FormatRuntimeTopBlockedEventType(runStats));
         AddDataRunStat(data, "tower_xp", "Tower-XP im Run", MetaHubMockData.FormatNumber(towerXp));
+    }
+
+    private string FormatRuntimeTopBlockedEventType(RunStatistics runStats)
+    {
+        RunBlockedEventTypeStats topStats = FindRuntimeTopBlockedEventTypeStats(runStats);
+        if (topStats == null)
+            return "Keiner";
+
+        string label = string.IsNullOrEmpty(topStats.lastEventName) ? topStats.eventType : topStats.lastEventName;
+        return Shorten(label, 18) + " x" + topStats.choices;
+    }
+
+    private RunBlockedEventTypeStats FindRuntimeTopBlockedEventTypeStats(RunStatistics runStats)
+    {
+        if (runStats == null || runStats.blockedEventTypeStats == null)
+            return null;
+
+        RunBlockedEventTypeStats best = null;
+
+        foreach (RunBlockedEventTypeStats stats in runStats.blockedEventTypeStats)
+        {
+            if (stats == null || stats.choices <= 0)
+                continue;
+
+            if (best == null ||
+                stats.choices > best.choices ||
+                (stats.choices == best.choices && stats.lastWaveNumber > best.lastWaveNumber))
+            {
+                best = stats;
+            }
+        }
+
+        return best;
     }
 
     private void ApplyRuntimeNavigationLabels(MetaHubData data)
@@ -1132,20 +1248,24 @@ public class MetaHubController : MonoBehaviour
         if (container == null)
             return;
 
-        container.Clear();
+        int count = resources != null ? resources.Count : 0;
 
-        for (int i = 0; i < resources.Count; i++)
+        for (int i = 0; i < count; i++)
         {
-            MetaHubResourceData item = resources[i];
-            VisualElement row = new VisualElement();
-            row.AddToClassList("resource-chip");
-            AddToneClass(row, item.tone);
+            MetaHubResourceData item = resources[i] ?? new MetaHubResourceData();
+            VisualElement row = GetOrCreateReusableListItem(container, i, CreateResourceChipElement);
+            ResourceChipView view = row.userData as ResourceChipView;
+            if (view == null)
+                continue;
 
-            row.Add(CreateIcon(item.iconText, "resource-icon", item.tone));
-            Label value = CreateLabel(MetaHubMockData.FormatNumber(item.value), "resource-value");
-            row.Add(value);
-            container.Add(row);
+            SetToneClass(row, item.tone);
+            SetToneClass(view.icon, item.tone);
+            SetLabelText(view.icon, item.iconText);
+            SetLabelText(view.value, MetaHubMockData.FormatNumber(item.value));
+            row.tooltip = item.label;
         }
+
+        HideUnusedListItems(container, count);
     }
 
     private void BuildNavigation(List<MetaHubNavItemData> items)
@@ -1154,22 +1274,24 @@ public class MetaHubController : MonoBehaviour
         if (container == null)
             return;
 
-        container.Clear();
+        int count = items != null ? items.Count : 0;
 
-        for (int i = 0; i < items.Count; i++)
+        for (int i = 0; i < count; i++)
         {
-            MetaHubNavItemData item = items[i];
-            VisualElement row = new VisualElement();
-            row.AddToClassList("nav-row");
-            AddToneClass(row, item.tone);
+            MetaHubNavItemData item = items[i] ?? new MetaHubNavItemData();
+            VisualElement row = GetOrCreateReusableListItem(container, i, CreateNavigationRowElement);
+            NavigationRowView view = row.userData as NavigationRowView;
+            if (view == null)
+                continue;
 
-            if (item.selected)
-                row.AddToClassList("selected");
-
-            row.Add(CreateIcon(item.iconText, "nav-icon", item.tone));
-            row.Add(CreateLabel(item.label, "nav-label"));
-            container.Add(row);
+            SetToneClass(row, item.tone);
+            SetToneClass(view.icon, item.tone);
+            row.EnableInClassList("selected", item.selected);
+            SetLabelText(view.icon, item.iconText);
+            SetLabelText(view.label, item.label);
         }
+
+        HideUnusedListItems(container, count);
     }
 
     private void BuildMetricCards(List<MetaHubMetricCardData> cards)
@@ -1178,33 +1300,26 @@ public class MetaHubController : MonoBehaviour
         if (container == null)
             return;
 
-        container.Clear();
+        int count = cards != null ? cards.Count : 0;
 
-        for (int i = 0; i < cards.Count; i++)
+        for (int i = 0; i < count; i++)
         {
-            MetaHubMetricCardData item = cards[i];
-            VisualElement card = new VisualElement();
-            card.AddToClassList("metric-card");
-            AddToneClass(card, item.tone);
+            MetaHubMetricCardData item = cards[i] ?? new MetaHubMetricCardData();
+            VisualElement card = GetOrCreateReusableListItem(container, i, CreateMetricCardElement);
+            MetricCardView view = card.userData as MetricCardView;
+            if (view == null)
+                continue;
 
-            card.Add(CreateLabel(item.title, "metric-title"));
-
-            VisualElement body = new VisualElement();
-            body.AddToClassList("metric-body");
-            body.Add(CreateIcon(item.iconText, "metric-icon", item.tone));
-
-            VisualElement textBlock = new VisualElement();
-            textBlock.AddToClassList("metric-text-block");
-            textBlock.Add(CreateLabel(item.valueText, "metric-value"));
-            textBlock.Add(CreateLabel(item.caption, "metric-caption"));
-            body.Add(textBlock);
-            card.Add(body);
-
-            if (item.showProgress)
-                card.Add(CreateProgressLine(item.current, item.maximum, item.tone));
-
-            container.Add(card);
+            SetToneClass(card, item.tone);
+            SetToneClass(view.icon, item.tone);
+            SetLabelText(view.title, item.title);
+            SetLabelText(view.icon, item.iconText);
+            SetLabelText(view.value, item.valueText);
+            SetLabelText(view.caption, item.caption);
+            SetProgressLine(view.progressTrack, view.progressFill, item.current, item.maximum, item.tone, item.showProgress);
         }
+
+        HideUnusedListItems(container, count);
     }
 
     private void BuildProgressStats(List<MetaHubSideStatData> stats)
@@ -1213,19 +1328,24 @@ public class MetaHubController : MonoBehaviour
         if (container == null)
             return;
 
-        container.Clear();
+        int count = stats != null ? stats.Count : 0;
 
-        for (int i = 0; i < stats.Count; i++)
+        for (int i = 0; i < count; i++)
         {
-            MetaHubSideStatData item = stats[i];
-            VisualElement row = new VisualElement();
-            row.AddToClassList("side-stat-row");
-            AddToneClass(row, item.tone);
-            row.Add(CreateLabel(item.label, "side-stat-label"));
-            row.Add(CreateLabel(item.valueText, "side-stat-value"));
-            row.Add(CreateIcon(item.iconText, "side-stat-icon", item.tone));
-            container.Add(row);
+            MetaHubSideStatData item = stats[i] ?? new MetaHubSideStatData();
+            VisualElement row = GetOrCreateReusableListItem(container, i, CreateSideStatRowElement);
+            SideStatRowView view = row.userData as SideStatRowView;
+            if (view == null)
+                continue;
+
+            SetToneClass(row, item.tone);
+            SetToneClass(view.icon, item.tone);
+            SetLabelText(view.label, item.label);
+            SetLabelText(view.value, item.valueText);
+            SetLabelText(view.icon, item.iconText);
         }
+
+        HideUnusedListItems(container, count);
     }
 
     private void BuildGoals(List<MetaHubGoalData> goals)
@@ -1234,19 +1354,24 @@ public class MetaHubController : MonoBehaviour
         if (container == null)
             return;
 
-        container.Clear();
+        int count = goals != null ? goals.Count : 0;
 
-        for (int i = 0; i < goals.Count; i++)
+        for (int i = 0; i < count; i++)
         {
-            MetaHubGoalData item = goals[i];
-            VisualElement row = new VisualElement();
-            row.AddToClassList("goal-row");
-            AddToneClass(row, item.tone);
-            row.Add(CreateIcon(item.iconText, "goal-icon", item.tone));
-            row.Add(CreateLabel(item.title, "goal-title"));
-            row.Add(CreateLabel(item.current + " / " + item.required, "goal-progress"));
-            container.Add(row);
+            MetaHubGoalData item = goals[i] ?? new MetaHubGoalData();
+            VisualElement row = GetOrCreateReusableListItem(container, i, CreateGoalRowElement);
+            GoalRowView view = row.userData as GoalRowView;
+            if (view == null)
+                continue;
+
+            SetToneClass(row, item.tone);
+            SetToneClass(view.icon, item.tone);
+            SetLabelText(view.icon, item.iconText);
+            SetLabelText(view.title, item.title);
+            SetLabelText(view.progress, item.current + " / " + item.required);
         }
+
+        HideUnusedListItems(container, count);
     }
 
     private void BuildEffects(string containerName, List<MetaHubEffectData> effects)
@@ -1255,27 +1380,26 @@ public class MetaHubController : MonoBehaviour
         if (container == null)
             return;
 
-        container.Clear();
+        int count = effects != null ? effects.Count : 0;
 
-        for (int i = 0; i < effects.Count; i++)
+        for (int i = 0; i < count; i++)
         {
-            MetaHubEffectData item = effects[i];
-            VisualElement row = new VisualElement();
-            row.AddToClassList("effect-row");
-            AddToneClass(row, item.tone);
-            row.Add(CreateIcon(item.iconText, "effect-icon", item.tone));
+            MetaHubEffectData item = effects[i] ?? new MetaHubEffectData();
+            VisualElement row = GetOrCreateReusableListItem(container, i, CreateEffectRowElement);
+            EffectRowView view = row.userData as EffectRowView;
+            if (view == null)
+                continue;
 
-            VisualElement textBlock = new VisualElement();
-            textBlock.AddToClassList("effect-text-block");
-            textBlock.Add(CreateLabel(item.title, "effect-title"));
-            textBlock.Add(CreateLabel(item.description, "effect-description"));
-            row.Add(textBlock);
-
-            if (!string.IsNullOrEmpty(item.durationText))
-                row.Add(CreateLabel(item.durationText, "effect-duration"));
-
-            container.Add(row);
+            SetToneClass(row, item.tone);
+            SetToneClass(view.icon, item.tone);
+            SetLabelText(view.icon, item.iconText);
+            SetLabelText(view.title, item.title);
+            SetLabelText(view.description, item.description);
+            SetLabelText(view.duration, item.durationText);
+            view.duration.style.display = string.IsNullOrEmpty(item.durationText) ? DisplayStyle.None : DisplayStyle.Flex;
         }
+
+        HideUnusedListItems(container, count);
     }
 
     private void BuildKeystones(List<MetaHubKeystoneData> keystones)
@@ -1284,19 +1408,24 @@ public class MetaHubController : MonoBehaviour
         if (container == null)
             return;
 
-        container.Clear();
+        int count = keystones != null ? keystones.Count : 0;
 
-        for (int i = 0; i < keystones.Count; i++)
+        for (int i = 0; i < count; i++)
         {
-            MetaHubKeystoneData item = keystones[i];
-            VisualElement column = new VisualElement();
-            column.AddToClassList("keystone-item");
-            AddToneClass(column, item.tone);
-            column.Add(CreateIcon(item.iconText, "keystone-icon", item.tone));
-            column.Add(CreateLabel("Lv. " + item.level, "keystone-level"));
-            column.Add(CreateProgressLine(item.current, item.maximum, item.tone));
-            container.Add(column);
+            MetaHubKeystoneData item = keystones[i] ?? new MetaHubKeystoneData();
+            VisualElement column = GetOrCreateReusableListItem(container, i, CreateKeystoneItemElement);
+            KeystoneItemView view = column.userData as KeystoneItemView;
+            if (view == null)
+                continue;
+
+            SetToneClass(column, item.tone);
+            SetToneClass(view.icon, item.tone);
+            SetLabelText(view.icon, item.iconText);
+            SetLabelText(view.level, "Lv. " + item.level);
+            SetProgressLine(view.progressTrack, view.progressFill, item.current, item.maximum, item.tone, true);
         }
+
+        HideUnusedListItems(container, count);
     }
 
     private void BuildRunStats(List<MetaHubRunStatData> stats)
@@ -1305,17 +1434,200 @@ public class MetaHubController : MonoBehaviour
         if (container == null)
             return;
 
-        container.Clear();
+        int count = stats != null ? stats.Count : 0;
 
-        for (int i = 0; i < stats.Count; i++)
+        for (int i = 0; i < count; i++)
         {
-            MetaHubRunStatData item = stats[i];
-            VisualElement row = new VisualElement();
-            row.AddToClassList("run-stat-row");
-            row.Add(CreateLabel(item.label, "run-stat-label"));
-            row.Add(CreateLabel(item.valueText, "run-stat-value"));
-            container.Add(row);
+            MetaHubRunStatData item = stats[i] ?? new MetaHubRunStatData();
+            VisualElement row = GetOrCreateReusableListItem(container, i, CreateRunStatRowElement);
+            RunStatRowView view = row.userData as RunStatRowView;
+            if (view == null)
+                continue;
+
+            SetLabelText(view.label, item.label);
+            SetLabelText(view.value, item.valueText);
         }
+
+        HideUnusedListItems(container, count);
+    }
+
+    private VisualElement GetOrCreateReusableListItem(VisualElement container, int index, Func<VisualElement> createElement)
+    {
+        while (container.childCount <= index)
+            container.Add(createElement());
+
+        VisualElement item = container.ElementAt(index);
+        item.style.display = DisplayStyle.Flex;
+        return item;
+    }
+
+    private void HideUnusedListItems(VisualElement container, int visibleCount)
+    {
+        if (container == null)
+            return;
+
+        for (int i = Mathf.Max(0, visibleCount); i < container.childCount; i++)
+            container.ElementAt(i).style.display = DisplayStyle.None;
+    }
+
+    private VisualElement CreateResourceChipElement()
+    {
+        ResourceChipView view = new ResourceChipView();
+        VisualElement row = new VisualElement();
+        row.AddToClassList("resource-chip");
+        view.icon = CreateIcon("", "resource-icon", MetaHubTone.Neutral);
+        view.value = CreateLabel("", "resource-value");
+        row.Add(view.icon);
+        row.Add(view.value);
+        row.userData = view;
+        return row;
+    }
+
+    private VisualElement CreateNavigationRowElement()
+    {
+        NavigationRowView view = new NavigationRowView();
+        VisualElement row = new VisualElement();
+        row.AddToClassList("nav-row");
+        view.icon = CreateIcon("", "nav-icon", MetaHubTone.Neutral);
+        view.label = CreateLabel("", "nav-label");
+        row.Add(view.icon);
+        row.Add(view.label);
+        row.userData = view;
+        return row;
+    }
+
+    private VisualElement CreateMetricCardElement()
+    {
+        MetricCardView view = new MetricCardView();
+        VisualElement card = new VisualElement();
+        card.AddToClassList("metric-card");
+
+        view.title = CreateLabel("", "metric-title");
+        card.Add(view.title);
+
+        VisualElement body = new VisualElement();
+        body.AddToClassList("metric-body");
+        view.icon = CreateIcon("", "metric-icon", MetaHubTone.Neutral);
+        body.Add(view.icon);
+
+        VisualElement textBlock = new VisualElement();
+        textBlock.AddToClassList("metric-text-block");
+        view.value = CreateLabel("", "metric-value");
+        view.caption = CreateLabel("", "metric-caption");
+        textBlock.Add(view.value);
+        textBlock.Add(view.caption);
+        body.Add(textBlock);
+        card.Add(body);
+
+        CreateReusableProgressLine(card, out view.progressTrack, out view.progressFill);
+        card.userData = view;
+        return card;
+    }
+
+    private VisualElement CreateSideStatRowElement()
+    {
+        SideStatRowView view = new SideStatRowView();
+        VisualElement row = new VisualElement();
+        row.AddToClassList("side-stat-row");
+        view.label = CreateLabel("", "side-stat-label");
+        view.value = CreateLabel("", "side-stat-value");
+        view.icon = CreateIcon("", "side-stat-icon", MetaHubTone.Neutral);
+        row.Add(view.label);
+        row.Add(view.value);
+        row.Add(view.icon);
+        row.userData = view;
+        return row;
+    }
+
+    private VisualElement CreateGoalRowElement()
+    {
+        GoalRowView view = new GoalRowView();
+        VisualElement row = new VisualElement();
+        row.AddToClassList("goal-row");
+        view.icon = CreateIcon("", "goal-icon", MetaHubTone.Neutral);
+        view.title = CreateLabel("", "goal-title");
+        view.progress = CreateLabel("", "goal-progress");
+        row.Add(view.icon);
+        row.Add(view.title);
+        row.Add(view.progress);
+        row.userData = view;
+        return row;
+    }
+
+    private VisualElement CreateEffectRowElement()
+    {
+        EffectRowView view = new EffectRowView();
+        VisualElement row = new VisualElement();
+        row.AddToClassList("effect-row");
+        view.icon = CreateIcon("", "effect-icon", MetaHubTone.Neutral);
+        row.Add(view.icon);
+
+        VisualElement textBlock = new VisualElement();
+        textBlock.AddToClassList("effect-text-block");
+        view.title = CreateLabel("", "effect-title");
+        view.description = CreateLabel("", "effect-description");
+        textBlock.Add(view.title);
+        textBlock.Add(view.description);
+        row.Add(textBlock);
+
+        view.duration = CreateLabel("", "effect-duration");
+        row.Add(view.duration);
+        row.userData = view;
+        return row;
+    }
+
+    private VisualElement CreateKeystoneItemElement()
+    {
+        KeystoneItemView view = new KeystoneItemView();
+        VisualElement column = new VisualElement();
+        column.AddToClassList("keystone-item");
+        view.icon = CreateIcon("", "keystone-icon", MetaHubTone.Neutral);
+        view.level = CreateLabel("", "keystone-level");
+        column.Add(view.icon);
+        column.Add(view.level);
+        CreateReusableProgressLine(column, out view.progressTrack, out view.progressFill);
+        column.userData = view;
+        return column;
+    }
+
+    private VisualElement CreateRunStatRowElement()
+    {
+        RunStatRowView view = new RunStatRowView();
+        VisualElement row = new VisualElement();
+        row.AddToClassList("run-stat-row");
+        view.label = CreateLabel("", "run-stat-label");
+        view.value = CreateLabel("", "run-stat-value");
+        row.Add(view.label);
+        row.Add(view.value);
+        row.userData = view;
+        return row;
+    }
+
+    private void CreateReusableProgressLine(VisualElement parent, out VisualElement track, out VisualElement fill)
+    {
+        track = new VisualElement();
+        track.AddToClassList("mini-progress-track");
+        fill = new VisualElement();
+        fill.AddToClassList("mini-progress-fill");
+        track.Add(fill);
+        parent.Add(track);
+    }
+
+    private void SetProgressLine(VisualElement track, VisualElement fill, int current, int maximum, MetaHubTone tone, bool visible)
+    {
+        if (track == null || fill == null)
+            return;
+
+        track.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        SetToneClass(track, tone);
+        SetToneClass(fill, tone);
+        fill.style.width = Length.Percent(Percent(current, maximum) * 100f);
+    }
+
+    private void SetLabelText(Label label, string text)
+    {
+        if (label != null)
+            label.text = string.IsNullOrEmpty(text) ? "" : text;
     }
 
     private VisualElement CreateProgressLine(int current, int maximum, MetaHubTone tone)
@@ -1380,6 +1692,17 @@ public class MetaHubController : MonoBehaviour
             return;
 
         element.AddToClassList("tone-" + tone.ToString().ToLowerInvariant());
+    }
+
+    private void SetToneClass(VisualElement element, MetaHubTone tone)
+    {
+        if (element == null)
+            return;
+
+        for (int i = 0; i < ReusableToneClasses.Length; i++)
+            element.RemoveFromClassList("tone-" + ReusableToneClasses[i].ToString().ToLowerInvariant());
+
+        AddToneClass(element, tone);
     }
 
     private void SetVisible(bool visible)
@@ -1472,6 +1795,12 @@ public class MetaHubController : MonoBehaviour
         bool unlockLayout = IsUnlockLayoutMode();
 
         Transform root = fallbackDesignRoot != null ? fallbackDesignRoot.transform : fallbackRoot.transform;
+        string fallbackSignature = BuildCanvasFallbackSignature(data, unlockLayout);
+        if (root.childCount > 0 && fallbackSignature == lastCanvasFallbackSignature)
+            return;
+
+        lastCanvasFallbackSignature = fallbackSignature;
+
         for (int i = root.childCount - 1; i >= 0; i--)
         {
             GameObject child = root.GetChild(i).gameObject;
@@ -1512,6 +1841,180 @@ public class MetaHubController : MonoBehaviour
             CreateCanvasButton(root, "OptionsButton", "OPTIONEN", new Vector2(1135f, -942f), new Vector2(160f, 42f), delegate { Debug.Log("MetaHub: Options button requested."); });
             CreateCanvasButton(root, "MainMenuButton", "HAUPTMENÜ", new Vector2(1325f, -942f), new Vector2(180f, 42f), RequestReturnToMainMenu);
             CreateCanvasButton(root, "BackButton", "< ZURÜCK", new Vector2(1512f, -942f), new Vector2(160f, 42f), RequestClose);
+        }
+    }
+
+    private string BuildCanvasFallbackSignature(MetaHubData data, bool unlockLayout)
+    {
+        StringBuilder builder = new StringBuilder(512);
+        builder.Append(unlockLayout ? "unlock" : "hub");
+        builder.Append('|').Append(runtimeUnlockInfoMode ? "runtime" : "menu");
+        builder.Append('|').Append(selectedNavigationId);
+        builder.Append('|').Append(selectedTowerRole);
+        builder.Append('|').Append(selectedGeneralTreeCategory);
+        builder.Append('|').Append(selectedTowerTreeCategory);
+        builder.Append('|').Append(selectedChaosTreeCategory);
+        builder.Append('|').Append(selectedPathTreeCategory);
+        builder.Append('|').Append(selectedEliteTreeCategory);
+        builder.Append('|').Append(showGeneralLoadoutPicker);
+        builder.Append('|').Append(showGeneralLoadoutEditor);
+        builder.Append('|').Append(showAllGoalsOverlay);
+        builder.Append('|').Append(showAllRisksOverlay);
+
+        if (data == null)
+            return builder.ToString();
+
+        builder.Append('|').Append(data.screenTitle);
+        builder.Append('|').Append(data.screenSubtitle);
+        builder.Append('|').Append(data.selectedSectionTitle);
+        builder.Append('|').Append(data.footerTip);
+        builder.Append("|acct:").Append(data.account != null ? data.account.level : 0)
+            .Append(':').Append(data.account != null ? data.account.currentXP : 0)
+            .Append(':').Append(data.account != null ? data.account.requiredXP : 0);
+        AppendResourceSignature(builder, data.resources);
+        AppendNavigationSignature(builder, data.navigation);
+        AppendMetricSignature(builder, data.metricCards);
+        AppendSideStatSignature(builder, data.progressStats);
+        AppendGoalSignature(builder, data.nextGoals);
+        AppendEffectSignature(builder, "buff", data.activeBuffs);
+        AppendEffectSignature(builder, "risk", data.activeRisks);
+        AppendKeystoneSignature(builder, data.activeKeystones);
+        AppendRunStatSignature(builder, data.lastRunStats);
+        builder.Append("|cj:")
+            .Append(data.chaosJustice != null ? data.chaosJustice.safetyScore : 0).Append(':')
+            .Append(data.chaosJustice != null ? data.chaosJustice.chaosScore : 0).Append(':')
+            .Append(data.chaosJustice != null ? data.chaosJustice.safetyPercent : 0).Append(':')
+            .Append(data.chaosJustice != null ? data.chaosJustice.chaosPercent : 0).Append(':')
+            .Append(data.chaosJustice != null ? data.chaosJustice.stabilityLabel : "");
+        return builder.ToString();
+    }
+
+    private void AppendResourceSignature(StringBuilder builder, List<MetaHubResourceData> resources)
+    {
+        builder.Append("|res:");
+        if (resources == null)
+            return;
+
+        for (int i = 0; i < resources.Count; i++)
+        {
+            MetaHubResourceData item = resources[i];
+            if (item == null)
+                continue;
+
+            builder.Append(item.id).Append('=').Append(item.value).Append(',').Append(item.tone).Append(';');
+        }
+    }
+
+    private void AppendNavigationSignature(StringBuilder builder, List<MetaHubNavItemData> items)
+    {
+        builder.Append("|nav:");
+        if (items == null)
+            return;
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            MetaHubNavItemData item = items[i];
+            if (item == null)
+                continue;
+
+            builder.Append(item.id).Append('=').Append(item.selected ? 1 : 0).Append(',').Append(item.label).Append(';');
+        }
+    }
+
+    private void AppendMetricSignature(StringBuilder builder, List<MetaHubMetricCardData> cards)
+    {
+        builder.Append("|met:");
+        if (cards == null)
+            return;
+
+        for (int i = 0; i < cards.Count; i++)
+        {
+            MetaHubMetricCardData item = cards[i];
+            if (item == null)
+                continue;
+
+            builder.Append(item.id).Append('=').Append(item.valueText).Append(',')
+                .Append(item.current).Append('/').Append(item.maximum).Append(',').Append(item.tone).Append(';');
+        }
+    }
+
+    private void AppendSideStatSignature(StringBuilder builder, List<MetaHubSideStatData> stats)
+    {
+        builder.Append("|side:");
+        if (stats == null)
+            return;
+
+        for (int i = 0; i < stats.Count; i++)
+        {
+            MetaHubSideStatData item = stats[i];
+            if (item == null)
+                continue;
+
+            builder.Append(item.id).Append('=').Append(item.valueText).Append(';');
+        }
+    }
+
+    private void AppendGoalSignature(StringBuilder builder, List<MetaHubGoalData> goals)
+    {
+        builder.Append("|goal:");
+        if (goals == null)
+            return;
+
+        for (int i = 0; i < goals.Count; i++)
+        {
+            MetaHubGoalData item = goals[i];
+            if (item == null)
+                continue;
+
+            builder.Append(item.id).Append('=').Append(item.current).Append('/').Append(item.required).Append(',').Append(item.title).Append(';');
+        }
+    }
+
+    private void AppendEffectSignature(StringBuilder builder, string prefix, List<MetaHubEffectData> effects)
+    {
+        builder.Append('|').Append(prefix).Append(':');
+        if (effects == null)
+            return;
+
+        for (int i = 0; i < effects.Count; i++)
+        {
+            MetaHubEffectData item = effects[i];
+            if (item == null)
+                continue;
+
+            builder.Append(item.id).Append('=').Append(item.title).Append(',').Append(item.description).Append(',').Append(item.durationText).Append(';');
+        }
+    }
+
+    private void AppendKeystoneSignature(StringBuilder builder, List<MetaHubKeystoneData> keystones)
+    {
+        builder.Append("|key:");
+        if (keystones == null)
+            return;
+
+        for (int i = 0; i < keystones.Count; i++)
+        {
+            MetaHubKeystoneData item = keystones[i];
+            if (item == null)
+                continue;
+
+            builder.Append(item.id).Append('=').Append(item.level).Append(',').Append(item.current).Append('/').Append(item.maximum).Append(';');
+        }
+    }
+
+    private void AppendRunStatSignature(StringBuilder builder, List<MetaHubRunStatData> stats)
+    {
+        builder.Append("|run:");
+        if (stats == null)
+            return;
+
+        for (int i = 0; i < stats.Count; i++)
+        {
+            MetaHubRunStatData item = stats[i];
+            if (item == null)
+                continue;
+
+            builder.Append(item.id).Append('=').Append(item.valueText).Append(';');
         }
     }
 

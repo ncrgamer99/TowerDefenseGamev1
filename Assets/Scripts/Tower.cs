@@ -54,6 +54,8 @@ public class Tower : MonoBehaviour
 
     [Header("Targeting")]
     public TowerTargetMode targetMode = TowerTargetMode.First;
+    public float targetSearchInterval = 0.12f;
+    public float targetSearchIntervalJitter = 0.04f;
 
     [Header("Progression")]
     public int level = 1;
@@ -107,6 +109,7 @@ public class Tower : MonoBehaviour
     private TowerVisualTierPrefabController visualTierPrefabController;
     private TowerAimController aimController;
     private Enemy currentTarget;
+    private float nextTargetSearchTime = 0f;
     private int basicMasteryShotCounter = 0;
     private int basicMasteryShotsSinceKill = 0;
     private int rapidMasteryShotCounter = 0;
@@ -339,8 +342,8 @@ public class Tower : MonoBehaviour
     {
         fireCooldown -= Time.deltaTime;
 
-        Enemy target = FindTarget();
-        SetCurrentTarget(target);
+        Enemy target = GetTargetForFrame(false);
+        UpdateAimController();
 
         if (towerRole == TowerRole.Beam)
         {
@@ -368,8 +371,7 @@ public class Tower : MonoBehaviour
 
             if (fireCooldown <= 0f && shotsThisFrame < maxShotsPerFrame)
             {
-                target = FindTarget();
-                SetCurrentTarget(target);
+                target = GetTargetForFrame(true);
             }
         }
 
@@ -1074,9 +1076,40 @@ public class Tower : MonoBehaviour
         return manager != null && manager.IsMetaProgressionSuppressedForCurrentRun();
     }
 
+    private Enemy GetTargetForFrame(bool forceRefresh)
+    {
+        if (!IsCachedTargetUsable())
+            forceRefresh = true;
+
+        if (forceRefresh || Time.time >= nextTargetSearchTime)
+        {
+            Enemy target = FindTarget();
+            SetCurrentTarget(target);
+            ScheduleNextTargetSearch();
+        }
+
+        return currentTarget;
+    }
+
+    private void ScheduleNextTargetSearch()
+    {
+        float interval = Mathf.Max(0.02f, targetSearchInterval);
+        float jitter = Mathf.Max(0f, targetSearchIntervalJitter);
+
+        if (jitter > 0f)
+            interval += Random.Range(0f, jitter);
+
+        nextTargetSearchTime = Time.time + interval;
+    }
+
+    private bool IsCachedTargetUsable()
+    {
+        return IsEnemyInRange(currentTarget);
+    }
+
     private Enemy FindTarget()
     {
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        IReadOnlyList<Enemy> enemies = EnemyRegistry.ActiveEnemies;
 
         if (!IsTargetModeAvailable(targetMode))
         {
@@ -1108,7 +1141,7 @@ public class Tower : MonoBehaviour
         }
     }
 
-    private Enemy FindFirstEnemy(Enemy[] enemies)
+    private Enemy FindFirstEnemy(IReadOnlyList<Enemy> enemies)
     {
         Enemy bestTarget = null;
         float bestProgress = -Mathf.Infinity;
@@ -1130,7 +1163,7 @@ public class Tower : MonoBehaviour
         return bestTarget;
     }
 
-    private Enemy FindLastEnemy(Enemy[] enemies)
+    private Enemy FindLastEnemy(IReadOnlyList<Enemy> enemies)
     {
         Enemy bestTarget = null;
         float bestProgress = Mathf.Infinity;
@@ -1152,7 +1185,7 @@ public class Tower : MonoBehaviour
         return bestTarget;
     }
 
-    private Enemy FindClosestEnemy(Enemy[] enemies)
+    private Enemy FindClosestEnemy(IReadOnlyList<Enemy> enemies)
     {
         Enemy bestTarget = null;
         float bestDistance = Mathf.Infinity;
@@ -1174,7 +1207,7 @@ public class Tower : MonoBehaviour
         return bestTarget;
     }
 
-    private Enemy FindStrongestEnemy(Enemy[] enemies)
+    private Enemy FindStrongestEnemy(IReadOnlyList<Enemy> enemies)
     {
         Enemy bestTarget = null;
         int highestHealth = -1;
@@ -1196,7 +1229,7 @@ public class Tower : MonoBehaviour
         return bestTarget;
     }
 
-    private Enemy FindEliteEnemy(Enemy[] enemies)
+    private Enemy FindEliteEnemy(IReadOnlyList<Enemy> enemies)
     {
         Enemy bestEliteTarget = null;
         float bestEliteProgress = -Mathf.Infinity;
@@ -1224,27 +1257,27 @@ public class Tower : MonoBehaviour
         return FindFirstEnemy(enemies);
     }
 
-    private Enemy FindNoBurnEnemy(Enemy[] enemies)
+    private Enemy FindNoBurnEnemy(IReadOnlyList<Enemy> enemies)
     {
         return FindFirstEnemyMissingEffect(enemies, TowerTargetMode.NoBurn);
     }
 
-    private Enemy FindNoPoisonEnemy(Enemy[] enemies)
+    private Enemy FindNoPoisonEnemy(IReadOnlyList<Enemy> enemies)
     {
         return FindFirstEnemyMissingEffect(enemies, TowerTargetMode.NoPoison);
     }
 
-    private Enemy FindNoSlowEnemy(Enemy[] enemies)
+    private Enemy FindNoSlowEnemy(IReadOnlyList<Enemy> enemies)
     {
         return FindFirstEnemyMissingEffect(enemies, TowerTargetMode.NoSlow);
     }
 
-    private Enemy FindNoBleedEnemy(Enemy[] enemies)
+    private Enemy FindNoBleedEnemy(IReadOnlyList<Enemy> enemies)
     {
         return FindFirstEnemyMissingEffect(enemies, TowerTargetMode.NoBleed);
     }
 
-    private Enemy FindFirstEnemyMissingEffect(Enemy[] enemies, TowerTargetMode effectTargetMode)
+    private Enemy FindFirstEnemyMissingEffect(IReadOnlyList<Enemy> enemies, TowerTargetMode effectTargetMode)
     {
         Enemy bestTarget = null;
         float bestProgress = -Mathf.Infinity;
@@ -1274,7 +1307,7 @@ public class Tower : MonoBehaviour
 
     private bool EnemyIsMissingEffect(Enemy enemy, TowerTargetMode effectTargetMode)
     {
-        if (enemy == null)
+        if (enemy == null || !enemy.IsActiveTarget)
             return false;
 
         switch (effectTargetMode)
@@ -1497,13 +1530,11 @@ public class Tower : MonoBehaviour
             return null;
         }
 
-        GameObject projectileObject = Instantiate(projectilePrefab, firePoint.position, Quaternion.identity);
-        Projectile projectile = projectileObject.GetComponent<Projectile>();
+        Projectile projectile = ProjectilePool.Get(projectilePrefab, firePoint.position, Quaternion.identity);
 
         if (projectile == null)
         {
             Debug.LogError("Projectile Script fehlt auf Projectile Prefab!");
-            Destroy(projectileObject);
             return null;
         }
 
@@ -1827,7 +1858,10 @@ public class Tower : MonoBehaviour
             message += " | Neue Visual Tier: " + visualTier;
 
         ApplyVisualTierStatBonusIfNeeded(true);
-        RefreshVisualTierShape();
+
+        if (gainedVisualTier)
+            RefreshVisualTierShape();
+
         PlayLevelUpVisual(gainedUpgradePoint);
         RefreshUpgradePointAvailableVisual();
         RecordTowerLevelUpForRunStats(gainedUpgradePoint, gainedMetaPoint, gainedVisualTier);

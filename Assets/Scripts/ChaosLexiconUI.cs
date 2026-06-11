@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -50,6 +51,7 @@ public class ChaosLexiconUI : MonoBehaviour
     public bool IsOpen => isOpen;
 
     private readonly List<Button> generatedEntryButtons = new List<Button>();
+    private string entryButtonSignature = "";
 
     private void Start()
     {
@@ -83,11 +85,10 @@ public class ChaosLexiconUI : MonoBehaviour
             CreateAutoUI();
 
         isOpen = true;
+        RefreshAll();
 
         if (rootPanel != null)
             rootPanel.SetActive(true);
-
-        RefreshAll();
     }
 
     public void CloseLexicon()
@@ -166,11 +167,19 @@ public class ChaosLexiconUI : MonoBehaviour
         if (entryListContent == null || manager == null)
             return;
 
+        List<ChaosLexiconEntry> entries = manager.GetVisibleEntries();
+        string nextSignature = BuildEntryButtonSignature(entries);
+
+        if (generatedEntryButtons.Count == entries.Count && entryButtonSignature == nextSignature)
+        {
+            RefreshEntryButtons(entries);
+            return;
+        }
+
         for (int i = entryListContent.childCount - 1; i >= 0; i--)
             Destroy(entryListContent.GetChild(i).gameObject);
 
         generatedEntryButtons.Clear();
-        List<ChaosLexiconEntry> entries = manager.GetVisibleEntries();
 
         foreach (ChaosLexiconEntry entry in entries)
         {
@@ -179,6 +188,52 @@ public class ChaosLexiconUI : MonoBehaviour
 
             Button button = CreateEntryButton(entryListContent, entry);
             generatedEntryButtons.Add(button);
+        }
+
+        entryButtonSignature = nextSignature;
+    }
+
+    private string BuildEntryButtonSignature(List<ChaosLexiconEntry> entries)
+    {
+        if (entries == null || entries.Count == 0)
+            return "";
+
+        StringBuilder builder = new StringBuilder(entries.Count * 32);
+
+        foreach (ChaosLexiconEntry entry in entries)
+        {
+            if (entry == null)
+            {
+                builder.Append("<null>|");
+                continue;
+            }
+
+            builder.Append(entry.entryId).Append('|');
+            builder.Append((int)entry.category).Append('|');
+            builder.Append(entry.IsUnlocked() ? '1' : '0').Append('|');
+            builder.Append(entry.futureOnly ? '1' : '0').Append('|');
+        }
+
+        return builder.ToString();
+    }
+
+    private void RefreshEntryButtons(List<ChaosLexiconEntry> entries)
+    {
+        for (int i = 0; i < generatedEntryButtons.Count; i++)
+        {
+            Button button = generatedEntryButtons[i];
+            ChaosLexiconEntry entry = i < entries.Count ? entries[i] : null;
+
+            if (button == null || entry == null)
+                continue;
+
+            Image image = button.GetComponent<Image>();
+            if (image != null)
+                image.color = GetEntryButtonColor(entry);
+
+            TextMeshProUGUI text = button.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (text != null)
+                text.text = manager != null ? manager.GetEntryButtonLabel(entry) : entry.title;
         }
     }
 

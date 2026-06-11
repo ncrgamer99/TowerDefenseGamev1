@@ -71,6 +71,8 @@ public class ChaosUnlockRuntimeUI : MonoBehaviour
     private RuntimeSection selectedSection = RuntimeSection.Overview;
     private string selectedUnlockId = "";
     private float notificationTimer = 0f;
+    private string topBarResourceSignature = "";
+    private string sidebarSignature = "";
 
     public bool IsOpen => rootPanel != null && rootPanel.activeSelf;
 
@@ -131,12 +133,12 @@ public class ChaosUnlockRuntimeUI : MonoBehaviour
         EnsureUI();
 
         if (rootPanel != null)
-        {
             rootPanel.transform.SetAsLastSibling();
-            rootPanel.SetActive(true);
-        }
 
         RefreshAll();
+
+        if (rootPanel != null)
+            rootPanel.SetActive(true);
     }
 
     public void CloseUnlocks()
@@ -248,7 +250,6 @@ public class ChaosUnlockRuntimeUI : MonoBehaviour
     {
         if (resourceChipContent != null)
         {
-            ClearChildren(resourceChipContent);
             int total = manager != null && manager.unlocks != null ? manager.unlocks.Count : 0;
             int unlocked = GetUnlockedCount();
             GeneralMetaProgressionManager generalMeta = GetGeneralMetaManager();
@@ -256,12 +257,28 @@ public class ChaosUnlockRuntimeUI : MonoBehaviour
             PathTechniqueProgressionManager pathTechnique = GetPathTechniqueManager();
             EliteHuntProgressionManager eliteHunt = GetEliteHuntManager();
 
-            CreateResourceChip(resourceChipContent, "K", "Kernwissen", FormatNumber(generalMeta != null ? generalMeta.kernwissen : unlocked), accentColor);
-            CreateResourceChip(resourceChipContent, "XP", "Account-XP", FormatNumber(generalMeta != null ? generalMeta.accountXP : total), pathAccentColor);
-            CreateResourceChip(resourceChipContent, "C", "Chaos-Wissen", FormatNumber(chaosResearch != null ? chaosResearch.chaosKnowledge : GetCurrentChaosLevel()), purpleAccentColor);
-            CreateResourceChip(resourceChipContent, "R", "Risskerne", FormatNumber(chaosResearch != null ? chaosResearch.riftCores : 0), chaosAccentColor);
-            CreateResourceChip(resourceChipContent, "B", "Bauplaene", FormatNumber(pathTechnique != null ? pathTechnique.blueprints : 0), pathAccentColor);
-            CreateResourceChip(resourceChipContent, "E", "Elite-Siegel", FormatNumber(eliteHunt != null ? eliteHunt.eliteSeals : 0), chaosAccentColor);
+            string newResourceSignature =
+                total + "|" +
+                unlocked + "|" +
+                (generalMeta != null ? generalMeta.kernwissen : 0) + "|" +
+                (generalMeta != null ? generalMeta.accountXP : 0) + "|" +
+                (chaosResearch != null ? chaosResearch.chaosKnowledge : GetCurrentChaosLevel()) + "|" +
+                (chaosResearch != null ? chaosResearch.riftCores : 0) + "|" +
+                (pathTechnique != null ? pathTechnique.blueprints : 0) + "|" +
+                (eliteHunt != null ? eliteHunt.eliteSeals : 0);
+
+            if (newResourceSignature != topBarResourceSignature || resourceChipContent.childCount == 0)
+            {
+                ClearChildren(resourceChipContent);
+                topBarResourceSignature = newResourceSignature;
+
+                CreateResourceChip(resourceChipContent, "K", "Kernwissen", FormatNumber(generalMeta != null ? generalMeta.kernwissen : unlocked), accentColor);
+                CreateResourceChip(resourceChipContent, "XP", "Account-XP", FormatNumber(generalMeta != null ? generalMeta.accountXP : total), pathAccentColor);
+                CreateResourceChip(resourceChipContent, "C", "Chaos-Wissen", FormatNumber(chaosResearch != null ? chaosResearch.chaosKnowledge : GetCurrentChaosLevel()), purpleAccentColor);
+                CreateResourceChip(resourceChipContent, "R", "Risskerne", FormatNumber(chaosResearch != null ? chaosResearch.riftCores : 0), chaosAccentColor);
+                CreateResourceChip(resourceChipContent, "B", "Bauplaene", FormatNumber(pathTechnique != null ? pathTechnique.blueprints : 0), pathAccentColor);
+                CreateResourceChip(resourceChipContent, "E", "Elite-Siegel", FormatNumber(eliteHunt != null ? eliteHunt.eliteSeals : 0), chaosAccentColor);
+            }
         }
 
         if (titleText != null)
@@ -282,8 +299,13 @@ public class ChaosUnlockRuntimeUI : MonoBehaviour
         if (sidebarContent == null)
             return;
 
+        string newSidebarSignature = selectedSection.ToString();
+        if (newSidebarSignature == sidebarSignature && sidebarContent.childCount >= 7)
+            return;
+
         ClearChildren(sidebarContent);
         generatedSidebarButtons.Clear();
+        sidebarSignature = newSidebarSignature;
 
         CreateSidebarSectionLabel("META-PROGRESSION");
         generatedSidebarButtons.Add(CreateSidebarButton(RuntimeSection.Overview, "U", "UEBERSICHT", accentColor));

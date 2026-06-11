@@ -108,7 +108,9 @@ public class AutopathManager : MonoBehaviour
         ResolveReferences();
         HandlePanelToggleInput();
         UpdateAutopath();
-        RefreshPanel();
+
+        if (panelOpen)
+            RefreshPanel();
     }
 
     private void ResolveReferences()
@@ -168,7 +170,10 @@ public class AutopathManager : MonoBehaviour
             panelRoot.SetActive(panelOpen);
 
             if (panelOpen)
+            {
                 panelRoot.transform.SetAsLastSibling();
+                RefreshPanel();
+            }
         }
     }
 

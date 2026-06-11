@@ -9,6 +9,77 @@ public enum ProjectileBehavior
     SpikeTrap
 }
 
+public static class ProjectilePool
+{
+    private const int MaxStoredProjectilesPerPrefab = 128;
+    private static readonly Dictionary<GameObject, Stack<Projectile>> projectilePools = new Dictionary<GameObject, Stack<Projectile>>();
+
+    public static Projectile Get(GameObject prefab, Vector3 position, Quaternion rotation)
+    {
+        if (prefab == null)
+            return null;
+
+        Projectile projectile = GetPooledProjectile(prefab);
+
+        if (projectile == null)
+        {
+            GameObject projectileObject = Object.Instantiate(prefab, position, rotation);
+            projectile = projectileObject.GetComponent<Projectile>();
+
+            if (projectile == null)
+            {
+                Object.Destroy(projectileObject);
+                return null;
+            }
+        }
+
+        projectile.PrepareForReuse(prefab, position, rotation);
+        return projectile;
+    }
+
+    public static void Release(Projectile projectile, GameObject prefab)
+    {
+        if (projectile == null || prefab == null)
+        {
+            if (projectile != null)
+                Object.Destroy(projectile.gameObject);
+
+            return;
+        }
+
+        if (!projectilePools.TryGetValue(prefab, out Stack<Projectile> pool))
+        {
+            pool = new Stack<Projectile>();
+            projectilePools.Add(prefab, pool);
+        }
+
+        if (pool.Count >= MaxStoredProjectilesPerPrefab)
+        {
+            Object.Destroy(projectile.gameObject);
+            return;
+        }
+
+        projectile.gameObject.SetActive(false);
+        pool.Push(projectile);
+    }
+
+    private static Projectile GetPooledProjectile(GameObject prefab)
+    {
+        if (!projectilePools.TryGetValue(prefab, out Stack<Projectile> pool))
+            return null;
+
+        while (pool.Count > 0)
+        {
+            Projectile projectile = pool.Pop();
+
+            if (projectile != null)
+                return projectile;
+        }
+
+        return null;
+    }
+}
+
 public class Projectile : MonoBehaviour
 {
     public float speed = 40f;
@@ -113,10 +184,124 @@ public class Projectile : MonoBehaviour
     private Tower ownerTower;
     private Vector3 mortarImpactPosition;
     private bool hasMortarImpactPosition = false;
+    private GameObject poolPrefab;
+    private bool returnedToPool = false;
 
     private void Awake()
     {
         ApplyProjectileVisualMaterial();
+    }
+
+    public void PrepareForReuse(GameObject sourcePrefab, Vector3 position, Quaternion rotation)
+    {
+        StopAllCoroutines();
+        poolPrefab = sourcePrefab;
+        returnedToPool = false;
+        target = null;
+        ownerTower = null;
+        hasMortarImpactPosition = false;
+        transform.SetPositionAndRotation(position, rotation);
+        ResetRuntimeModifiers();
+
+        if (!gameObject.activeSelf)
+            gameObject.SetActive(true);
+    }
+
+    private void ResetRuntimeModifiers()
+    {
+        damage = 1;
+        ignoreArmor = false;
+        armorPierce = 0;
+        applyBasicAnchorMark = false;
+        applyRapidEscapeMark = false;
+        rapidEscapeMarkDuration = 2.5f;
+        applyRapidNeedleMark = false;
+        rapidNeedleMarkThreshold = 0;
+        rapidNeedleMarkApplications = 1;
+        rapidNeedleMarkDuration = 3f;
+        rapidNeedleBonusDamage = 0;
+        rapidNeedleBonusArmorPierce = false;
+        rapidNeedleHailDamage = 0;
+        applyHeavyArmorBreakMark = false;
+        heavyArmorBreakMarkDuration = 4f;
+        applyHeavyArmorWeaken = false;
+        heavyArmorWeakenDuration = 3f;
+        applyHeavyImpactStagger = false;
+        heavyImpactStaggerDuration = 0.15f;
+        applySniperHeadshotMark = false;
+        consumeSniperHeadshotMark = false;
+        sniperHeadshotMarkDuration = 4f;
+        applySniperBossMark = false;
+        sniperBossMarkDuration = 5f;
+        applyLightningStaticShock = false;
+        applyLightningAnchorShock = false;
+        lightningDisruptsMage = false;
+        lightningShockDuration = 0.15f;
+        lightningShockSpeedMultiplier = 0.88f;
+        lightningStaticShockDuration = 0.15f;
+        lightningStaticShockSpeedMultiplier = 0.88f;
+        lightningAnchorShockDuration = 0.35f;
+        lightningAnchorShockSpeedMultiplier = 0.72f;
+        lightningOverloadBurst = false;
+        lightningOverloadSecondaryBonusDamage = 0;
+        lightningOverloadSecondaryBonusTargets = 0;
+        behavior = ProjectileBehavior.Direct;
+        appliesBurn = false;
+        burnDamage = 1;
+        burnDuration = 3f;
+        appliesPoison = false;
+        poisonDamage = 1;
+        poisonDuration = 4f;
+        appliesSlow = false;
+        slowAmount = 0.5f;
+        slowDuration = 2f;
+        slowMasteryControlPulse = false;
+        slowMasteryLastLine = false;
+        applySlowStasisField = false;
+        slowStasisRadius = 0.95f;
+        slowStasisAmount = 0.25f;
+        slowStasisDuration = 0.9f;
+        lightningChainTargets = 2;
+        lightningBonusChainChance = 0f;
+        lightningChainRange = 2.5f;
+        lightningChainDamageMultiplier = 0.55f;
+        lightningLineDuration = 0.12f;
+        lightningLineColor = new Color32(125, 220, 255, 255);
+        mortarRadius = 0.85f;
+        mortarSiegeStrike = false;
+        mortarFragmentTargets = 0;
+        mortarFragmentDamageMultiplier = 0f;
+        mortarFragmentSearchRadius = 0.65f;
+        mortarCreateCrater = false;
+        mortarCraterRadius = 0.65f;
+        mortarCraterDuration = 1f;
+        mortarCraterDamagePerTick = 1f;
+        mortarCraterTickInterval = 0.45f;
+        mortarCraterStaggers = false;
+        mortarCraterStaggerMultiplier = 0.9f;
+        mortarCraterStaggerDuration = 0.2f;
+        spikeTriggerRadius = 0.45f;
+        spikeBleedDamagePerTick = 3f;
+        spikeBleedTickInterval = 2.0f;
+        spikeBleedDuration = 14f;
+        spikeMaxTrapTriggers = 1;
+        spikeTriggerCooldown = 0.16f;
+        spikeTrapDirectDamage = 0;
+        spikeExtraTargets = 0;
+        spikeExtraDamageMultiplier = 0f;
+        spikeExtraTargetRadius = 0.55f;
+    }
+
+    private void FinishProjectile()
+    {
+        if (returnedToPool)
+            return;
+
+        returnedToPool = true;
+        target = null;
+        ownerTower = null;
+        hasMortarImpactPosition = false;
+        ProjectilePool.Release(this, poolPrefab);
     }
 
     public void SetTarget(Enemy newTarget, Tower tower)
@@ -145,7 +330,7 @@ public class Projectile : MonoBehaviour
 
         if (target == null)
         {
-            Destroy(gameObject);
+            FinishProjectile();
             return;
         }
 
@@ -167,7 +352,7 @@ public class Projectile : MonoBehaviour
     {
         if (!hasMortarImpactPosition)
         {
-            Destroy(gameObject);
+            FinishProjectile();
             return;
         }
 
@@ -181,7 +366,7 @@ public class Projectile : MonoBehaviour
     {
         if (target == null)
         {
-            Destroy(gameObject);
+            FinishProjectile();
             return;
         }
 
@@ -199,7 +384,7 @@ public class Projectile : MonoBehaviour
                 break;
         }
 
-        Destroy(gameObject);
+        FinishProjectile();
     }
 
     private void ApplyDirectHit(Enemy enemy, int hitDamage)
@@ -417,13 +602,13 @@ public class Projectile : MonoBehaviour
         if (chainSource == null)
             return null;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        IReadOnlyList<Enemy> enemies = EnemyRegistry.ActiveEnemies;
         Enemy bestTarget = null;
         float bestDistance = Mathf.Max(0.1f, lightningChainRange);
 
         foreach (Enemy enemy in enemies)
         {
-            if (enemy == null || excludedEnemies.Contains(enemy))
+            if (enemy == null || !enemy.IsActiveTarget || excludedEnemies.Contains(enemy))
                 continue;
 
             float distance = Vector3.Distance(chainSource.transform.position, enemy.transform.position);
@@ -447,23 +632,26 @@ public class Projectile : MonoBehaviour
 
     private void ExplodeMortar()
     {
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        IReadOnlyList<Enemy> enemies = EnemyRegistry.ActiveEnemies;
         float radius = Mathf.Max(0.1f, mortarRadius);
         List<Enemy> hitEnemies = new List<Enemy>();
         List<Enemy> allEnemies = new List<Enemy>();
 
         foreach (Enemy enemy in enemies)
         {
-            if (enemy == null)
+            if (enemy == null || !enemy.IsActiveTarget)
                 continue;
 
             allEnemies.Add(enemy);
 
             if (Vector3.Distance(enemy.transform.position, mortarImpactPosition) <= radius)
-            {
-                ApplyDirectHit(enemy, damage);
                 hitEnemies.Add(enemy);
-            }
+        }
+
+        foreach (Enemy enemy in hitEnemies)
+        {
+            if (enemy != null && enemy.IsActiveTarget)
+                ApplyDirectHit(enemy, damage);
         }
 
         if (ownerTower != null && ownerTower.towerRole == TowerRole.Mortar && MortarTowerMasteryManager.TryGetActive(out MortarTowerMasteryManager mortarMasteryManager))
@@ -475,7 +663,7 @@ public class Projectile : MonoBehaviour
             MortarCraterEffect.CreateCraterAtWorldPosition(mortarImpactPosition, mortarCraterRadius, mortarCraterDamagePerTick, mortarCraterTickInterval, mortarCraterDuration, ownerTower, mortarCraterStaggers, mortarCraterStaggerMultiplier, mortarCraterStaggerDuration);
 
         CreateMortarImpactVisual(mortarImpactPosition, radius);
-        Destroy(gameObject);
+        FinishProjectile();
     }
 
     private void ApplyMortarFragments(List<Enemy> allEnemies, List<Enemy> directHits, float radius)

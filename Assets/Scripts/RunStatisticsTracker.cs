@@ -31,6 +31,81 @@ public enum TowerUpgradeCategory
 }
 
 [System.Serializable]
+public class RunBlockedEventTypeStats
+{
+    public string eventType = "Unknown";
+    public string lastEventName = "";
+    public int choices = 0;
+    public int goldGained = 0;
+    public int livesGained = 0;
+    public float totalBuildPhaseDuration = 0f;
+    public int firstWaveNumber = 0;
+    public int lastWaveNumber = 0;
+
+    public void Clear()
+    {
+        eventType = "Unknown";
+        lastEventName = "";
+        choices = 0;
+        goldGained = 0;
+        livesGained = 0;
+        totalBuildPhaseDuration = 0f;
+        firstWaveNumber = 0;
+        lastWaveNumber = 0;
+    }
+
+    public void Record(string eventName, int gold, int lives, float buildPhaseDuration)
+    {
+        Record(eventName, gold, lives, buildPhaseDuration, 0);
+    }
+
+    public void Record(string eventName, int gold, int lives, float buildPhaseDuration, int waveNumber)
+    {
+        choices++;
+        lastEventName = string.IsNullOrEmpty(eventName) ? eventType : eventName;
+        goldGained += Mathf.Max(0, gold);
+        livesGained += Mathf.Max(0, lives);
+        totalBuildPhaseDuration += Mathf.Max(0f, buildPhaseDuration);
+
+        int safeWaveNumber = Mathf.Max(0, waveNumber);
+        if (safeWaveNumber > 0)
+        {
+            if (firstWaveNumber <= 0)
+                firstWaveNumber = safeWaveNumber;
+
+            lastWaveNumber = safeWaveNumber;
+        }
+    }
+
+    public RunBlockedEventTypeStats CreateCopy()
+    {
+        return new RunBlockedEventTypeStats
+        {
+            eventType = eventType,
+            lastEventName = lastEventName,
+            choices = choices,
+            goldGained = goldGained,
+            livesGained = livesGained,
+            totalBuildPhaseDuration = totalBuildPhaseDuration,
+            firstWaveNumber = firstWaveNumber,
+            lastWaveNumber = lastWaveNumber
+        };
+    }
+
+    public float GetAverageBuildPhaseDuration()
+    {
+        return choices > 0 ? totalBuildPhaseDuration / choices : 0f;
+    }
+
+    public string GetCompactLine()
+    {
+        string label = string.IsNullOrEmpty(lastEventName) ? eventType : lastEventName;
+        string waveText = lastWaveNumber > 0 ? " | letzte W " + lastWaveNumber : "";
+        return label + " (" + eventType + "): " + choices + "x | Gold +" + goldGained + " | Leben +" + livesGained + " | Zeit " + Mathf.RoundToInt(totalBuildPhaseDuration) + "s | Avg " + Mathf.RoundToInt(GetAverageBuildPhaseDuration()) + "s" + waveText;
+    }
+}
+
+[System.Serializable]
 public class RunEconomyStats
 {
     [Header("Gold Earned")]
@@ -86,6 +161,7 @@ public class RunStatistics
     public float totalBlockedBuildPhaseDuration = 0f;
     public string lastBlockedEventName = "";
     public string lastBlockedEventType = "";
+    public List<RunBlockedEventTypeStats> blockedEventTypeStats = new List<RunBlockedEventTypeStats>();
 
     [Header("Tower")]
     public int towersBuilt = 0;
@@ -124,6 +200,10 @@ public class RunStatistics
         totalBlockedBuildPhaseDuration = 0f;
         lastBlockedEventName = "";
         lastBlockedEventType = "";
+        if (blockedEventTypeStats == null)
+            blockedEventTypeStats = new List<RunBlockedEventTypeStats>();
+        else
+            blockedEventTypeStats.Clear();
         towersBuilt = 0;
         towersDestroyedByElite = 0;
         totalTowerXPGranted = 0;
@@ -628,6 +708,7 @@ public class RunStatisticsTracker : MonoBehaviour
     public float totalBlockedBuildPhaseDuration = 0f;
     public string lastBlockedEventName = "";
     public string lastBlockedEventType = "";
+    public List<RunBlockedEventTypeStats> blockedEventTypeStats = new List<RunBlockedEventTypeStats>();
 
     [Header("Tower Progression")]
     public int towersBuilt = 0;
@@ -702,6 +783,12 @@ public class RunStatisticsTracker : MonoBehaviour
         if (!statistics.initialized)
             statistics.Clear();
 
+        if (statistics.blockedEventTypeStats == null)
+            statistics.blockedEventTypeStats = new List<RunBlockedEventTypeStats>();
+
+        if (blockedEventTypeStats == null)
+            blockedEventTypeStats = new List<RunBlockedEventTypeStats>();
+
         if (towerRecords == null)
             towerRecords = new List<RunTowerStatsRecord>();
 
@@ -737,6 +824,7 @@ public class RunStatisticsTracker : MonoBehaviour
         totalBlockedBuildPhaseDuration = 0f;
         lastBlockedEventName = "";
         lastBlockedEventType = "";
+        blockedEventTypeStats.Clear();
         eliteWavesCompleted = 0;
         eliteKills = 0;
         eliteLeaks = 0;
@@ -843,7 +931,7 @@ public class RunStatisticsTracker : MonoBehaviour
     }
 
 
-    public void RecordBlockedEventChoice(string eventName, string eventType, int goldGained, int livesGained, float buildPhaseDuration)
+    public void RecordBlockedEventChoice(string eventName, string eventType, int goldGained, int livesGained, float buildPhaseDuration, int waveNumber = 0)
     {
         EnsureLists();
 
@@ -853,6 +941,8 @@ public class RunStatisticsTracker : MonoBehaviour
         totalBlockedBuildPhaseDuration += Mathf.Max(0f, buildPhaseDuration);
         lastBlockedEventName = string.IsNullOrEmpty(eventName) ? "Unbekannt" : eventName;
         lastBlockedEventType = string.IsNullOrEmpty(eventType) ? "Unknown" : eventType;
+        int safeWaveNumber = waveNumber > 0 ? waveNumber : (gameManager != null ? gameManager.waveNumber : 0);
+        GetOrCreateBlockedEventTypeStats(lastBlockedEventType).Record(lastBlockedEventName, goldGained, livesGained, buildPhaseDuration, safeWaveNumber);
 
         SyncStatisticsSnapshot();
 
@@ -860,6 +950,8 @@ public class RunStatisticsTracker : MonoBehaviour
         {
             Debug.Log(
                 "RunStats: Verbau-Event " + lastBlockedEventName +
+                " | Typ " + lastBlockedEventType +
+                (safeWaveNumber > 0 ? " | Wave " + safeWaveNumber : "") +
                 " | Gold +" + Mathf.Max(0, goldGained) +
                 " | Leben +" + Mathf.Max(0, livesGained) +
                 " | Buildphase " + Mathf.Max(0f, buildPhaseDuration).ToString("0.0") + "s."
@@ -1105,7 +1197,60 @@ public class RunStatisticsTracker : MonoBehaviour
             "Quellen: Kills " + economy.enemyKillGoldEarned + " | Wave-Abschluss " + economy.waveCompletionGoldEarned + " | Verbau-Event " + economy.blockedEventGoldEarned + " | Sonstiges " + economy.otherGoldEarned + "\n" +
             "Reward-Bonus durch Gerechtigkeit/Risiko: +" + economy.goldAddedByRewardModifiers + " Gold\n" +
             "Verbau-Events: " + blockedEventsChosen + " | Leben aus Verbau: " + lifeFromBlockedEvents + " | Buildphasen: " + timedBlockedBuildPhases + "\n" +
+            GetBlockedEventTypeSummaryText(4) +
             "Ausgaben: Towerbau " + economy.towerBuildGoldSpent + " | Gold-Upgrades " + economy.goldUpgradeGoldSpent + " | Sonstiges " + economy.otherGoldSpent + "\n";
+    }
+
+    public string GetBlockedEventTypeSummaryText(int maxEntries)
+    {
+        EnsureLists();
+
+        if (blockedEventTypeStats == null || blockedEventTypeStats.Count == 0)
+            return "";
+
+        StringBuilder builder = new StringBuilder();
+        builder.AppendLine("Verbau-Typen:");
+
+        int safeMax = Mathf.Max(1, maxEntries);
+        int shown = 0;
+
+        List<RunBlockedEventTypeStats> sortedStats = CreateBlockedEventTypeStatsSnapshot(true);
+
+        foreach (RunBlockedEventTypeStats stats in sortedStats)
+        {
+            if (stats == null || stats.choices <= 0)
+                continue;
+
+            if (shown >= safeMax)
+                break;
+
+            builder.AppendLine("- " + stats.GetCompactLine());
+            shown++;
+        }
+
+        int hidden = Mathf.Max(0, CountTrackedBlockedEventTypes() - shown);
+        if (hidden > 0)
+            builder.AppendLine("... " + hidden + " weitere Verbau-Typen.");
+
+        return builder.ToString();
+    }
+
+    public List<RunBlockedEventTypeStats> GetBlockedEventTypeStatsSnapshot(int maxEntries = 0)
+    {
+        EnsureLists();
+        List<RunBlockedEventTypeStats> snapshot = CreateBlockedEventTypeStatsSnapshot(true);
+
+        if (maxEntries <= 0 || snapshot.Count <= maxEntries)
+            return snapshot;
+
+        snapshot.RemoveRange(maxEntries, snapshot.Count - maxEntries);
+        return snapshot;
+    }
+
+    public RunBlockedEventTypeStats GetMostUsedBlockedEventTypeStats()
+    {
+        List<RunBlockedEventTypeStats> snapshot = GetBlockedEventTypeStatsSnapshot(1);
+        return snapshot.Count > 0 ? snapshot[0] : null;
     }
 
     public string GetTowerProgressionSummaryText()
@@ -1152,6 +1297,84 @@ public class RunStatisticsTracker : MonoBehaviour
                eliteKills > 0 ||
                eliteLeaks > 0 ||
                eliteRewardsChosen > 0;
+    }
+
+    private RunBlockedEventTypeStats GetOrCreateBlockedEventTypeStats(string eventType)
+    {
+        EnsureLists();
+
+        string safeType = string.IsNullOrEmpty(eventType) ? "Unknown" : eventType;
+
+        foreach (RunBlockedEventTypeStats stats in blockedEventTypeStats)
+        {
+            if (stats != null && stats.eventType == safeType)
+                return stats;
+        }
+
+        RunBlockedEventTypeStats newStats = new RunBlockedEventTypeStats
+        {
+            eventType = safeType
+        };
+
+        blockedEventTypeStats.Add(newStats);
+        return newStats;
+    }
+
+    private int CountTrackedBlockedEventTypes()
+    {
+        int count = 0;
+
+        if (blockedEventTypeStats == null)
+            return count;
+
+        foreach (RunBlockedEventTypeStats stats in blockedEventTypeStats)
+        {
+            if (stats != null && stats.choices > 0)
+                count++;
+        }
+
+        return count;
+    }
+
+    private List<RunBlockedEventTypeStats> CreateBlockedEventTypeStatsSnapshot(bool sortByChoices)
+    {
+        List<RunBlockedEventTypeStats> snapshot = new List<RunBlockedEventTypeStats>();
+
+        if (blockedEventTypeStats == null)
+            return snapshot;
+
+        foreach (RunBlockedEventTypeStats stats in blockedEventTypeStats)
+        {
+            if (stats != null && stats.choices > 0)
+                snapshot.Add(stats.CreateCopy());
+        }
+
+        if (sortByChoices)
+            snapshot.Sort(CompareBlockedEventTypeStats);
+
+        return snapshot;
+    }
+
+    private static int CompareBlockedEventTypeStats(RunBlockedEventTypeStats first, RunBlockedEventTypeStats second)
+    {
+        if (first == null && second == null)
+            return 0;
+
+        if (first == null)
+            return 1;
+
+        if (second == null)
+            return -1;
+
+        int choicesComparison = second.choices.CompareTo(first.choices);
+        if (choicesComparison != 0)
+            return choicesComparison;
+
+        int waveComparison = second.lastWaveNumber.CompareTo(first.lastWaveNumber);
+        if (waveComparison != 0)
+            return waveComparison;
+
+        return string.Compare(first.eventType, second.eventType, System.StringComparison.Ordinal);
     }
 
     private RunTowerStatsRecord GetOrCreateTowerRecord(Tower tower)
@@ -1342,6 +1565,7 @@ public class RunStatisticsTracker : MonoBehaviour
         statistics.totalBlockedBuildPhaseDuration = totalBlockedBuildPhaseDuration;
         statistics.lastBlockedEventName = lastBlockedEventName;
         statistics.lastBlockedEventType = lastBlockedEventType;
+        SyncBlockedEventTypeStatsSnapshot();
         statistics.towersBuilt = towersBuilt;
         statistics.towersDestroyedByElite = towersDestroyedByElite;
         statistics.totalTowerXPGranted = totalTowerXPGained;
@@ -1359,5 +1583,17 @@ public class RunStatisticsTracker : MonoBehaviour
         statistics.eliteRewardsChosen = eliteRewardsChosen;
         statistics.lastEliteDestroyedTowerName = lastEliteDestroyedTowerName;
         statistics.lastEliteRewardName = lastEliteRewardName;
+    }
+
+    private void SyncBlockedEventTypeStatsSnapshot()
+    {
+        if (statistics.blockedEventTypeStats == null)
+            statistics.blockedEventTypeStats = new List<RunBlockedEventTypeStats>();
+        else
+            statistics.blockedEventTypeStats.Clear();
+
+        List<RunBlockedEventTypeStats> snapshot = CreateBlockedEventTypeStatsSnapshot(true);
+        foreach (RunBlockedEventTypeStats stats in snapshot)
+            statistics.blockedEventTypeStats.Add(stats);
     }
 }

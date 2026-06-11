@@ -133,6 +133,9 @@ public class BuildSelectionUI : MonoBehaviour
     private readonly Dictionary<string, Sprite> generatedIconCache = new Dictionary<string, Sprite>();
     private TowerSupportTileEffect supportTileBuildTarget;
     private TowerSupportTileBuildUI supportTileBuildUI;
+    private bool compactSelectionHeaderPrepared;
+    private bool slotLayoutPrepared;
+    private int preparedSlotLayoutSignature = int.MinValue;
 
     private void Start()
     {
@@ -142,7 +145,7 @@ public class BuildSelectionUI : MonoBehaviour
         SetupButtons();
         ApplyTheme();
         ApplyCompactSelectionHeaderIfNeeded();
-        RepairAllSlotLayoutsIfNeeded();
+        RepairAllSlotLayoutsIfNeeded(true);
         CloseSelectionPanel();
         HideTooltip();
         ClearSelectionText();
@@ -868,15 +871,57 @@ public class BuildSelectionUI : MonoBehaviour
         return string.IsNullOrEmpty(name) ? option.displayName : name;
     }
 
-    private void RepairAllSlotLayoutsIfNeeded()
+    private void RepairAllSlotLayoutsIfNeeded(bool force = false)
     {
         if (!autoRepairSlotLayoutOnStart || towerSlots == null)
+            return;
+
+        int layoutSignature = GetSlotLayoutSignature();
+        if (!force && slotLayoutPrepared && layoutSignature == preparedSlotLayoutSignature)
             return;
 
         foreach (TowerSelectionSlot slot in towerSlots)
             SetupSlot(slot);
 
         RepairSlotGridLayoutIfNeeded();
+        preparedSlotLayoutSignature = GetSlotLayoutSignature();
+        slotLayoutPrepared = true;
+    }
+
+    private int GetSlotLayoutSignature()
+    {
+        unchecked
+        {
+            int hash = 17;
+            hash = hash * 31 + (towerSlots != null ? towerSlots.Count : 0);
+            hash = hash * 31 + Mathf.RoundToInt(slotSize.x * 10f);
+            hash = hash * 31 + Mathf.RoundToInt(slotSize.y * 10f);
+            hash = hash * 31 + Mathf.RoundToInt(iconSize.x * 10f);
+            hash = hash * 31 + Mathf.RoundToInt(iconSize.y * 10f);
+            hash = hash * 31 + Mathf.RoundToInt(slotGridSpacing.x * 10f);
+            hash = hash * 31 + Mathf.RoundToInt(slotGridSpacing.y * 10f);
+            hash = hash * 31 + slotGridColumns;
+            hash = hash * 31 + (hideSelectionTitleAndCloseButton ? 1 : 0);
+            hash = hash * 31 + (enforceReadableSlotLayout ? 1 : 0);
+
+            if (towerSlots == null)
+                return hash;
+
+            foreach (TowerSelectionSlot slot in towerSlots)
+            {
+                hash = hash * 31 + (slot != null ? 1 : 0);
+
+                if (slot == null)
+                    continue;
+
+                hash = hash * 31 + (slot.option != null ? NormalizeTowerName(slot.option.displayName).GetHashCode() : 0);
+                hash = hash * 31 + (slot.button != null ? 1 : 0);
+                hash = hash * 31 + (slot.iconImage != null ? 1 : 0);
+                hash = hash * 31 + (IsBuildOptionUnlocked(slot.option) ? 1 : 0);
+            }
+
+            return hash;
+        }
     }
 
     private void RepairSlotGridLayoutIfNeeded()
@@ -954,6 +999,9 @@ public class BuildSelectionUI : MonoBehaviour
         if (!hideSelectionTitleAndCloseButton || selectionPanel == null)
             return;
 
+        if (compactSelectionHeaderPrepared)
+            return;
+
         Transform title = selectionPanel.transform.Find("Header/TitleText");
 
         if (title == null)
@@ -964,6 +1012,8 @@ public class BuildSelectionUI : MonoBehaviour
 
         if (closeSelectionButton != null)
             closeSelectionButton.gameObject.SetActive(false);
+
+        compactSelectionHeaderPrepared = true;
     }
 
     private void ClearButtonChildTextsExceptProtected(Button button)
@@ -1044,7 +1094,7 @@ public class BuildSelectionUI : MonoBehaviour
         if (buildManager == null || buildManager.gameManager == null)
             return false;
 
-        return buildManager.gameManager.IsGameplayInputLockedByModalUI();
+        return buildManager.gameManager.IsTowerBuildInputLockedByModalUI();
     }
 
     public void ToggleSelectionPanel()

@@ -86,6 +86,8 @@ public class TileManager : MonoBehaviour
     private HashSet<Vector2Int> towerPositions = new HashSet<Vector2Int>();
     private HashSet<Vector2Int> specialBlockedPositions = new HashSet<Vector2Int>();
     private List<GameObject> buildTileObjects = new List<GameObject>();
+    private Dictionary<Vector2Int, GameObject> buildTileObjectsByPosition = new Dictionary<Vector2Int, GameObject>();
+    private List<GameObject> pooledBuildTileObjects = new List<GameObject>();
     private List<GameObject> specialTileObjects = new List<GameObject>();
 
     private Vector2Int startPosition;
@@ -2025,29 +2027,47 @@ public class TileManager : MonoBehaviour
 
     private void RefreshBuildTiles()
     {
-        foreach (GameObject tile in buildTileObjects)
-        {
-            if (tile != null)
-            {
-                Destroy(tile);
-            }
-        }
-
-        buildTileObjects.Clear();
-        buildTilePositions.Clear();
-
         if (!pathInitialized)
+        {
+            DeactivateAllBuildTiles();
             return;
+        }
 
         UpdateReservedPathExtension();
 
+        HashSet<Vector2Int> desiredPositions = new HashSet<Vector2Int>();
+
         foreach (Vector2Int pathPos in pathPositions)
         {
-            CreateBuildTilesAround(pathPos);
+            CollectBuildTilesAround(pathPos, desiredPositions);
         }
+
+        List<Vector2Int> positionsToRemove = new List<Vector2Int>();
+
+        foreach (KeyValuePair<Vector2Int, GameObject> entry in buildTileObjectsByPosition)
+        {
+            if (!desiredPositions.Contains(entry.Key))
+                positionsToRemove.Add(entry.Key);
+        }
+
+        foreach (Vector2Int position in positionsToRemove)
+        {
+            DeactivateBuildTileAt(position);
+        }
+
+        foreach (Vector2Int position in desiredPositions)
+        {
+            if (!buildTileObjectsByPosition.TryGetValue(position, out GameObject existingTile) || existingTile == null)
+            {
+                buildTileObjectsByPosition.Remove(position);
+                ActivateBuildTileAt(position);
+            }
+        }
+
+        RebuildBuildTileTracking(desiredPositions);
     }
 
-    private void CreateBuildTilesAround(Vector2Int pathPos)
+    private void CollectBuildTilesAround(Vector2Int pathPos, HashSet<Vector2Int> desiredPositions)
     {
         Vector2Int[] directions =
         {
@@ -2061,9 +2081,19 @@ public class TileManager : MonoBehaviour
         {
             Vector2Int buildPos = pathPos + dir;
 
-            if (!IsValidBuildTilePosition(buildPos))
+            if (!IsValidBuildTilePosition(buildPos, desiredPositions))
                 continue;
 
+            desiredPositions.Add(buildPos);
+        }
+    }
+
+    private void ActivateBuildTileAt(Vector2Int buildPos)
+    {
+        GameObject tile = GetBuildTileFromPool();
+
+        if (tile == null)
+        {
             GameObject buildPrefab = GetBuildTilePrefab();
             if (buildPrefab == null)
             {
@@ -2071,23 +2101,96 @@ public class TileManager : MonoBehaviour
                 return;
             }
 
-            GameObject tile = Instantiate(
-                buildPrefab,
-                GridToWorld(buildPos),
-                Quaternion.identity
-            );
-
+            tile = Instantiate(buildPrefab, GridToWorld(buildPos), Quaternion.identity);
             NormalizeGeneratedTileVisual(tile);
             HideGeneratedTileRailsAndCorners(tile);
+        }
+        else
+        {
+            tile.transform.SetPositionAndRotation(GridToWorld(buildPos), Quaternion.identity);
+        }
 
-            tile.SetActive(buildTilesVisible);
+        BuildTile buildTile = tile.GetComponent<BuildTile>();
+        if (buildTile != null)
+        {
+            buildTile.isOccupied = false;
+            buildTile.SetHovered(false);
+        }
 
+        tile.SetActive(buildTilesVisible);
+        buildTileObjectsByPosition[buildPos] = tile;
+    }
+
+    private GameObject GetBuildTileFromPool()
+    {
+        while (pooledBuildTileObjects.Count > 0)
+        {
+            int lastIndex = pooledBuildTileObjects.Count - 1;
+            GameObject tile = pooledBuildTileObjects[lastIndex];
+            pooledBuildTileObjects.RemoveAt(lastIndex);
+
+            if (tile != null)
+                return tile;
+        }
+
+        return null;
+    }
+
+    private void DeactivateBuildTileAt(Vector2Int position)
+    {
+        if (!buildTileObjectsByPosition.TryGetValue(position, out GameObject tile))
+            return;
+
+        buildTileObjectsByPosition.Remove(position);
+
+        if (tile == null)
+            return;
+
+        BuildTile buildTile = tile.GetComponent<BuildTile>();
+        if (buildTile != null)
+        {
+            buildTile.isOccupied = false;
+            buildTile.SetHovered(false);
+        }
+
+        tile.SetActive(false);
+        pooledBuildTileObjects.Add(tile);
+    }
+
+    private void DeactivateAllBuildTiles()
+    {
+        List<Vector2Int> positionsToRemove = new List<Vector2Int>(buildTileObjectsByPosition.Keys);
+
+        foreach (Vector2Int position in positionsToRemove)
+        {
+            DeactivateBuildTileAt(position);
+        }
+
+        buildTileObjects.Clear();
+        buildTilePositions.Clear();
+    }
+
+    private void RebuildBuildTileTracking(HashSet<Vector2Int> desiredPositions)
+    {
+        buildTileObjects.Clear();
+        buildTilePositions.Clear();
+
+        foreach (Vector2Int position in desiredPositions)
+        {
+            if (!buildTileObjectsByPosition.TryGetValue(position, out GameObject tile) || tile == null)
+                continue;
+
+            buildTilePositions.Add(position);
             buildTileObjects.Add(tile);
-            buildTilePositions.Add(buildPos);
         }
     }
 
     private bool IsValidBuildTilePosition(Vector2Int position)
+    {
+        return IsValidBuildTilePosition(position, buildTilePositions);
+    }
+
+    private bool IsValidBuildTilePosition(Vector2Int position, HashSet<Vector2Int> occupiedBuildPositions)
     {
         if (IsPositionBlocked(position))
             return false;
@@ -2095,7 +2198,7 @@ public class TileManager : MonoBehaviour
         if (IsReservedPathExtensionPosition(position) && !supportTilePlacementBuildModeActive)
             return false;
 
-        if (buildTilePositions.Contains(position))
+        if (occupiedBuildPositions != null && occupiedBuildPositions.Contains(position))
             return false;
 
         return true;

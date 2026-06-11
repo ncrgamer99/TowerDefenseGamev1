@@ -57,6 +57,7 @@ public static class MetaHubMockData
         data.lastRunStats.Add(RunStat("waves", "Wellen überlebt", "10"));
         data.lastRunStats.Add(RunStat("boss", "Boss besiegt", "1"));
         data.lastRunStats.Add(RunStat("chaos", "Chaos-Level erreicht", "0"));
+        data.lastRunStats.Add(RunStat("blocked_events", "Verbau-Events", "0"));
         data.lastRunStats.Add(RunStat("score", "Punkte verdient", "8.450"));
 
         return data;
@@ -148,6 +149,8 @@ public static class MetaHubMockData
         data.lastRunStats.Add(RunStat("waves", "Wellen überlebt", Mathf.Max(0, gameManager.waveNumber).ToString()));
         data.lastRunStats.Add(RunStat("boss", "Boss besiegt", Mathf.Max(0, bossKills).ToString()));
         data.lastRunStats.Add(RunStat("chaos", "Chaos-Level erreicht", chaosJustice != null ? chaosJustice.GetChaosLevel().ToString() : "0"));
+        data.lastRunStats.Add(RunStat("blocked_events", "Verbau-Events", runStats != null ? runStats.blockedEventsChosen.ToString() : "0"));
+        data.lastRunStats.Add(RunStat("blocked_top", "Top-Verbau", FormatTopBlockedEventType(runStats)));
         data.lastRunStats.Add(RunStat("score", "Punkte verdient", FormatNumber(Mathf.Max(0, pointsEarned))));
 
         return data;
@@ -156,6 +159,50 @@ public static class MetaHubMockData
     public static string FormatNumber(int value)
     {
         return value.ToString("N0", CultureInfo.InvariantCulture).Replace(",", ".");
+    }
+
+    private static string FormatTopBlockedEventType(RunStatistics runStats)
+    {
+        RunBlockedEventTypeStats topStats = FindTopBlockedEventTypeStats(runStats);
+        if (topStats == null)
+            return "Keiner";
+
+        string label = string.IsNullOrEmpty(topStats.lastEventName) ? topStats.eventType : topStats.lastEventName;
+        return Shorten(label, 18) + " x" + topStats.choices;
+    }
+
+    private static RunBlockedEventTypeStats FindTopBlockedEventTypeStats(RunStatistics runStats)
+    {
+        if (runStats == null || runStats.blockedEventTypeStats == null)
+            return null;
+
+        RunBlockedEventTypeStats best = null;
+
+        foreach (RunBlockedEventTypeStats stats in runStats.blockedEventTypeStats)
+        {
+            if (stats == null || stats.choices <= 0)
+                continue;
+
+            if (best == null ||
+                stats.choices > best.choices ||
+                (stats.choices == best.choices && stats.lastWaveNumber > best.lastWaveNumber))
+            {
+                best = stats;
+            }
+        }
+
+        return best;
+    }
+
+    private static string Shorten(string text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text) || maxLength <= 0 || text.Length <= maxLength)
+            return string.IsNullOrEmpty(text) ? "" : text;
+
+        if (maxLength <= 3)
+            return text.Substring(0, maxLength);
+
+        return text.Substring(0, maxLength - 3) + "...";
     }
 
     private static void AddNavigation(MetaHubData data)

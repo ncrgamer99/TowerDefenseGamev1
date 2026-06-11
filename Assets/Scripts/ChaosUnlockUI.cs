@@ -92,6 +92,9 @@ public class ChaosUnlockUI : MonoBehaviour
     private string selectedMetaHubEntryId = "";
     private bool showingSectionTopics = false;
     private float notificationTimer = 0f;
+    private string resourceBarSignature = "";
+    private string sidebarSignature = "";
+    private string keystonePreviewSignature = "";
     private readonly Color mutedGray = new Color32(185, 194, 208, 255);
     private const string RootSectionEntryPrefix = "meta_section_";
     private const string BackToRootEntryId = "meta_back_to_sections";
@@ -138,15 +141,15 @@ public class ChaosUnlockUI : MonoBehaviour
         EnsureUI();
 
         if (rootPanel != null)
-        {
             rootPanel.transform.SetAsLastSibling();
-            rootPanel.SetActive(true);
-        }
 
         showingSectionTopics = false;
         selectedSection = ChaosUnlockMenuSection.Overview;
         selectedMetaHubEntryId = GetRootSectionEntryId(ChaosUnlockMenuSection.Overview);
         RefreshAll();
+
+        if (rootPanel != null)
+            rootPanel.SetActive(true);
     }
 
     public void CloseUnlocks()
@@ -220,20 +223,33 @@ public class ChaosUnlockUI : MonoBehaviour
         if (resourceChipContent == null)
             return;
 
-        ClearChildren(resourceChipContent);
-
         GeneralMetaProgressionManager generalMeta = GetGeneralMetaProgressionManager();
         ChaosResearchProgressionManager chaosResearch = GetChaosResearchProgressionManager();
         PathTechniqueProgressionManager pathTechnique = GetPathTechniqueProgressionManager();
         EliteHuntProgressionManager eliteHunt = GetEliteHuntProgressionManager();
 
-        CreateResourceChip(resourceChipContent, "KW", "Kernwissen", FormatNumber(generalMeta != null ? generalMeta.kernwissen : 0), headerColor);
-        CreateResourceChip(resourceChipContent, "XP", "Account-XP", FormatNumber(generalMeta != null ? generalMeta.accountXP : 0), new Color32(58, 175, 234, 255));
-        CreateResourceChip(resourceChipContent, "CH", "Chaos", FormatNumber(chaosResearch != null ? chaosResearch.chaosKnowledge : 0), GetSectionAccentColor(ChaosUnlockMenuSection.ChaosResearch));
-        CreateResourceChip(resourceChipContent, "RK", "Risskerne", FormatNumber(chaosResearch != null ? chaosResearch.riftCores : 0), new Color32(225, 70, 78, 255));
-        CreateResourceChip(resourceChipContent, "BP", "Bauplaene", FormatNumber(pathTechnique != null ? pathTechnique.blueprints : 0), GetSectionAccentColor(ChaosUnlockMenuSection.PathTechnique));
-        CreateResourceChip(resourceChipContent, "RB", "Rissbau", FormatNumber(pathTechnique != null ? pathTechnique.riftBlueprints : 0), new Color32(92, 176, 210, 255));
-        CreateResourceChip(resourceChipContent, "ES", "Elite", FormatNumber(eliteHunt != null ? eliteHunt.eliteSeals : 0), GetSectionAccentColor(ChaosUnlockMenuSection.EliteHunt));
+        string newResourceSignature =
+            (generalMeta != null ? generalMeta.kernwissen : 0) + "|" +
+            (generalMeta != null ? generalMeta.accountXP : 0) + "|" +
+            (chaosResearch != null ? chaosResearch.chaosKnowledge : 0) + "|" +
+            (chaosResearch != null ? chaosResearch.riftCores : 0) + "|" +
+            (pathTechnique != null ? pathTechnique.blueprints : 0) + "|" +
+            (pathTechnique != null ? pathTechnique.riftBlueprints : 0) + "|" +
+            (eliteHunt != null ? eliteHunt.eliteSeals : 0);
+
+        if (newResourceSignature != resourceBarSignature || resourceChipContent.childCount == 0)
+        {
+            ClearChildren(resourceChipContent);
+            resourceBarSignature = newResourceSignature;
+
+            CreateResourceChip(resourceChipContent, "KW", "Kernwissen", FormatNumber(generalMeta != null ? generalMeta.kernwissen : 0), headerColor);
+            CreateResourceChip(resourceChipContent, "XP", "Account-XP", FormatNumber(generalMeta != null ? generalMeta.accountXP : 0), new Color32(58, 175, 234, 255));
+            CreateResourceChip(resourceChipContent, "CH", "Chaos", FormatNumber(chaosResearch != null ? chaosResearch.chaosKnowledge : 0), GetSectionAccentColor(ChaosUnlockMenuSection.ChaosResearch));
+            CreateResourceChip(resourceChipContent, "RK", "Risskerne", FormatNumber(chaosResearch != null ? chaosResearch.riftCores : 0), new Color32(225, 70, 78, 255));
+            CreateResourceChip(resourceChipContent, "BP", "Bauplaene", FormatNumber(pathTechnique != null ? pathTechnique.blueprints : 0), GetSectionAccentColor(ChaosUnlockMenuSection.PathTechnique));
+            CreateResourceChip(resourceChipContent, "RB", "Rissbau", FormatNumber(pathTechnique != null ? pathTechnique.riftBlueprints : 0), new Color32(92, 176, 210, 255));
+            CreateResourceChip(resourceChipContent, "ES", "Elite", FormatNumber(eliteHunt != null ? eliteHunt.eliteSeals : 0), GetSectionAccentColor(ChaosUnlockMenuSection.EliteHunt));
+        }
 
         if (titleText != null)
         {
@@ -261,15 +277,20 @@ public class ChaosUnlockUI : MonoBehaviour
         if (sectionButtonContent == null)
             return;
 
-        ClearChildren(sectionButtonContent);
-        generatedSectionButtons.Clear();
+        string newSidebarSignature = selectedSection + "|" + showingSectionTopics;
+        if (newSidebarSignature != sidebarSignature || sectionButtonContent.childCount < 6)
+        {
+            ClearChildren(sectionButtonContent);
+            generatedSectionButtons.Clear();
+            sidebarSignature = newSidebarSignature;
 
-        generatedSectionButtons.Add(CreateSectionButton(ChaosUnlockMenuSection.Overview));
-        generatedSectionButtons.Add(CreateSectionButton(ChaosUnlockMenuSection.General));
-        generatedSectionButtons.Add(CreateSectionButton(ChaosUnlockMenuSection.TowerMastery));
-        generatedSectionButtons.Add(CreateSectionButton(ChaosUnlockMenuSection.ChaosResearch));
-        generatedSectionButtons.Add(CreateSectionButton(ChaosUnlockMenuSection.PathTechnique));
-        generatedSectionButtons.Add(CreateSectionButton(ChaosUnlockMenuSection.EliteHunt));
+            generatedSectionButtons.Add(CreateSectionButton(ChaosUnlockMenuSection.Overview));
+            generatedSectionButtons.Add(CreateSectionButton(ChaosUnlockMenuSection.General));
+            generatedSectionButtons.Add(CreateSectionButton(ChaosUnlockMenuSection.TowerMastery));
+            generatedSectionButtons.Add(CreateSectionButton(ChaosUnlockMenuSection.ChaosResearch));
+            generatedSectionButtons.Add(CreateSectionButton(ChaosUnlockMenuSection.PathTechnique));
+            generatedSectionButtons.Add(CreateSectionButton(ChaosUnlockMenuSection.EliteHunt));
+        }
 
         RefreshKeystonePreview();
     }
@@ -279,7 +300,12 @@ public class ChaosUnlockUI : MonoBehaviour
         if (activeKeystoneContent == null)
             return;
 
+        string newKeystoneSignature = "basic|rapid|fire";
+        if (newKeystoneSignature == keystonePreviewSignature && activeKeystoneContent.childCount >= 3)
+            return;
+
         ClearChildren(activeKeystoneContent);
+        keystonePreviewSignature = newKeystoneSignature;
         CreateKeystoneSlot(activeKeystoneContent, "B", "Basic", GetSectionAccentColor(ChaosUnlockMenuSection.TowerMastery));
         CreateKeystoneSlot(activeKeystoneContent, "R", "Rapid", new Color32(165, 82, 255, 255));
         CreateKeystoneSlot(activeKeystoneContent, "F", "Fire", new Color32(225, 70, 78, 255));

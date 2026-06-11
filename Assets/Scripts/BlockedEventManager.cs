@@ -33,6 +33,16 @@ public class BlockedEventOption
 
     [Tooltip("Optional. Wenn > 0, nutzt diese Option eine eigene Verbau-Buildphase-Dauer.")]
     public float buildPhaseDurationOverride = 0f;
+
+    public float GetBuildPhaseDuration(float defaultDuration)
+    {
+        return buildPhaseDurationOverride > 0f ? buildPhaseDurationOverride : defaultDuration;
+    }
+
+    public bool HasImmediateResourceReward()
+    {
+        return goldAmount > 0 || lifeAmount > 0;
+    }
 }
 
 public class BlockedEventManager : MonoBehaviour
@@ -430,17 +440,20 @@ public class BlockedEventManager : MonoBehaviour
 
     public void OpenBlockedEventSelection()
     {
-        if (selectionOpen)
+        if (selectionOpen || riskKeepSelectionOpen)
             return;
 
-        if (gameManager != null && gameManager.IsChaosJusticeChoiceOpen())
+        if (gameManager != null && !gameManager.CanOpenBlockedEventSelection())
         {
-            Debug.LogWarning("BlockedEventManager: Verbau-Auswahl wird nicht geöffnet, solange Chaos/Gerechtigkeit offen ist.");
+            Debug.LogWarning("BlockedEventManager: Verbau-Auswahl wird nicht geöffnet, solange eine andere Auswahl oder ein Modal offen ist.");
             return;
         }
 
         if (gameManager != null)
+        {
             gameManager.ClosePathAndBuildSelectionsForModal();
+            gameManager.CloseTowerUIForModal();
+        }
 
         ApplyChoiceUILayoutDefaults();
         CreateDefaultEventsIfEmpty();
@@ -1133,10 +1146,7 @@ public class BlockedEventManager : MonoBehaviour
 
     private float GetBuildPhaseDurationForOption(BlockedEventOption option)
     {
-        if (option != null && option.buildPhaseDurationOverride > 0f)
-            return option.buildPhaseDurationOverride;
-
-        return timedBuildPhaseDuration;
+        return option != null ? option.GetBuildPhaseDuration(timedBuildPhaseDuration) : timedBuildPhaseDuration;
     }
 
 }

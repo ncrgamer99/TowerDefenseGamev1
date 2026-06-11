@@ -132,29 +132,39 @@ public class TowerVisualTierPrefabController : MonoBehaviour
 
     private void EnsureVisualRoots()
     {
+        bool hadVisualRoot = visualRoot != null;
+        Quaternion preservedVisualRootRotation = hadVisualRoot ? visualRoot.localRotation : Quaternion.identity;
+
         if (visualRoot == null)
         {
             Transform existingVisualRoot = transform.Find(VisualRootName);
             visualRoot = existingVisualRoot != null ? existingVisualRoot : CreateChild(transform, VisualRootName);
+            hadVisualRoot = existingVisualRoot != null;
+            preservedVisualRootRotation = hadVisualRoot ? visualRoot.localRotation : Quaternion.identity;
         }
 
         if (visualRoot != null)
         {
             visualRoot.localPosition = applyGeneratedVisualGroundOffset ? generatedVisualRootOffset : Vector3.zero;
-            visualRoot.localRotation = Quaternion.identity;
+            visualRoot.localRotation = hadVisualRoot ? preservedVisualRootRotation : Quaternion.identity;
             visualRoot.localScale = Vector3.one;
         }
+
+        bool hadAimPivot = aimPivot != null;
+        Quaternion preservedAimPivotRotation = hadAimPivot ? aimPivot.localRotation : Quaternion.identity;
 
         if (aimPivot == null && visualRoot != null)
         {
             Transform existingAimPivot = visualRoot.Find(AimPivotName);
             aimPivot = existingAimPivot != null ? existingAimPivot : CreateChild(visualRoot, AimPivotName);
+            hadAimPivot = existingAimPivot != null;
+            preservedAimPivotRotation = hadAimPivot ? aimPivot.localRotation : Quaternion.identity;
         }
 
         if (aimPivot != null)
         {
             aimPivot.localPosition = Vector3.zero;
-            aimPivot.localRotation = Quaternion.identity;
+            aimPivot.localRotation = hadAimPivot ? preservedAimPivotRotation : Quaternion.identity;
             aimPivot.localScale = Vector3.one;
         }
 
@@ -172,7 +182,18 @@ public class TowerVisualTierPrefabController : MonoBehaviour
 
         ApplyModelRootRotation(baseModelRoot);
         ApplyModelRootRotation(aimModelRoot);
+        SyncAimControllerPivotIfMissing();
         MoveExistingGeneratedVisualsIntoModelRoots();
+    }
+
+    private void SyncAimControllerPivotIfMissing()
+    {
+        if (aimPivot == null)
+            return;
+
+        TowerAimController aimController = GetComponent<TowerAimController>();
+        if (aimController != null && aimController.aimPivot == null)
+            aimController.aimPivot = aimPivot;
     }
 
     private Transform CreateChild(Transform parent, string childName)
