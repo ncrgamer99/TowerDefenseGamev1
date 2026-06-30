@@ -59,7 +59,7 @@ public class Enemy : MonoBehaviour
 
     [Header("Chaos Level Scaling V1")]
     public bool useChaosLevelScaling = true;
-    public float chaosHealthBonusPerLevel = 0.12f;
+    public float chaosHealthBonusPerLevel = 0.25f;
     public float chaosBossHealthBonusPerLevel = 0.07f;
 
     [Header("Chaos Variant Stats V1")]
@@ -107,6 +107,8 @@ public class Enemy : MonoBehaviour
     [Header("Wave Scaling")]
     public bool useWaveScaling = true;
     public int scalingStartWave = 11;
+    public bool doubleWaveScalingEveryTenWaves = true;
+    public int waveScalingDoublingInterval = 10;
     public float healthScalingPerWave = 0.18f;
     public float rewardScalingPerWave = 0f;
     public float xpScalingPerWave = 0f;
@@ -681,20 +683,22 @@ public class Enemy : MonoBehaviour
         waveScalingAppliedForWave = safeWave;
 
         int scalingWave = safeWave - scalingStartWave + 1;
-        float healthMultiplier = 1f + scalingWave * healthScalingPerWave * 1.25f;
-        float rewardMultiplier = 1f + scalingWave * rewardScalingPerWave;
-        float xpMultiplier = 1f + scalingWave * xpScalingPerWave;
-        float speedMultiplier = 1f + Mathf.Min(maxNormalSpeedBonus, scalingWave * speedScalingPerWave);
+        float scalingTierMultiplier = GetWaveScalingTierMultiplier(safeWave);
+        float scalingProgress = scalingWave * scalingTierMultiplier;
+        float healthMultiplier = 1f + scalingProgress * healthScalingPerWave * 1.25f;
+        float rewardMultiplier = 1f + scalingProgress * rewardScalingPerWave;
+        float xpMultiplier = 1f + scalingProgress * xpScalingPerWave;
+        float speedMultiplier = 1f + Mathf.Min(maxNormalSpeedBonus, scalingProgress * speedScalingPerWave);
         int armorBonus = 0;
         int baseDamageBonus = 0;
 
         if (armorBonusEveryWaves > 0)
-            armorBonus = Mathf.Min(maxArmorBonus, scalingWave / armorBonusEveryWaves);
+            armorBonus = Mathf.Min(maxArmorBonus, Mathf.FloorToInt(scalingProgress / armorBonusEveryWaves));
 
         if (baseDamageBonusEveryWaves > 0)
-            baseDamageBonus = Mathf.Min(maxBaseDamageBonus, scalingWave / baseDamageBonusEveryWaves);
+            baseDamageBonus = Mathf.Min(maxBaseDamageBonus, Mathf.FloorToInt(scalingProgress / baseDamageBonusEveryWaves));
 
-        ApplyRoleSpecificScaling(scalingWave, ref healthMultiplier, ref rewardMultiplier, ref xpMultiplier, ref speedMultiplier, ref armorBonus, ref baseDamageBonus);
+        ApplyRoleSpecificScaling(scalingProgress, ref healthMultiplier, ref rewardMultiplier, ref xpMultiplier, ref speedMultiplier, ref armorBonus, ref baseDamageBonus);
 
         maxHealth = Mathf.Max(1f, maxHealth * healthMultiplier);
         currentHealth = maxHealth;
@@ -710,17 +714,27 @@ public class Enemy : MonoBehaviour
 
         if (canTeleportOnHit)
         {
-            float cooldownReduction = Mathf.Min(0.25f, scalingWave * 0.005f);
+            float cooldownReduction = Mathf.Min(0.25f, scalingProgress * 0.005f);
             teleportCooldown = Mathf.Max(1.2f, teleportCooldown * (1f - cooldownReduction));
         }
 
         if (slowResistance > 0f)
-            slowResistance = Mathf.Clamp01(slowResistance + Mathf.Min(0.2f, scalingWave * 0.004f));
+            slowResistance = Mathf.Clamp01(slowResistance + Mathf.Min(0.2f, scalingProgress * 0.004f));
 
-        Debug.Log(enemyRole + " scaled for Wave " + safeWave + " | HP: " + maxHealth.ToString("0") + " | Speed: " + speed.ToString("0.00") + " | Armor: " + armor + " | Gold: " + goldReward + " | XP: " + killXPReward);
+        Debug.Log(enemyRole + " scaled for Wave " + safeWave + " | Scale x" + scalingTierMultiplier.ToString("0.##") + " | HP: " + maxHealth.ToString("0") + " | Speed: " + speed.ToString("0.00") + " | Armor: " + armor + " | Gold: " + goldReward + " | XP: " + killXPReward);
     }
 
-    private void ApplyRoleSpecificScaling(int scalingWave, ref float healthMultiplier, ref float rewardMultiplier, ref float xpMultiplier, ref float speedMultiplier, ref int armorBonus, ref int baseDamageBonus)
+    private float GetWaveScalingTierMultiplier(int waveNumber)
+    {
+        if (!doubleWaveScalingEveryTenWaves)
+            return 1f;
+
+        int safeInterval = Mathf.Max(1, waveScalingDoublingInterval);
+        int completedIntervalsAfterWaveTen = Mathf.Max(0, waveNumber / safeInterval - 1);
+        return Mathf.Pow(2f, completedIntervalsAfterWaveTen);
+    }
+
+    private void ApplyRoleSpecificScaling(float scalingProgress, ref float healthMultiplier, ref float rewardMultiplier, ref float xpMultiplier, ref float speedMultiplier, ref int armorBonus, ref int baseDamageBonus)
     {
         switch (enemyRole)
         {
@@ -729,52 +743,52 @@ public class Enemy : MonoBehaviour
 
             case EnemyRole.Runner:
                 healthMultiplier *= 0.85f;
-                speedMultiplier = 1f + Mathf.Min(0.55f, scalingWave * speedScalingPerWave * 1.5f);
+                speedMultiplier = 1f + Mathf.Min(0.55f, scalingProgress * speedScalingPerWave * 1.5f);
                 armorBonus = 0;
                 break;
 
             case EnemyRole.Tank:
                 healthMultiplier *= tankHealthScalingBonus;
-                speedMultiplier = 1f + Mathf.Min(0.18f, scalingWave * speedScalingPerWave * 0.5f);
+                speedMultiplier = 1f + Mathf.Min(0.18f, scalingProgress * speedScalingPerWave * 0.5f);
                 break;
 
             case EnemyRole.Knight:
                 healthMultiplier *= knightHealthScalingBonus;
-                armorBonus += Mathf.Min(maxArmorBonus, scalingWave / Mathf.Max(1, armorBonusEveryWaves));
-                speedMultiplier = 1f + Mathf.Min(0.22f, scalingWave * speedScalingPerWave * 0.6f);
+                armorBonus += Mathf.Min(maxArmorBonus, Mathf.FloorToInt(scalingProgress / Mathf.Max(1, armorBonusEveryWaves)));
+                speedMultiplier = 1f + Mathf.Min(0.22f, scalingProgress * speedScalingPerWave * 0.6f);
                 break;
 
             case EnemyRole.Mage:
                 healthMultiplier *= 1.0f;
-                speedMultiplier = 1f + Mathf.Min(0.30f, scalingWave * speedScalingPerWave);
+                speedMultiplier = 1f + Mathf.Min(0.30f, scalingProgress * speedScalingPerWave);
                 break;
 
             case EnemyRole.Learner:
                 healthMultiplier *= learnerHealthScalingBonus;
-                speedMultiplier = 1f + Mathf.Min(0.30f, scalingWave * speedScalingPerWave * 0.8f);
+                speedMultiplier = 1f + Mathf.Min(0.30f, scalingProgress * speedScalingPerWave * 0.8f);
                 break;
 
             case EnemyRole.AllRounder:
                 healthMultiplier *= allRounderHealthScalingBonus;
-                armorBonus += Mathf.Min(maxArmorBonus, scalingWave / Mathf.Max(1, armorBonusEveryWaves));
+                armorBonus += Mathf.Min(maxArmorBonus, Mathf.FloorToInt(scalingProgress / Mathf.Max(1, armorBonusEveryWaves)));
                 break;
 
             case EnemyRole.MiniBoss:
                 healthMultiplier *= miniBossHealthScalingBonus;
-                speedMultiplier = 1f + Mathf.Min(0.20f, scalingWave * speedScalingPerWave * 0.5f);
-                baseDamageBonus += Mathf.Min(2, scalingWave / 20);
+                speedMultiplier = 1f + Mathf.Min(0.20f, scalingProgress * speedScalingPerWave * 0.5f);
+                baseDamageBonus += Mathf.Min(2, Mathf.FloorToInt(scalingProgress / 20f));
                 break;
 
             case EnemyRole.Boss:
                 healthMultiplier *= bossHealthScalingBonus;
-                speedMultiplier = 1f + Mathf.Min(0.14f, scalingWave * speedScalingPerWave * 0.35f);
-                baseDamageBonus += Mathf.Min(3, scalingWave / 15);
-                armorBonus += Mathf.Min(maxArmorBonus, scalingWave / Mathf.Max(1, armorBonusEveryWaves));
+                speedMultiplier = 1f + Mathf.Min(0.14f, scalingProgress * speedScalingPerWave * 0.35f);
+                baseDamageBonus += Mathf.Min(3, Mathf.FloorToInt(scalingProgress / 15f));
+                armorBonus += Mathf.Min(maxArmorBonus, Mathf.FloorToInt(scalingProgress / Mathf.Max(1, armorBonusEveryWaves)));
                 break;
 
             case EnemyRole.Elite:
                 healthMultiplier *= eliteHealthScalingBonus;
-                speedMultiplier = 1f + Mathf.Min(maxNormalSpeedBonus, scalingWave * speedScalingPerWave);
+                speedMultiplier = 1f + Mathf.Min(maxNormalSpeedBonus, scalingProgress * speedScalingPerWave);
                 baseDamageBonus = 0;
                 break;
         }

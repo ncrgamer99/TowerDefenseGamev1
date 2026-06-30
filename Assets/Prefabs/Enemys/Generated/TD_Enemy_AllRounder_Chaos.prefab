@@ -75,7 +75,7 @@ MonoBehaviour:
   enemyVariantType: 1
   autoApplyVariantStats: 1
   useChaosLevelScaling: 1
-  chaosHealthBonusPerLevel: 0.12
+  chaosHealthBonusPerLevel: 0.25
   chaosBossHealthBonusPerLevel: 0.07
   chaosStandardEffectDamageMultiplier: 0.9
   chaosStandardSlowResistanceBonus: 0.12

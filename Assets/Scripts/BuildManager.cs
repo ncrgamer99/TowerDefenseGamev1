@@ -156,7 +156,7 @@ public class BuildManager : MonoBehaviour
         if (gameManager == null)
             return false;
 
-        return gameManager.IsTowerBuildInputLockedByModalUI();
+        return gameManager.IsGameplayInputLockedByModalUI() || gameManager.IsPathBuildChoiceOpen();
     }
 
     private void RefreshBuildTileVisibility()
