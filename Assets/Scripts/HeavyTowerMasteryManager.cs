@@ -847,7 +847,7 @@ public class HeavyTowerMasteryManager : MonoBehaviour
         if (tower == null || primaryTarget == null)
             return null;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         Enemy best = null;
         float bestScore = Mathf.Infinity;
         float towerRange = Mathf.Max(0f, tower.GetEffectiveRange());
@@ -879,7 +879,7 @@ public class HeavyTowerMasteryManager : MonoBehaviour
         if (tower == null)
             return null;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         Enemy best = null;
         float bestProgress = -Mathf.Infinity;
 

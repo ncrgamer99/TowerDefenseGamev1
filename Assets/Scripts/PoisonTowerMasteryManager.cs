@@ -786,7 +786,7 @@ public class PoisonTowerMasteryManager : MonoBehaviour
         if (!IsPoisonTower(tower))
             return currentTarget;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         Enemy best = null;
         float bestProgress = -Mathf.Infinity;
         float range = Mathf.Max(0f, tower.GetEffectiveRange());
@@ -861,7 +861,7 @@ public class PoisonTowerMasteryManager : MonoBehaviour
 
     private Enemy FindNearbyPoisonTarget(Enemy deadEnemy, float radius)
     {
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         Enemy best = null;
         float bestDistance = Mathf.Max(0.1f, radius);
         bool requireCleanTarget = GetActiveKeystone() == PoisonTowerKeystone.PlagueJump || GetNodeRank(ControlledInfection) > 0;
@@ -931,7 +931,7 @@ public class PoisonTowerMasteryManager : MonoBehaviour
 
     private int CountPoisonedEnemies()
     {
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         int count = 0;
 
         foreach (Enemy enemy in enemies)

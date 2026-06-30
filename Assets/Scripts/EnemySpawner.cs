@@ -1823,8 +1823,7 @@ public class EnemySpawner : MonoBehaviour
 
     private int CountActiveTowersForElite()
     {
-        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-        return towers != null ? towers.Length : 0;
+        return TowerRegistry.ActiveTowers.Count;
     }
 
     private int GetCurrentTotalTowerXPForElite()

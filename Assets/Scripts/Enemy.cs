@@ -30,6 +30,22 @@ public static class EnemyRegistry
 
     public static IReadOnlyList<Enemy> ActiveEnemies => activeEnemies;
 
+    public static void CopyActiveEnemies(List<Enemy> buffer)
+    {
+        if (buffer == null)
+            return;
+
+        buffer.Clear();
+
+        for (int i = 0; i < activeEnemies.Count; i++)
+        {
+            Enemy enemy = activeEnemies[i];
+
+            if (enemy != null)
+                buffer.Add(enemy);
+        }
+    }
+
     public static void Register(Enemy enemy)
     {
         if (enemy == null || activeEnemies.Contains(enemy))
@@ -1653,7 +1669,7 @@ public class Enemy : MonoBehaviour
         if (globalXPReward <= 0)
             return;
 
-        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var towers = TowerRegistry.ActiveTowers;
 
         foreach (Tower tower in towers)
         {

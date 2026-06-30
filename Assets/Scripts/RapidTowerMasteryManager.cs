@@ -768,7 +768,7 @@ public class RapidTowerMasteryManager : MonoBehaviour
         if (tower == null)
             return null;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         Enemy best = null;
         float bestScore = -Mathf.Infinity;
         float range = Mathf.Max(0f, tower.GetEffectiveRange());
@@ -799,7 +799,7 @@ public class RapidTowerMasteryManager : MonoBehaviour
         if (tower == null)
             return null;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         Enemy best = null;
         float bestProgress = Mathf.Clamp01(minimumProgress);
         float range = Mathf.Max(0f, tower.GetEffectiveRange());
@@ -826,7 +826,7 @@ public class RapidTowerMasteryManager : MonoBehaviour
         if (tower == null)
             return null;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         float range = Mathf.Max(0f, tower.GetEffectiveRange());
 
         foreach (Enemy enemy in enemies)
@@ -846,7 +846,7 @@ public class RapidTowerMasteryManager : MonoBehaviour
         if (tower == null)
             return 0;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         float range = Mathf.Max(0f, tower.GetEffectiveRange());
         int count = 0;
 

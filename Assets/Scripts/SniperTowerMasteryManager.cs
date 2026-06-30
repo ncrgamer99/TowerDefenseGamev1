@@ -1027,7 +1027,7 @@ public class SniperTowerMasteryManager : MonoBehaviour
         Enemy best = null;
         float bestScore = float.MinValue;
         float range = tower.GetEffectiveRange();
-        Enemy[] enemies = FindObjectsOfType<Enemy>();
+        var enemies = EnemyRegistry.ActiveEnemies;
         foreach (Enemy enemy in enemies)
         {
             if (enemy == null || enemy.currentHealth <= 0)
@@ -1067,7 +1067,7 @@ public class SniperTowerMasteryManager : MonoBehaviour
         Enemy best = null;
         float bestScore = float.MinValue;
         float range = tower.GetEffectiveRange() * watcherLineRangeMultiplier;
-        Enemy[] enemies = FindObjectsOfType<Enemy>();
+        var enemies = EnemyRegistry.ActiveEnemies;
         foreach (Enemy enemy in enemies)
         {
             if (enemy == null || enemy.currentHealth <= 0)
@@ -1108,7 +1108,7 @@ public class SniperTowerMasteryManager : MonoBehaviour
         Enemy best = null;
         float bestProgress = 0f;
         float range = tower.GetEffectiveRange();
-        Enemy[] enemies = FindObjectsOfType<Enemy>();
+        var enemies = EnemyRegistry.ActiveEnemies;
         foreach (Enemy enemy in enemies)
         {
             if (enemy == null || enemy.currentHealth <= 0)

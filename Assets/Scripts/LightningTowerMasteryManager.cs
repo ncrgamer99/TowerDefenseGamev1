@@ -911,7 +911,7 @@ public class LightningTowerMasteryManager : MonoBehaviour
         if (tower == null)
             return 0;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         int count = 0;
         float range = Mathf.Max(0.1f, tower.GetEffectiveRange());
 

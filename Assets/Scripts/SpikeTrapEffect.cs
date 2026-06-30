@@ -23,6 +23,7 @@ public class SpikeTrapEffect : MonoBehaviour
     private int triggerCount = 0;
     private float lastTriggerTime = -999f;
     private readonly HashSet<int> triggeredEnemyIds = new HashSet<int>();
+    private readonly List<Enemy> extraTargetSnapshot = new List<Enemy>();
 
     public static void CreateSpikeAtWorldPosition(Vector3 position, float radius, float damagePerTick, float tickInterval, float duration, Tower sourceTower = null, Enemy excludedEnemy = null, int maxTriggers = 1, float triggerCooldown = 0.16f, int triggerDamage = 0, int extraTargets = 0, float extraDamageMultiplier = 0f, float extraTargetRadius = 0.55f)
     {
@@ -134,10 +135,10 @@ public class SpikeTrapEffect : MonoBehaviour
         if (extraTargets <= 0 || extraDamageMultiplier <= 0f)
             return;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        EnemyRegistry.CopyActiveEnemies(extraTargetSnapshot);
         int applied = 0;
 
-        foreach (Enemy enemy in enemies)
+        foreach (Enemy enemy in extraTargetSnapshot)
         {
             if (enemy == null || enemy == primaryEnemy || enemy == excludedEnemy || enemy.currentHealth <= 0f || enemy.HasBleed())
                 continue;

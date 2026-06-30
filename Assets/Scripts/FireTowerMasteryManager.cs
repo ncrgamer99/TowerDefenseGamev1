@@ -819,7 +819,7 @@ public class FireTowerMasteryManager : MonoBehaviour
 
     private Enemy FindNearbyBurnTarget(Enemy deadEnemy, float radius)
     {
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         Enemy best = null;
         float bestDistance = Mathf.Max(0.1f, radius);
 
@@ -905,7 +905,7 @@ public class FireTowerMasteryManager : MonoBehaviour
         if (tower == null)
             return 0;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         int count = 0;
         float range = Mathf.Max(0f, tower.GetEffectiveRange());
 
@@ -923,7 +923,7 @@ public class FireTowerMasteryManager : MonoBehaviour
 
     private int CountBurningEnemies()
     {
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         int count = 0;
 
         foreach (Enemy enemy in enemies)

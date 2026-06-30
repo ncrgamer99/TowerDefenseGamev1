@@ -32,6 +32,90 @@ public enum TowerRole
     Frost
 }
 
+public static class TowerRegistry
+{
+    private static readonly List<Tower> activeTowers = new List<Tower>();
+    private static readonly List<Tower> activeSupportTowers = new List<Tower>();
+    private static int version = 0;
+    private static int supportAuraVersion = 0;
+
+    public static IReadOnlyList<Tower> ActiveTowers => activeTowers;
+    public static IReadOnlyList<Tower> ActiveSupportTowers => activeSupportTowers;
+    public static int Version => version;
+    public static int SupportAuraVersion => supportAuraVersion;
+
+    public static void CopyActiveTowers(List<Tower> buffer)
+    {
+        if (buffer == null)
+            return;
+
+        buffer.Clear();
+
+        for (int i = 0; i < activeTowers.Count; i++)
+        {
+            Tower tower = activeTowers[i];
+
+            if (tower != null)
+                buffer.Add(tower);
+        }
+    }
+
+    public static void Register(Tower tower)
+    {
+        if (tower == null || activeTowers.Contains(tower))
+            return;
+
+        activeTowers.Add(tower);
+        version++;
+
+        if (tower.towerRole == TowerRole.Support)
+        {
+            activeSupportTowers.Add(tower);
+            supportAuraVersion++;
+        }
+    }
+
+    public static void Unregister(Tower tower)
+    {
+        if (tower == null)
+            return;
+
+        bool removedTower = activeTowers.Remove(tower);
+        bool removedSupportTower = activeSupportTowers.Remove(tower);
+
+        if (removedTower)
+            version++;
+
+        if (removedSupportTower)
+            supportAuraVersion++;
+    }
+
+    public static void RefreshTowerRole(Tower tower, TowerRole previousRole)
+    {
+        if (tower == null || previousRole == tower.towerRole)
+            return;
+
+        bool wasSupport = previousRole == TowerRole.Support;
+        bool isSupport = tower.towerRole == TowerRole.Support;
+
+        if (wasSupport && !isSupport)
+        {
+            activeSupportTowers.Remove(tower);
+            supportAuraVersion++;
+        }
+        else if (!wasSupport && isSupport && activeTowers.Contains(tower) && !activeSupportTowers.Contains(tower))
+        {
+            activeSupportTowers.Add(tower);
+            supportAuraVersion++;
+        }
+    }
+
+    public static void MarkSupportAuraDirty()
+    {
+        supportAuraVersion++;
+    }
+}
+
 public class Tower : MonoBehaviour
 {
     private const float UpgradeImprovementMultiplier = 1.5f;
@@ -116,6 +200,12 @@ public class Tower : MonoBehaviour
     private int heavyMasteryShotCounter = 0;
     private int sniperMasteryShotCounter = 0;
     private int slowMasteryShotCounter = 0;
+    private int supportAuraCacheFrame = -1;
+    private int supportAuraCacheRegistryVersion = -1;
+    private int supportAuraCacheAuraVersion = -1;
+    private float cachedSupportAuraDamageBonus = 0f;
+    private float cachedSupportAuraFireRateBonus = 0f;
+    private TowerRole registeredTowerRole = TowerRole.Basic;
 
     private bool visualTierBaseStatsCaptured = false;
     private int baseDamageBeforeVisualTier = 0;
@@ -231,6 +321,17 @@ public class Tower : MonoBehaviour
         WaveEventBus.WaveStarted += HandleWaveStarted;
     }
 
+    private void OnEnable()
+    {
+        TowerRegistry.Register(this);
+        registeredTowerRole = towerRole;
+    }
+
+    private void OnDisable()
+    {
+        TowerRegistry.Unregister(this);
+    }
+
     private void OnDestroy()
     {
         WaveEventBus.WaveStarted -= HandleWaveStarted;
@@ -315,6 +416,13 @@ public class Tower : MonoBehaviour
         supportAuraRange = Mathf.Max(0f, supportAuraRange);
         supportAuraDamageBonus = Mathf.Max(0f, supportAuraDamageBonus);
         supportAuraFireRateBonus = Mathf.Max(0f, supportAuraFireRateBonus);
+
+        if (Application.isPlaying && isActiveAndEnabled)
+        {
+            TowerRegistry.RefreshTowerRole(this, registeredTowerRole);
+            registeredTowerRole = towerRole;
+            TowerRegistry.MarkSupportAuraDirty();
+        }
 
         RefreshProgressionValues();
     }
@@ -2147,6 +2255,7 @@ public class Tower : MonoBehaviour
             float appliedIncrease = scaleImprovement ? ScaleFloatUpgrade(increase) : increase;
             supportAuraDamageBonus += appliedIncrease;
             supportAuraFireRateBonus += appliedIncrease * 0.5f;
+            TowerRegistry.MarkSupportAuraDirty();
             return;
         }
 
@@ -2595,25 +2704,57 @@ public class Tower : MonoBehaviour
         if (tower == null)
             return 0f;
 
-        Tower[] towers = Object.FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-        float totalBonus = 0f;
+        return tower.GetCachedSupportAuraBonus(damageBonus);
+    }
 
-        foreach (Tower source in towers)
+    private float GetCachedSupportAuraBonus(bool damageBonus)
+    {
+        RefreshSupportAuraCacheIfNeeded();
+        return damageBonus ? cachedSupportAuraDamageBonus : cachedSupportAuraFireRateBonus;
+    }
+
+    private void RefreshSupportAuraCacheIfNeeded()
+    {
+        int currentFrame = Time.frameCount;
+        int currentRegistryVersion = TowerRegistry.Version;
+        int currentAuraVersion = TowerRegistry.SupportAuraVersion;
+
+        if (supportAuraCacheFrame == currentFrame &&
+            supportAuraCacheRegistryVersion == currentRegistryVersion &&
+            supportAuraCacheAuraVersion == currentAuraVersion)
         {
-            if (source == null || source == tower || source.towerRole != TowerRole.Support)
+            return;
+        }
+
+        supportAuraCacheFrame = currentFrame;
+        supportAuraCacheRegistryVersion = currentRegistryVersion;
+        supportAuraCacheAuraVersion = currentAuraVersion;
+
+        IReadOnlyList<Tower> supportTowers = TowerRegistry.ActiveSupportTowers;
+        float totalDamageBonus = 0f;
+        float totalFireRateBonus = 0f;
+
+        for (int i = 0; i < supportTowers.Count; i++)
+        {
+            Tower source = supportTowers[i];
+
+            if (source == null || source == this || !source.isActiveAndEnabled || source.towerRole != TowerRole.Support)
                 continue;
 
             float range = Mathf.Max(0f, source.supportAuraRange + TowerSupportTileEffect.GetRangeBonus(source));
             if (range <= 0f)
                 continue;
 
-            if (Vector3.Distance(source.transform.position, tower.transform.position) > range)
+            Vector3 offset = source.transform.position - transform.position;
+            if (offset.sqrMagnitude > range * range)
                 continue;
 
-            totalBonus += damageBonus ? source.supportAuraDamageBonus : source.supportAuraFireRateBonus;
+            totalDamageBonus += source.supportAuraDamageBonus;
+            totalFireRateBonus += source.supportAuraFireRateBonus;
         }
 
-        return Mathf.Clamp(totalBonus, 0f, damageBonus ? 0.35f : 0.30f);
+        cachedSupportAuraDamageBonus = Mathf.Clamp(totalDamageBonus, 0f, 0.35f);
+        cachedSupportAuraFireRateBonus = Mathf.Clamp(totalFireRateBonus, 0f, 0.30f);
     }
 
     private int GetEffectivePointUpgradePowerMultiplier()

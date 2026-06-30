@@ -955,7 +955,7 @@ public class SpikeTowerMasteryManager : MonoBehaviour
 
     private Enemy FindNearestBloodNetTarget(Vector3 position, Enemy excludedEnemy)
     {
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         Enemy bestTarget = null;
         float bestDistance = 1.1f;
 

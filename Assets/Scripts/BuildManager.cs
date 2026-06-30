@@ -43,18 +43,26 @@ public class BuildManager : MonoBehaviour
 
     private void Update()
     {
-        if (IsBlockedByModalUI())
+        bool towerBuildInputLocked = IsTowerBuildInputLocked();
+
+        if (towerBuildInputLocked)
         {
             ClearSelectionForModalLock();
-            return;
+        }
+        else
+        {
+            RefreshBuildTileVisibility();
+            UpdateBuildTileHover();
         }
 
-        RefreshBuildTileVisibility();
-        UpdateBuildTileHover();
+        if (IsTowerInteractionInputLocked())
+            return;
 
         if (Input.GetKeyDown(KeyCode.Escape) || Input.GetMouseButtonDown(1))
         {
-            ClearSelection();
+            if (!towerBuildInputLocked)
+                ClearSelection();
+
             return;
         }
 
@@ -70,7 +78,7 @@ public class BuildManager : MonoBehaviour
                 return;
             }
 
-            TryHandleClick();
+            TryHandleClick(towerBuildInputLocked);
         }
     }
 
@@ -84,7 +92,7 @@ public class BuildManager : MonoBehaviour
 
     public void SelectBuildOption(BuildOption option)
     {
-        if (IsBlockedByModalUI())
+        if (IsTowerBuildInputLocked())
         {
             ClearSelectionForModalLock();
             return;
@@ -151,12 +159,20 @@ public class BuildManager : MonoBehaviour
             buildSelectionUI.ClearSelectionText();
     }
 
-    private bool IsBlockedByModalUI()
+    private bool IsTowerBuildInputLocked()
     {
         if (gameManager == null)
             return false;
 
-        return gameManager.IsGameplayInputLockedByModalUI() || gameManager.IsPathBuildChoiceOpen();
+        return gameManager.IsTowerBuildInputLockedByModalUI();
+    }
+
+    private bool IsTowerInteractionInputLocked()
+    {
+        if (gameManager == null)
+            return false;
+
+        return gameManager.IsTowerInteractionInputLockedByModalUI();
     }
 
     private void RefreshBuildTileVisibility()
@@ -189,7 +205,7 @@ public class BuildManager : MonoBehaviour
             return;
         }
 
-        if (IsBlockedByModalUI())
+        if (IsTowerBuildInputLocked())
         {
             ClearHoveredBuildTile();
             return;
@@ -260,9 +276,9 @@ public class BuildManager : MonoBehaviour
         }
     }
 
-    private void TryHandleClick()
+    private void TryHandleClick(bool towerBuildInputLocked)
     {
-        if (IsBlockedByModalUI())
+        if (IsTowerInteractionInputLocked())
             return;
 
         if (pathBuildManager != null && pathBuildManager.IsChoiceOpen())
@@ -287,6 +303,9 @@ public class BuildManager : MonoBehaviour
 
             return;
         }
+
+        if (towerBuildInputLocked)
+            return;
 
         TowerSupportTileEffect supportTile = hit.collider.GetComponentInParent<TowerSupportTileEffect>();
 

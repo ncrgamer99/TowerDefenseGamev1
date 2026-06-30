@@ -1654,7 +1654,7 @@ public class GameManager : MonoBehaviour
 
     private List<Tower> GetTopEliteTowerCandidates(int maxCandidates)
     {
-        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var towers = TowerRegistry.ActiveTowers;
         List<Tower> candidates = new List<Tower>();
 
         if (towers == null)
@@ -2049,7 +2049,7 @@ public class GameManager : MonoBehaviour
 
     public void RaiseLowTowersToLevelFive()
     {
-        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var towers = TowerRegistry.ActiveTowers;
 
         foreach (Tower tower in towers)
         {
@@ -2067,7 +2067,7 @@ public class GameManager : MonoBehaviour
         if (finalAmount <= 0)
             return 0;
 
-        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var towers = TowerRegistry.ActiveTowers;
         int affectedTowers = 0;
 
         foreach (Tower tower in towers)
@@ -2114,7 +2114,7 @@ public class GameManager : MonoBehaviour
     {
         int safeTargetLevel = Mathf.Max(1, targetLevel);
         int safeLevelUps = Mathf.Max(1, levelUps);
-        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var towers = TowerRegistry.ActiveTowers;
         int affectedTowers = 0;
         int totalLevelUps = 0;
 
@@ -2156,7 +2156,7 @@ public class GameManager : MonoBehaviour
         if (safeBonus <= 0f)
             return 0;
 
-        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var towers = TowerRegistry.ActiveTowers;
         int affectedTowers = 0;
 
         foreach (Tower tower in towers)
@@ -2666,12 +2666,23 @@ public class GameManager : MonoBehaviour
         return IsModalUIOpen(true) || blockedWithoutTimedBuildPhase;
     }
 
+    public bool IsTowerInteractionInputLockedByModalUI()
+    {
+        if (isGameOver)
+            return false;
+
+        return startMenuOpen ||
+               blockedBaseRelocationPending ||
+               IsCoreModalUIOpen() ||
+               IsPathBuildChoiceOpen();
+    }
+
     public bool CanOpenAuxiliaryModalUI()
     {
         if (isGameOver)
             return false;
 
-        return !IsModalUIOpen(false);
+        return !IsModalUIOpen(true);
     }
 
     public bool CanOpenBlockedEventSelection()

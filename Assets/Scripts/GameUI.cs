@@ -304,7 +304,7 @@ public class GameUI : MonoBehaviour
         if (quickMenuButtonRoot == null)
             return;
 
-        bool visible = gameManager != null && gameManager.gameStarted && !gameManager.startMenuOpen && !gameManager.isGameOver && !gameManager.IsGameplayInputLockedByModalUI();
+        bool visible = gameManager != null && gameManager.gameStarted && !gameManager.isGameOver && !gameManager.IsTowerInteractionInputLockedByModalUI();
         quickMenuButtonRoot.SetActive(visible);
 
         if (!visible)

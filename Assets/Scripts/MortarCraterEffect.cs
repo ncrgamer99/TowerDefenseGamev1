@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class MortarCraterEffect : MonoBehaviour
@@ -14,6 +15,7 @@ public class MortarCraterEffect : MonoBehaviour
 
     private float remainingDuration;
     private float tickTimer;
+    private readonly List<Enemy> enemyTickSnapshot = new List<Enemy>();
 
     public static void CreateCraterAtWorldPosition(Vector3 position, float radius, float damagePerTick, float tickInterval, float duration, Tower sourceTower, bool applyStagger, float staggerMultiplier, float staggerDuration)
     {
@@ -76,9 +78,9 @@ public class MortarCraterEffect : MonoBehaviour
 
     private void ApplyCraterTick()
     {
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        EnemyRegistry.CopyActiveEnemies(enemyTickSnapshot);
 
-        foreach (Enemy enemy in enemies)
+        foreach (Enemy enemy in enemyTickSnapshot)
         {
             if (enemy == null || enemy.currentHealth <= 0f)
                 continue;

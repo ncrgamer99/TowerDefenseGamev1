@@ -749,7 +749,7 @@ public class SlowTowerMasteryManager : MonoBehaviour
         if (!IsSlowTower(tower) || center == null)
             return;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         float safeRadius = Mathf.Max(0.1f, radius);
 
         foreach (Enemy enemy in enemies)
@@ -898,7 +898,7 @@ public class SlowTowerMasteryManager : MonoBehaviour
         if (tower == null)
             return null;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         Enemy best = null;
         float bestScore = -Mathf.Infinity;
         float range = Mathf.Max(0f, tower.GetEffectiveRange());
@@ -932,7 +932,7 @@ public class SlowTowerMasteryManager : MonoBehaviour
         if (tower == null)
             return null;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         Enemy best = null;
         float bestProgress = Mathf.Clamp01(minimumProgress);
         float range = Mathf.Max(0f, tower.GetEffectiveRange());
@@ -959,7 +959,7 @@ public class SlowTowerMasteryManager : MonoBehaviour
         if (tower == null)
             return null;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         Enemy best = null;
         float bestScore = -Mathf.Infinity;
         float range = Mathf.Max(0f, tower.GetEffectiveRange());
@@ -1079,7 +1079,7 @@ public class SlowTowerMasteryManager : MonoBehaviour
         if (tower == null)
             return 0;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         int count = 0;
         float range = Mathf.Max(0f, tower.GetEffectiveRange());
 

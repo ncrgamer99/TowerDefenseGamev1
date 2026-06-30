@@ -885,7 +885,7 @@ public class MortarTowerMasteryManager : MonoBehaviour
 
     private int CountEnemiesNear(Vector3 position, float radius)
     {
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         int count = 0;
 
         foreach (Enemy enemy in enemies)
@@ -902,7 +902,7 @@ public class MortarTowerMasteryManager : MonoBehaviour
 
     private int CountArmoredEnemiesNear(Vector3 position, float radius)
     {
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         int count = 0;
 
         foreach (Enemy enemy in enemies)

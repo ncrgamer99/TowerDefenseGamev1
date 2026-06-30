@@ -1410,7 +1410,7 @@ public class RunStatisticsTracker : MonoBehaviour
     {
         if (autoDiscoverExistingTowers)
         {
-            Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            var towers = TowerRegistry.ActiveTowers;
 
             foreach (Tower tower in towers)
                 GetOrCreateTowerRecord(tower).RefreshFromTower();
@@ -1433,7 +1433,7 @@ public class RunStatisticsTracker : MonoBehaviour
         if (activeWaveStatistics == null || !activeWaveStatistics.initialized)
             return;
 
-        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var towers = TowerRegistry.ActiveTowers;
 
         foreach (Tower tower in towers)
             CaptureTowerForActiveWave(tower);

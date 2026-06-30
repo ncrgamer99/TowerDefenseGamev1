@@ -949,7 +949,7 @@ public class BasicTowerMasteryManager : MonoBehaviour
 
     private void RefreshHighestBasicLevelFromActiveTowers()
     {
-        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var towers = TowerRegistry.ActiveTowers;
 
         foreach (Tower tower in towers)
         {
@@ -999,7 +999,7 @@ public class BasicTowerMasteryManager : MonoBehaviour
         if (firstBasicTowerInstanceId == 0)
             return null;
 
-        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var towers = TowerRegistry.ActiveTowers;
 
         foreach (Tower tower in towers)
         {
@@ -1092,7 +1092,7 @@ public class BasicTowerMasteryManager : MonoBehaviour
             return 0;
 
         float range = Mathf.Max(0f, tower.GetEffectiveRange());
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         int count = 0;
 
         foreach (Enemy enemy in enemies)
@@ -1112,7 +1112,7 @@ public class BasicTowerMasteryManager : MonoBehaviour
         if (tower == null)
             return null;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         Enemy best = null;
         int bestHealth = -1;
         float range = Mathf.Max(0f, tower.GetEffectiveRange());
@@ -1138,7 +1138,7 @@ public class BasicTowerMasteryManager : MonoBehaviour
         if (tower == null)
             return null;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         Enemy best = null;
         float bestProgress = 0.70f;
         float range = Mathf.Max(0f, tower.GetEffectiveRange());
@@ -1164,7 +1164,7 @@ public class BasicTowerMasteryManager : MonoBehaviour
         if (tower == null)
             return null;
 
-        Enemy[] enemies = FindObjectsByType<Enemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.ActiveEnemies;
         Enemy best = null;
         float bestProgress = -Mathf.Infinity;
         float range = Mathf.Max(0f, tower.GetEffectiveRange());

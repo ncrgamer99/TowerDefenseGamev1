@@ -132,6 +132,7 @@ public class TowerSupportTileEffect : MonoBehaviour
             bonus = tower.gameObject.AddComponent<TowerSupportTileBonus>();
 
         bonus.ConfigureFromTile(this);
+        TowerRegistry.MarkSupportAuraDirty();
     }
 
     public void ClearOccupyingTower(Tower tower)

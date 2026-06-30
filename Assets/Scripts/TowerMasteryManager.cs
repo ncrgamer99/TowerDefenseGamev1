@@ -856,7 +856,7 @@ public class TowerMasteryManager : MonoBehaviour
 
     private void RefreshHighestLevelsFromActiveTowers()
     {
-        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        var towers = TowerRegistry.ActiveTowers;
 
         foreach (Tower tower in towers)
         {

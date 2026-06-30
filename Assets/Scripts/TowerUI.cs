@@ -134,6 +134,12 @@ public class TowerUI : MonoBehaviour
 
     private void Update()
     {
+        if (selectedTower != null && IsTowerInteractionLocked())
+        {
+            Close();
+            return;
+        }
+
         if (selectedTower != null && Input.GetMouseButtonDown(1))
         {
             Close();
@@ -251,6 +257,9 @@ public class TowerUI : MonoBehaviour
 
     public void SelectTower(Tower tower)
     {
+        if (IsTowerInteractionLocked())
+            return;
+
         if (selectedTower != null && selectedTower != tower)
             selectedTower.SetRangeIndicatorVisible(false);
 
@@ -356,6 +365,11 @@ public class TowerUI : MonoBehaviour
         UpdateButtonStates();
         selectedTower.RefreshRangeIndicatorIfVisible();
         ScheduleNextLiveRefresh();
+    }
+
+    private bool IsTowerInteractionLocked()
+    {
+        return gameManager != null && gameManager.IsTowerInteractionInputLockedByModalUI();
     }
 
     private void UpdateHeaderUI()
@@ -1035,7 +1049,7 @@ public class TowerUI : MonoBehaviour
 
     public void CycleTargetMode()
     {
-        if (selectedTower == null)
+        if (selectedTower == null || IsTowerInteractionLocked())
             return;
 
         selectedTower.CycleTargetMode();
@@ -1044,7 +1058,7 @@ public class TowerUI : MonoBehaviour
 
     public void SellSelectedTower()
     {
-        if (selectedTower == null || gameManager == null)
+        if (selectedTower == null || gameManager == null || IsTowerInteractionLocked())
             return;
 
         Tower towerToSell = selectedTower;
@@ -1069,7 +1083,7 @@ public class TowerUI : MonoBehaviour
 
     public void UpgradeDamage()
     {
-        if (selectedTower == null)
+        if (selectedTower == null || IsTowerInteractionLocked())
             return;
 
         selectedTower.TryGoldUpgradeDamage(gameManager);
@@ -1078,7 +1092,7 @@ public class TowerUI : MonoBehaviour
 
     public void UpgradeRange()
     {
-        if (selectedTower == null)
+        if (selectedTower == null || IsTowerInteractionLocked())
             return;
 
         selectedTower.TryGoldUpgradeRange(gameManager);
@@ -1087,7 +1101,7 @@ public class TowerUI : MonoBehaviour
 
     public void UpgradeFireRate()
     {
-        if (selectedTower == null)
+        if (selectedTower == null || IsTowerInteractionLocked())
             return;
 
         selectedTower.TryGoldUpgradeFireRate(gameManager);
@@ -1096,7 +1110,7 @@ public class TowerUI : MonoBehaviour
 
     public void UpgradeEffectWithGold()
     {
-        if (selectedTower == null)
+        if (selectedTower == null || IsTowerInteractionLocked())
             return;
 
         selectedTower.TryGoldUpgradeEffect(gameManager);
@@ -1105,7 +1119,7 @@ public class TowerUI : MonoBehaviour
 
     public void UpgradeDamageWithPoint()
     {
-        if (selectedTower == null)
+        if (selectedTower == null || IsTowerInteractionLocked())
             return;
 
         selectedTower.TryPointUpgradeDamage();
@@ -1114,7 +1128,7 @@ public class TowerUI : MonoBehaviour
 
     public void UpgradeRangeWithPoint()
     {
-        if (selectedTower == null)
+        if (selectedTower == null || IsTowerInteractionLocked())
             return;
 
         selectedTower.TryPointUpgradeRange();
@@ -1123,7 +1137,7 @@ public class TowerUI : MonoBehaviour
 
     public void UpgradeFireRateWithPoint()
     {
-        if (selectedTower == null)
+        if (selectedTower == null || IsTowerInteractionLocked())
             return;
 
         selectedTower.TryPointUpgradeFireRate();
@@ -1132,7 +1146,7 @@ public class TowerUI : MonoBehaviour
 
     public void UpgradeEffectWithPoint()
     {
-        if (selectedTower == null)
+        if (selectedTower == null || IsTowerInteractionLocked())
             return;
 
         selectedTower.TryPointUpgradeEffect();

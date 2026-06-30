@@ -89,6 +89,7 @@ public class TileManager : MonoBehaviour
     private Dictionary<Vector2Int, GameObject> buildTileObjectsByPosition = new Dictionary<Vector2Int, GameObject>();
     private List<GameObject> pooledBuildTileObjects = new List<GameObject>();
     private List<GameObject> specialTileObjects = new List<GameObject>();
+    private readonly List<Tower> towerDestroySnapshot = new List<Tower>();
 
     private Vector2Int startPosition;
     private Vector2Int basePosition;
@@ -980,9 +981,9 @@ public class TileManager : MonoBehaviour
             return;
 
         HashSet<Vector2Int> affectedBuildPositions = GetBuildPositionsAround(removedPathPositions);
-        Tower[] towers = FindObjectsByType<Tower>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        TowerRegistry.CopyActiveTowers(towerDestroySnapshot);
 
-        foreach (Tower tower in towers)
+        foreach (Tower tower in towerDestroySnapshot)
         {
             if (tower == null)
                 continue;
